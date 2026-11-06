@@ -15,7 +15,7 @@ Change a decision by adding a dated entry here and updating the register; never 
 | TDR-06 | Search in PostgreSQL first (ILIKE + trigram index); OpenSearch only when triggers are hit | Implemented: `GET /api/v1/parcels` |
 | TDR-07 | AWS Mumbai primary, Hyderabad for backups | Not started (no infrastructure code yet) |
 | TDR-14 | SMS OTP through two DLT-registered providers | Interface only (`IOtpSender`); a development sender logs codes and the API refuses to start outside Development with it |
-| TDR-15 | Own phone-OTP sign-in issuing short-lived JWTs | Implemented; refresh tokens not yet |
+| TDR-15 | Own phone-OTP sign-in issuing 24-hour JWTs, kept in an httpOnly cookie by the web app | Implemented; reviewer rights re-checked in the database on every admin call; refresh and revocation not yet |
 | TDR-16 | Background jobs | Not started |
 | TDR-17 | OpenTelemetry | Not started |
 | TDR-18 | GitHub Actions; OpenTofu for infrastructure | CI implemented; OpenTofu not started |
@@ -35,3 +35,19 @@ Change a decision by adding a dated entry here and updating the register; never 
 4. **Owner of record is set only by a trust reviewer**, who cannot set themselves, and every change is in the
    append-only audit log. Agent confirmations made by a previous owner stop counting when ownership changes.
 5. **Bigha is not a national unit.** Its size differs by state, so it will live in state jurisdiction packs.
+
+## Changes after the first QA review (2026-11-06)
+
+6. **An "owner" claim is not trusted until a reviewer records the owner of record.** Until then the offer is
+   priced with assumed brokerage, scored like an agent, gets no "no brokerage" badge, and shows "says owner
+   (not yet verified)".
+7. **A low-price outlier never gets the "lowest price" badge**, so the bait warning and a reward never
+   appear together.
+8. **OTP limits are atomic per number** (advisory lock), with a daily cap and a platform-wide SMS budget.
+   Residual risk: someone can still use up a number's hourly quota; a CAPTCHA after the first request is the
+   planned fix before public launch.
+9. **Every parcel keeps a name-based key** as well as the LGD key, so leaving out the village code cannot
+   create a duplicate (migration 0003).
+10. **Survey numbers keep Telugu and Devanagari letters as printed**; no transliteration, because it is
+    ambiguous.
+11. **Ranking weights and OTP limits are configuration**, validated at start-up.

@@ -17,8 +17,10 @@ public sealed record ScoreBreakdownResponse(decimal Price, decimal Authority, de
 public sealed record ComparedOfferResponse(
     int Rank,
     Guid OfferId,
-    string ListerLabel,
+    string? ListerName,
+    int ListerNumber,
     string ListerKind,
+    bool OwnerClaimUnverified,
     string Authority,
     IReadOnlyList<string> Checks,
     decimal AskingPriceRupees,
@@ -51,6 +53,7 @@ public static class OfferEndpoints
         group.MapPost("/offers/mine/withdraw", WithdrawAsync).RequireAuthorization();
         group.MapGet("/comparison", CompareAsync);
         group.MapPost("/agents/{agentUserId:guid}/confirm", ConfirmAgentAsync).RequireAuthorization();
+        group.MapPost("/offers/{offerId:guid}/confirm-lister", ConfirmListerOfOfferAsync).RequireAuthorization();
         group.MapDelete("/agents/{agentUserId:guid}/confirm", RevokeAgentAsync).RequireAuthorization();
     }
 
@@ -188,8 +191,9 @@ public static class OfferEndpoints
 
         var result = ranker.Compare(snapshots, parsedSort);
 
-        // Stable labels by when each lister joined the parcel, so "Lister 2" means the same person in every sort.
-        var labelOrder = offers.OrderBy(o => o.CreatedAt).ThenBy(o => o.Id).Select((o, i) => (o.Id, Label: $"Lister {i + 1}")).ToDictionary(x => x.Id, x => x.Label);
+        // Stable numbers by when each lister joined the parcel, so "Lister 2" means the same person in every sort.
+        // The web app turns the number into words in the reader's language.
+        var listerNumbers = offers.OrderBy(o => o.CreatedAt).ThenBy(o => o.Id).Select((o, i) => (o.Id, Number: i + 1)).ToDictionary(x => x.Id, x => x.Number);
 
         var areaSqm = parcel.RecordedAreaSqm;
         var squareYards = areaSqm / Area.FactorToSquareMetres(AreaUnit.SquareYard);
@@ -207,8 +211,10 @@ public static class OfferEndpoints
             result.Offers.Select(r => new ComparedOfferResponse(
                 r.Rank,
                 r.Offer.OfferId,
-                names.GetValueOrDefault(r.Offer.ListerUserId) ?? labelOrder[r.Offer.OfferId],
+                names.GetValueOrDefault(r.Offer.ListerUserId),
+                listerNumbers[r.Offer.OfferId],
                 Vocabulary.Code(r.Offer.ListerKind),
+                r.OwnerClaimUnverified,
                 Vocabulary.Code(r.Offer.Authority),
                 Vocabulary.CheckCodes(r.Offer.Checks),
                 Rupees(r.Offer.AskingPricePaise),
@@ -280,8 +286,28 @@ public static class OfferEndpoints
         }
 
         audit.Add(userId, "parcel.agent_confirmed", "parcel", parcelId.ToString(), new { agentUserId });
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            return ApiResults.Problem(StatusCodes.Status409Conflict, "parcel.concurrent_update", "This was changed at the same moment. Please try again.");
+        }
+
         return Results.NoContent();
+    }
+
+    /// <summary>The owner confirms whoever made a given offer, without needing to know their account id.</summary>
+    private static async Task<IResult> ConfirmListerOfOfferAsync(Guid parcelId, Guid offerId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
+    {
+        var listerId = await db.Offers.AsNoTracking()
+            .Where(o => o.Id == offerId && o.ParcelId == parcelId && o.Status == "active")
+            .Select(o => (Guid?)o.ListerUserId)
+            .FirstOrDefaultAsync(ct);
+        return listerId is { } id
+            ? await ConfirmAgentAsync(parcelId, id, http, db, clock, audit, ct)
+            : ApiResults.NotFound("Offer");
     }
 
     private static async Task<IResult> RevokeAgentAsync(Guid parcelId, Guid agentUserId, HttpContext http, BhoomisetuDbContext db, AuditWriter audit, CancellationToken ct)

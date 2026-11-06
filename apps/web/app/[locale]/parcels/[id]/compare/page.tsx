@@ -37,7 +37,9 @@ export default async function ComparePage({ params, searchParams }: Props) {
 
   const data = result.data;
   const dateFormat = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
-  const words = { lakh: t.amounts.lakh, crore: t.amounts.crore };
+  const words = t.amounts;
+  // Farmland is priced per acre, plots per gajam: show whichever buyers of this land use.
+  const perAcre = data.areaAcres >= 1;
 
   return (
     <section className="page">
@@ -76,7 +78,7 @@ export default async function ComparePage({ params, searchParams }: Props) {
                 <th scope="col">{c.columns.rank}</th>
                 <th scope="col">{c.columns.lister}</th>
                 <th scope="col">{c.columns.price}</th>
-                <th scope="col">{c.columns.perGajam}</th>
+                <th scope="col">{perAcre ? c.columns.perAcre : c.columns.perGajam}</th>
                 <th scope="col">{c.columns.brokerage}</th>
                 <th scope="col">{c.columns.authority}</th>
                 <th scope="col">{c.columns.checks}</th>
@@ -90,8 +92,8 @@ export default async function ComparePage({ params, searchParams }: Props) {
                 <tr key={offer.offerId} className={offer.badges.includes("best_value") ? "highlight" : undefined}>
                   <td>{offer.rank}</td>
                   <th scope="row">
-                    {offer.listerLabel}
-                    <span className="muted"> · {c.listerKind[offer.listerKind]}</span>
+                    {offer.listerName ?? format(c.listerNumber, { number: offer.listerNumber })}
+                    <span className="muted"> · {offer.ownerClaimUnverified ? c.ownerUnverified : c.listerKind[offer.listerKind]}</span>
                     <ul className="badges">
                       {offer.badges.map((badge) => (
                         <li key={badge} className={`badge badge-${badge}`}>
@@ -101,9 +103,9 @@ export default async function ComparePage({ params, searchParams }: Props) {
                     </ul>
                   </th>
                   <td>{formatRupees(offer.effectivePriceRupees, intl)}</td>
-                  <td>{formatRupees(offer.effectivePricePerSquareYardRupees, intl)}</td>
+                  <td>{formatRupees(perAcre ? offer.effectivePricePerAcreRupees : offer.effectivePricePerSquareYardRupees, intl)}</td>
                   <td>
-                    {offer.listerKind === "owner" || offer.buyerBrokeragePercent === 0
+                    {(offer.listerKind === "owner" && !offer.ownerClaimUnverified) || offer.buyerBrokeragePercent === 0
                       ? c.brokerageNone
                       : offer.brokerageAssumed
                         ? format(c.brokerageAssumed, { percent: formatNumber(data.rules.assumedUndisclosedBrokeragePercent, intl) })

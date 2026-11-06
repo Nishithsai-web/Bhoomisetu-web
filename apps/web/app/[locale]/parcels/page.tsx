@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { searchParcels } from "@/lib/api";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
+import { errorText } from "@/lib/errors";
 import { formatNumber } from "@/lib/money";
 
 type Props = {
@@ -28,7 +29,7 @@ export default async function ParcelsPage({ params, searchParams }: Props) {
 
       {!result.ok ? (
         <p role="alert" className="notice">
-          {t.compare.apiDown}
+          {result.status >= 500 ? t.compare.apiDown : errorText(t, result.code)}
         </p>
       ) : result.data.items.length === 0 ? (
         <p className="notice">{t.parcels.none}</p>
@@ -42,8 +43,10 @@ export default async function ParcelsPage({ params, searchParams }: Props) {
                 </h2>
                 <p>
                   {format(t.parcels.survey, { number: parcel.surveyNumber })} ·{" "}
-                  {format(t.parcels.area, { value: formatNumber(parcel.areaSquareYards, intl) })} ·{" "}
-                  {format(t.parcels.offers, { count: parcel.activeOffers })}
+                  {parcel.areaSquareYards >= 4840
+                    ? format(t.parcels.areaAcres, { value: formatNumber(parcel.areaSquareYards / 4840, intl) })
+                    : format(t.parcels.area, { value: formatNumber(parcel.areaSquareYards, intl) })}{" "}
+                  · {parcel.activeOffers === 1 ? t.parcels.offersOne : format(t.parcels.offers, { count: parcel.activeOffers })}
                 </p>
                 <Link href={`/${locale}/parcels/${parcel.id}/compare`}>{t.parcels.compare}</Link>
               </li>

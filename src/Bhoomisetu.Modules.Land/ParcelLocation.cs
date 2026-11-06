@@ -39,7 +39,13 @@ public sealed partial record ParcelLocation
     /// </summary>
     public string ParcelKey => LgdVillageCode is not null
         ? $"{StateCode}|lgd:{LgdVillageCode}|{SurveyNumber.Normalized}"
-        : $"{StateCode}|{Key(District)}|{Key(Mandal)}|{Key(Village)}|{SurveyNumber.Normalized}";
+        : NameKey;
+
+    /// <summary>
+    /// The key from names alone, kept for every parcel even when the LGD code is known. Duplicate checks look
+    /// at both keys, so leaving out (or adding) the village code cannot create a second record of the same land.
+    /// </summary>
+    public string NameKey => $"{StateCode}|{Key(District)}|{Key(Mandal)}|{Key(Village)}|{SurveyNumber.Normalized}";
 
     public static Result<ParcelLocation> Create(
         string? stateCode, string? district, string? mandal, string? village, string? lgdVillageCode, string? surveyNumber)

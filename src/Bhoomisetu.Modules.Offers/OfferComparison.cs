@@ -29,7 +29,8 @@ public sealed record RankedOffer(
     decimal Score,
     ScoreBreakdown Breakdown,
     bool IsLowPriceOutlier,
-    IReadOnlyList<OfferBadge> Badges);
+    IReadOnlyList<OfferBadge> Badges,
+    bool OwnerClaimUnverified);
 
 public sealed record OfferComparisonResult(
     ComparisonSort Sort,

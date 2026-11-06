@@ -13,6 +13,8 @@ namespace Bhoomisetu.Modules.Offers;
 ///   (needs at least two others) is a low-price outlier: flagged "verify before visiting" and ranked after
 ///   every normal offer in best-value order, because very low prices are a common bait.
 /// - Best value = weighted score of price, owner authority, checks passed, response time and freshness.
+/// - An "owner" claim counts only when the lister is the owner of record. Until then the offer is priced,
+///   scored and badged as an agent's, and flagged <see cref="RankedOffer.OwnerClaimUnverified"/>.
 /// - Nothing paid influences the order; there is no input for it.
 /// </summary>
 public sealed class BestValueRanker
@@ -72,7 +74,8 @@ public sealed class BestValueRanker
                 + (breakdown.Response * _options.ResponseWeight)
                 + (breakdown.Freshness * _options.FreshnessWeight);
             return new Scored(p.Offer, p.Effective, p.Assumed, Math.Round(score, 4, MidpointRounding.AwayFromZero),
-                Round(breakdown), outliers.Contains(p.Offer.OfferId), IsStale(now - p.Offer.AvailabilityConfirmedAt));
+                Round(breakdown), outliers.Contains(p.Offer.OfferId), IsStale(now - p.Offer.AvailabilityConfirmedAt),
+                IsVerifiedOwner(p.Offer));
         }).ToList();
 
         var bestValueOrder = OrderBestValue(scored).ToList();
@@ -95,7 +98,8 @@ public sealed class BestValueRanker
         };
 
         var ranked = ordered
-            .Select((s, index) => new RankedOffer(s.Offer, index + 1, s.Effective, s.Assumed, s.Score, s.Breakdown, s.IsOutlier, badges[s.Offer.OfferId]))
+            .Select((s, index) => new RankedOffer(s.Offer, index + 1, s.Effective, s.Assumed, s.Score, s.Breakdown, s.IsOutlier, badges[s.Offer.OfferId],
+                OwnerClaimUnverified: s.Offer.ListerKind == ListerKind.Owner && !s.IsVerifiedOwner))
             .ToList();
 
         return new OfferComparisonResult(sort, ranked, (long)Math.Round(Median(priced.Select(p => (decimal)p.Effective).ToList()), MidpointRounding.AwayFromZero), _options);
@@ -109,7 +113,7 @@ public sealed class BestValueRanker
         }
 
         assumed = false;
-        if (offer.ListerKind == ListerKind.Owner)
+        if (IsVerifiedOwner(offer))
         {
             return offer.AskingPricePaise;
         }
@@ -133,10 +137,14 @@ public sealed class BestValueRanker
         _ => throw new ArgumentOutOfRangeException(nameof(authority), authority, "Unknown authority."),
     };
 
+    /// <summary>Only a lister recorded as owner of record is treated as the owner; a bare claim is not enough.</summary>
+    private static bool IsVerifiedOwner(OfferSnapshot offer) =>
+        offer.ListerKind == ListerKind.Owner && offer.Authority == Authority.OwnerOfRecord;
+
     private static decimal ChecksScore(OfferSnapshot offer)
     {
         // Owners are not estate agents, so RERA agent registration does not apply to them.
-        var applicable = offer.ListerKind == ListerKind.Owner
+        var applicable = IsVerifiedOwner(offer)
             ? new[] { ListerChecks.PhoneOtp, ListerChecks.Identity }
             : new[] { ListerChecks.PhoneOtp, ListerChecks.Identity, ListerChecks.ReraAgent };
         var passed = applicable.Count(check => offer.Checks.HasFlag(check));
@@ -187,7 +195,9 @@ public sealed class BestValueRanker
         var bestValueId = comparable
             ? bestValueOrder.FirstOrDefault(s => !s.IsOutlier && !s.IsStale)?.Offer.OfferId
             : null;
-        var lowest = scored.Min(s => s.Effective);
+        // The bait-price warning and a "lowest price" badge would contradict each other, so outliers never get it.
+        var normal = scored.Where(s => !s.IsOutlier).ToList();
+        long? lowest = normal.Count > 0 ? normal.Min(s => s.Effective) : null;
 
         var result = new Dictionary<Guid, IReadOnlyList<OfferBadge>>();
         foreach (var s in scored)
@@ -198,7 +208,7 @@ public sealed class BestValueRanker
                 list.Add(OfferBadge.BestValue);
             }
 
-            if (comparable && s.Effective == lowest)
+            if (comparable && !s.IsOutlier && s.Effective == lowest)
             {
                 list.Add(OfferBadge.LowestPrice);
             }
@@ -208,7 +218,7 @@ public sealed class BestValueRanker
                 list.Add(OfferBadge.VerifyBeforeVisiting);
             }
 
-            if (s.Offer.ListerKind == ListerKind.Owner || s.Offer.BuyerBrokeragePercent == 0m)
+            if (s.IsVerifiedOwner || s.Offer.BuyerBrokeragePercent == 0m)
             {
                 list.Add(OfferBadge.NoBrokerage);
             }
@@ -250,5 +260,6 @@ public sealed class BestValueRanker
         decimal Score,
         ScoreBreakdown Breakdown,
         bool IsOutlier,
-        bool IsStale);
+        bool IsStale,
+        bool IsVerifiedOwner);
 }

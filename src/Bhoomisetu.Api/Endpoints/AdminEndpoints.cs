@@ -2,6 +2,7 @@ using Bhoomisetu.Api.Auth;
 using Bhoomisetu.Api.Persistence;
 using Bhoomisetu.SharedKernel;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace Bhoomisetu.Api.Endpoints;
 
@@ -13,8 +14,24 @@ public static class AdminEndpoints
 
     public static void MapAdminEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/admin").WithTags("Admin").RequireAuthorization(TrustReviewerPolicy);
+        var group = app.MapGroup("/api/v1/admin").WithTags("Admin").RequireAuthorization(TrustReviewerPolicy)
+            .AddEndpointFilter(RequireCurrentReviewerAsync);
         group.MapPost("/parcels/{parcelId:guid}/owner-of-record", SetOwnerOfRecordAsync);
+    }
+
+    /// <summary>
+    /// The role claim lives in a token that stays valid for up to its lifetime, so the database is checked on
+    /// every admin call: removing someone's reviewer flag takes effect immediately.
+    /// </summary>
+    private static async ValueTask<object?> RequireCurrentReviewerAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    {
+        var http = context.HttpContext;
+        var db = http.RequestServices.GetRequiredService<BhoomisetuDbContext>();
+        var userId = http.User.UserId();
+        var stillReviewer = await db.Users.AsNoTracking().AnyAsync(u => u.Id == userId && u.IsTrustReviewer, http.RequestAborted);
+        return stillReviewer
+            ? await next(context)
+            : ApiResults.Forbidden("admin.not_reviewer", "You are no longer a trust reviewer.");
     }
 
     /// <summary>
@@ -59,8 +76,16 @@ public static class AdminEndpoints
         });
         audit.Add(reviewerId, "parcel.owner_of_record_set", "parcel", parcelId.ToString(),
             new { ownerUserId = request.UserId, previous = current.Select(c => c.UserId).ToArray(), evidence = request.EvidenceNote.Trim() });
-        await db.SaveChangesAsync(ct);
-        await transaction.CommitAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            return ApiResults.Problem(StatusCodes.Status409Conflict, "parcel.concurrent_update", "Another reviewer changed the owner at the same moment. Please reload and try again.");
+        }
+
         return Results.NoContent();
     }
 }

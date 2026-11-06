@@ -6,6 +6,12 @@ public sealed record OtpOptions
     public TimeSpan Lifetime { get; init; } = TimeSpan.FromMinutes(5);
     public TimeSpan ResendCooldown { get; init; } = TimeSpan.FromSeconds(60);
     public int MaxRequestsPerHour { get; init; } = 5;
+
+    /// <summary>Caps guesses per number per day (5 codes × attempts would otherwise allow unlimited tries over days).</summary>
+    public int MaxRequestsPerDay { get; init; } = 10;
+
+    /// <summary>All numbers together. A safety budget against SMS-pumping fraud; tune with real traffic.</summary>
+    public int MaxSmsPerHourGlobal { get; init; } = 2000;
     public int MaxVerifyAttempts { get; init; } = 5;
 
     /// <summary>Server-side secret mixed into the code hash. At least 32 bytes; from the secret store, never from code.</summary>
@@ -18,7 +24,7 @@ public sealed record OtpOptions
             throw new InvalidOperationException("OTP pepper must be at least 32 bytes.");
         }
 
-        if (CodeLength is < 4 or > 8 || Lifetime <= TimeSpan.Zero || ResendCooldown < TimeSpan.Zero || MaxRequestsPerHour < 1 || MaxVerifyAttempts < 1)
+        if (CodeLength is < 4 or > 8 || Lifetime <= TimeSpan.Zero || ResendCooldown < TimeSpan.Zero || MaxRequestsPerHour < 1 || MaxRequestsPerDay < MaxRequestsPerHour || MaxSmsPerHourGlobal < 1 || MaxVerifyAttempts < 1)
         {
             throw new InvalidOperationException("OTP options are out of range.");
         }
@@ -46,6 +52,14 @@ public interface IOtpChallengeStore
 
     Task<int> CountCreatedSinceAsync(string phoneE164, DateTimeOffset since, CancellationToken cancellationToken);
 
+    Task<int> CountAllCreatedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Serialises requests for one number until the returned lock is disposed. Work done between taking the
+    /// lock and <see cref="IOtpPhoneLock.CommitAsync"/> is kept; disposing without committing discards it.
+    /// </summary>
+    Task<IOtpPhoneLock> LockPhoneAsync(string phoneE164, CancellationToken cancellationToken);
+
     Task AddAsync(OtpChallenge challenge, CancellationToken cancellationToken);
 
     /// <summary>Adds one attempt if fewer than <paramref name="maxAttempts"/> were used and the challenge is unconsumed. Returns false otherwise.</summary>
@@ -53,6 +67,11 @@ public interface IOtpChallengeStore
 
     /// <summary>Marks the challenge consumed if it is not already. Returns false if another request consumed it first.</summary>
     Task<bool> TryConsumeAsync(Guid challengeId, DateTimeOffset consumedAt, CancellationToken cancellationToken);
+}
+
+public interface IOtpPhoneLock : IAsyncDisposable
+{
+    Task CommitAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>Sends the OTP text. Production implementations use a DLT-registered template; the code fills a {#numeric#} variable.</summary>
@@ -66,6 +85,8 @@ public enum OtpRequestStatus
     Sent,
     TooSoon,
     RateLimited,
+    /// <summary>The platform-wide SMS budget is used up; try again shortly.</summary>
+    Busy,
 }
 
 public sealed record OtpRequestOutcome(OtpRequestStatus Status, TimeSpan? RetryAfter);

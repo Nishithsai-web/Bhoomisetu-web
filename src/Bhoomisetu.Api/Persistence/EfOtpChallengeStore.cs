@@ -1,5 +1,6 @@
 using Bhoomisetu.Modules.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Bhoomisetu.Api.Persistence;
 
@@ -28,6 +29,24 @@ public sealed class EfOtpChallengeStore(BhoomisetuDbContext db) : IOtpChallengeS
 
     public Task<int> CountCreatedSinceAsync(string phoneE164, DateTimeOffset since, CancellationToken cancellationToken) =>
         db.OtpChallenges.CountAsync(c => c.PhoneE164 == phoneE164 && c.CreatedAt >= since, cancellationToken);
+
+    public Task<int> CountAllCreatedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken) =>
+        db.OtpChallenges.CountAsync(c => c.CreatedAt >= since, cancellationToken);
+
+    /// <summary>A transaction holding a PostgreSQL advisory lock keyed on the number, released at commit or rollback.</summary>
+    public async Task<IOtpPhoneLock> LockPhoneAsync(string phoneE164, CancellationToken cancellationToken)
+    {
+        var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
+        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtext({"otp:" + phoneE164}))", cancellationToken);
+        return new TransactionLock(transaction);
+    }
+
+    private sealed class TransactionLock(IDbContextTransaction transaction) : IOtpPhoneLock
+    {
+        public Task CommitAsync(CancellationToken cancellationToken) => transaction.CommitAsync(cancellationToken);
+
+        public ValueTask DisposeAsync() => transaction.DisposeAsync();
+    }
 
     public async Task AddAsync(OtpChallenge challenge, CancellationToken cancellationToken)
     {

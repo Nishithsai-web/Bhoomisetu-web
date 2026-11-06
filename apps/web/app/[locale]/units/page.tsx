@@ -13,7 +13,7 @@ export default async function UnitsPage({ params }: { params: Promise<{ locale: 
       <p className="lead">{t.intro}</p>
       <AreaConverter
         intlLocale={INTL_LOCALE[locale]}
-        labels={{ value: t.value, unit: t.unit, invalid: t.invalid, results: t.results, names: t.names }}
+        labels={{ value: t.value, unit: t.unit, invalid: t.invalid, results: t.results, liveSummary: t.liveSummary, names: t.names }}
       />
       <p className="muted">{t.note}</p>
     </section>

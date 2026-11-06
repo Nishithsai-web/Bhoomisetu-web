@@ -55,7 +55,8 @@ public sealed class MigrationRunner(string connectionString, string migrationsDi
             {
                 var version = Path.GetFileNameWithoutExtension(file);
                 var sql = await File.ReadAllTextAsync(file, cancellationToken);
-                var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql)));
+                // Line endings are normalised first, so a Windows (CRLF) checkout gives the same checksum.
+                var checksum = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(sql.ReplaceLineEndings("\n"))));
 
                 if (existing.TryGetValue(version, out var appliedChecksum))
                 {

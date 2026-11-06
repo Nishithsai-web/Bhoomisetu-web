@@ -38,6 +38,7 @@ public sealed class ParcelRecord
 {
     public Guid Id { get; set; }
     public string ParcelKey { get; set; } = string.Empty;
+    public string NameKey { get; set; } = string.Empty;
     public string StateCode { get; set; } = string.Empty;
     public string District { get; set; } = string.Empty;
     public string Mandal { get; set; } = string.Empty;

@@ -12,6 +12,9 @@ const devanagari = Noto_Sans_Devanagari({ subsets: ["devanagari"], variable: "--
 
 type Props = { children: React.ReactNode; params: Promise<{ locale: string }> };
 
+// Only /en, /te and /hi exist; any other first segment is a 404 before the layout renders.
+export const dynamicParams = false;
+
 export function generateStaticParams() {
   return LOCALES.map((locale) => ({ locale }));
 }
@@ -45,6 +48,7 @@ export default async function LocaleLayout({ children, params }: Props) {
           <nav aria-label="Main" className="main-nav">
             <Link href={`/${locale}/parcels`}>{t.nav.parcels}</Link>
             <Link href={`/${locale}/units`}>{t.nav.units}</Link>
+            <Link href={`/${locale}/sell`}>{t.nav.sell}</Link>
           </nav>
           <LanguageSwitcher current={locale} label={t.nav.language} />
         </header>

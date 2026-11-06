@@ -57,6 +57,24 @@ public sealed class AreaTests
         Assert.Equal("area.not_positive", result.Error!.Code);
     }
 
+    [Theory]
+    [InlineData("0.001", AreaUnit.SquareFoot, "area.too_small")] // 0.0000929 m²
+    [InlineData("0.00001", AreaUnit.Acre, "area.not_positive")] // rounds to 0 at 4 decimals
+    [InlineData("79228162514264337593543950335", AreaUnit.Acre, "area.too_large")] // decimal.MaxValue
+    [InlineData("10000000000", AreaUnit.SquareFoot, "area.too_large")] // does not fit numeric(14,4)
+    public void Rejects_values_the_database_cannot_hold(string value, AreaUnit unit, string code)
+    {
+        var result = Area.From(decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture), unit);
+        Assert.Equal(code, result.Error!.Code);
+    }
+
+    [Fact]
+    public void Entered_value_is_kept_to_four_decimals()
+    {
+        Assert.Equal(0.1235m, Area.NormaliseEntered(0.12345m));
+        Assert.Equal(Area.From(0.1235m, AreaUnit.Acre).Value, Area.From(0.12345m, AreaUnit.Acre).Value);
+    }
+
     [Fact]
     public void Rejects_absurdly_large_area()
     {

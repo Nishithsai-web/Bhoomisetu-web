@@ -20,6 +20,8 @@ namespace Bhoomisetu.IntegrationTests;
 /// </summary>
 public sealed class ApiFixture : IAsyncLifetime
 {
+    private static CancellationToken Ct => TestContext.Current.CancellationToken;
+
     public const string EnvironmentVariable = "BHOOMISETU_TEST_DB";
 
     private readonly string? _adminConnectionString = Environment.GetEnvironmentVariable(EnvironmentVariable);
@@ -44,9 +46,9 @@ public sealed class ApiFixture : IAsyncLifetime
 
         await using (var admin = new NpgsqlConnection(_adminConnectionString))
         {
-            await admin.OpenAsync();
+            await admin.OpenAsync(Ct);
             await using var create = new NpgsqlCommand($"CREATE DATABASE \"{_databaseName}\"", admin);
-            await create.ExecuteNonQueryAsync();
+            await create.ExecuteNonQueryAsync(Ct);
         }
 
         ConnectionString = new NpgsqlConnectionStringBuilder(_adminConnectionString) { Database = _databaseName }.ConnectionString;
@@ -88,24 +90,25 @@ public sealed class ApiFixture : IAsyncLifetime
             return;
         }
 
+        // Teardown must finish even if the test run was cancelled, so it does not use the test token.
         NpgsqlConnection.ClearAllPools();
         await using var admin = new NpgsqlConnection(_adminConnectionString);
-        await admin.OpenAsync();
+        await admin.OpenAsync(CancellationToken.None);
         await using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_databaseName}\" WITH (FORCE)", admin);
-        await drop.ExecuteNonQueryAsync();
+        await drop.ExecuteNonQueryAsync(CancellationToken.None);
     }
 
     /// <summary>Signs in a phone number through the real OTP endpoints and returns an authorised client.</summary>
     public async Task<(HttpClient Client, Guid UserId)> SignInAsync(string phone)
     {
         var client = CreateClient();
-        var request = await client.PostAsJsonAsync("/api/v1/auth/otp/request", new { phone });
+        var request = await client.PostAsJsonAsync("/api/v1/auth/otp/request", new { phone }, Ct);
         Assert.Equal(System.Net.HttpStatusCode.Accepted, request.StatusCode);
 
         var e164 = IndianMobileNumber.Parse(phone).Value.E164;
-        var verify = await client.PostAsJsonAsync("/api/v1/auth/otp/verify", new { phone, code = Sms.CodeFor(e164) });
+        var verify = await client.PostAsJsonAsync("/api/v1/auth/otp/verify", new { phone, code = Sms.CodeFor(e164) }, Ct);
         verify.EnsureSuccessStatusCode();
-        var body = await verify.Content.ReadFromJsonAsync<SignIn>();
+        var body = await verify.Content.ReadFromJsonAsync<SignIn>(, Ct);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
         return (client, body.UserId);
     }
@@ -113,14 +116,14 @@ public sealed class ApiFixture : IAsyncLifetime
     public async Task ExecuteSqlAsync(string sql, params (string Name, object Value)[] parameters)
     {
         await using var connection = new NpgsqlConnection(ConnectionString);
-        await connection.OpenAsync();
+        await connection.OpenAsync(Ct);
         await using var command = new NpgsqlCommand(sql, connection);
         foreach (var (name, value) in parameters)
         {
             command.Parameters.AddWithValue(name, value);
         }
 
-        await command.ExecuteNonQueryAsync();
+        await command.ExecuteNonQueryAsync(Ct);
     }
 
     public sealed record SignIn(string AccessToken, DateTimeOffset ExpiresAt, Guid UserId);

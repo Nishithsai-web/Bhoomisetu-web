@@ -93,7 +93,8 @@ public static class ParcelEndpoints
             return ApiResults.Invalid("parcel.area_source_invalid", "Area source must be record, deed, survey or lister.");
         }
 
-        if (request.FrontageM is { } f && f is <= 0 or > 10_000 || request.DepthM is { } d && d is <= 0 or > 10_000)
+        // Lengths are stored with 2 decimals; anything that rounds to zero is a typing error.
+        if (request.FrontageM is { } f && (Math.Round(f, 2) < 0.01m || f > 10_000) || request.DepthM is { } d && (Math.Round(d, 2) < 0.01m || d > 10_000))
         {
             return ApiResults.Invalid("parcel.dimensions_invalid", "Frontage and depth must be between 0 and 10,000 metres.");
         }
@@ -106,7 +107,7 @@ public static class ParcelEndpoints
         var road = request.Road;
         if (road is not null)
         {
-            if (road.WidthM is { } w && w is <= 0 or > 200)
+            if (road.WidthM is { } w && (Math.Round(w, 2) < 0.01m || w > 200))
             {
                 return ApiResults.Invalid("road.width_invalid", "Road width must be between 0 and 200 metres.");
             }
@@ -138,7 +139,8 @@ public static class ParcelEndpoints
         }
 
         var loc = location.Value;
-        var existing = await db.Parcels.AsNoTracking().Where(p => p.ParcelKey == loc.ParcelKey).Select(p => (Guid?)p.Id).FirstOrDefaultAsync(ct);
+        // Either key matching means the same land: with or without the LGD village code.
+        var existing = await FindExistingAsync(db, loc, ct);
         if (existing is { } existingId)
         {
             return DuplicateParcel(existingId);
@@ -150,6 +152,7 @@ public static class ParcelEndpoints
         {
             Id = Guid.CreateVersion7(),
             ParcelKey = loc.ParcelKey,
+            NameKey = loc.NameKey,
             StateCode = loc.StateCode,
             District = loc.District,
             Mandal = loc.Mandal,
@@ -159,13 +162,13 @@ public static class ParcelEndpoints
             SurveyNumber = loc.SurveyNumber.Normalized,
             LandClass = request.LandClass,
             RecordedAreaSqm = Math.Round(area.Value.SquareMetres, 4, MidpointRounding.AwayFromZero),
-            EnteredAreaValue = request.Area.Value,
+            EnteredAreaValue = Modules.Land.Area.NormaliseEntered(request.Area.Value),
             EnteredAreaUnit = unit.ToCode(),
             AreaSource = request.AreaSource,
-            FrontageM = request.FrontageM,
-            DepthM = request.DepthM,
+            FrontageM = Round2(request.FrontageM),
+            DepthM = Round2(request.DepthM),
             Facing = request.Facing,
-            RoadWidthM = road?.WidthM,
+            RoadWidthM = Round2(road?.WidthM),
             RoadWidthSource = road?.WidthSource,
             RoadType = road?.Type,
             AccessRight = road?.AccessRight,
@@ -184,12 +187,32 @@ public static class ParcelEndpoints
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {
             // Another request created the same land a moment ago.
-            var winner = await db.Parcels.AsNoTracking().Where(p => p.ParcelKey == loc.ParcelKey).Select(p => p.Id).FirstAsync(ct);
-            return DuplicateParcel(winner);
+            db.ChangeTracker.Clear();
+            var winner = await FindExistingAsync(db, loc, ct);
+            return winner is { } id ? DuplicateParcel(id) : throw new InvalidOperationException("Unique violation without a matching parcel.", ex);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.CheckViolation or PostgresErrorCodes.NumericValueOutOfRange } pg)
+        {
+            // Validation above should prevent this; if a rule drifts from the schema, answer 400 instead of 500.
+            http.RequestServices.GetRequiredService<ILogger<CreateParcelRequest>>()
+                .LogWarning(ex, "Parcel rejected by database rule {Constraint}", pg.ConstraintName);
+            return ApiResults.Invalid("parcel.invalid", "Some details are outside the allowed range. Please check the numbers.");
         }
 
         return Results.Created($"/api/v1/parcels/{record.Id}", ToResponse(record, activeOffers: 0));
     }
+
+    private static Task<Guid?> FindExistingAsync(BhoomisetuDbContext db, ParcelLocation loc, CancellationToken ct)
+    {
+        var parcelKey = loc.ParcelKey;
+        var nameKey = loc.NameKey;
+        return db.Parcels.AsNoTracking()
+            .Where(p => p.ParcelKey == parcelKey || p.NameKey == nameKey)
+            .Select(p => (Guid?)p.Id)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private static decimal? Round2(decimal? value) => value is { } v ? Math.Round(v, 2, MidpointRounding.AwayFromZero) : null;
 
     private static IResult DuplicateParcel(Guid existingId) => ApiResults.Problem(
         StatusCodes.Status409Conflict,
@@ -210,9 +233,10 @@ public static class ParcelEndpoints
     }
 
     private static async Task<IResult> SearchAsync(
-        string? state, string? district, string? mandal, string? village, int? page, int? pageSize, BhoomisetuDbContext db, CancellationToken ct)
+        string? q, string? state, string? district, string? mandal, string? village, int? page, int? pageSize, BhoomisetuDbContext db, CancellationToken ct)
     {
-        var p = Math.Max(1, page ?? 1);
+        // Capped so (page - 1) * size can never overflow into a negative OFFSET.
+        var p = Math.Clamp(page ?? 1, 1, 10_000);
         var size = Math.Clamp(pageSize ?? 20, 1, 100);
 
         var query = db.Parcels.AsNoTracking();
@@ -235,6 +259,13 @@ public static class ParcelEndpoints
         if (!string.IsNullOrWhiteSpace(village))
         {
             query = query.Where(x => EF.Functions.ILike(x.Village, ContainsPattern(village)));
+        }
+
+        // One free-text box: a village, mandal or district name.
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            var pattern = ContainsPattern(q);
+            query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern));
         }
 
         var total = await query.CountAsync(ct);

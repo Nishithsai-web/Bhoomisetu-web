@@ -13,7 +13,11 @@ public sealed class SurveyNumberAndLocationTests
     [InlineData("0123/A/01", "123/A/1")]
     [InlineData("123//A", "123/A")]
     [InlineData("123A", "123A")]
-    [InlineData("౧౨౩/అ", null)] // Telugu letter is not allowed
+    [InlineData("౧౨౩/అ", "123/అ")] // Telugu letters are kept as printed
+    [InlineData("45/ఆ", "45/ఆ")]
+    [InlineData("७/क", "7/क")] // Devanagari khasra sub-division
+    [InlineData("0123A", "123A")] // leading zeros in a mixed part
+    [InlineData("0A/1", "0A/1")] // a zero followed by a letter is kept
     [InlineData("౧౨౩/A", "123/A")] // Telugu digits
     [InlineData("१२३/A", "123/A")] // Devanagari digits
     [InlineData("0", "0")]
@@ -61,6 +65,16 @@ public sealed class SurveyNumberAndLocationTests
         var a = ParcelLocation.Create("tg", "Ranga Reddy", "Shankarpalle", "Mokila", null, "123/A/1").Value;
         var b = ParcelLocation.Create("TG", "  ranga   reddy ", "SHANKARPALLE", "mokila", null, "0123-a-1").Value;
         Assert.Equal(a.ParcelKey, b.ParcelKey);
+    }
+
+    [Fact]
+    public void Name_key_is_the_same_with_or_without_the_lgd_code()
+    {
+        var withCode = ParcelLocation.Create("TG", "Rangareddy", "Shankarpalle", "Mokila", "574123", "123").Value;
+        var withoutCode = ParcelLocation.Create("TG", "Rangareddy", "Shankarpalle", "Mokila", null, "123").Value;
+        Assert.NotEqual(withCode.ParcelKey, withoutCode.ParcelKey);
+        Assert.Equal(withCode.NameKey, withoutCode.NameKey);
+        Assert.Equal(withoutCode.ParcelKey, withoutCode.NameKey);
     }
 
     [Fact]

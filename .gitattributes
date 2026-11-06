@@ -1,0 +1,5 @@
+# Keep line endings stable across Windows and Linux checkouts (migration checksums depend on it).
+* text=auto eol=lf
+*.sql text eol=lf
+*.png binary
+*.jpg binary

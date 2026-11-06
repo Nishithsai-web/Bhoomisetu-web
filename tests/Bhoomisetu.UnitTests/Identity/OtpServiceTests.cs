@@ -124,6 +124,38 @@ public sealed class OtpServiceTests
     }
 
     [Fact]
+    public async Task Daily_cap_applies_across_hours()
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, CancellationToken.None)).Status);
+            _clock.Advance(TimeSpan.FromMinutes(13)); // 5 per hour stays under the hourly cap
+        }
+
+        _clock.Advance(TimeSpan.FromHours(1));
+        var outcome = await _service.RequestAsync(_phone, CancellationToken.None);
+        Assert.Equal(OtpRequestStatus.RateLimited, outcome.Status);
+        Assert.Equal(TimeSpan.FromDays(1), outcome.RetryAfter);
+    }
+
+    [Fact]
+    public async Task Global_sms_budget_stops_sending()
+    {
+        var service = new OtpService(_store, _sender, _clock, new OtpOptions { Pepper = new byte[32], MaxSmsPerHourGlobal = 2 });
+        Assert.Equal(OtpRequestStatus.Sent, (await service.RequestAsync(IndianMobileNumber.Parse("9000000001").Value, CancellationToken.None)).Status);
+        Assert.Equal(OtpRequestStatus.Sent, (await service.RequestAsync(IndianMobileNumber.Parse("9000000002").Value, CancellationToken.None)).Status);
+        Assert.Equal(OtpRequestStatus.Busy, (await service.RequestAsync(IndianMobileNumber.Parse("9000000003").Value, CancellationToken.None)).Status);
+    }
+
+    [Fact]
+    public async Task Parallel_requests_for_one_number_send_only_one_code()
+    {
+        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => _service.RequestAsync(_phone, CancellationToken.None)));
+        Assert.Equal(1, results.Count(r => r.Status == OtpRequestStatus.Sent));
+        Assert.Single(_store.Challenges);
+    }
+
+    [Fact]
     public void Short_pepper_is_rejected()
     {
         Assert.Throws<InvalidOperationException>(() => new OtpService(_store, _sender, _clock, new OtpOptions { Pepper = new byte[16] }));
@@ -143,6 +175,7 @@ public sealed class OtpServiceTests
     private sealed class InMemoryStore : IOtpChallengeStore
     {
         private readonly object _gate = new();
+        private readonly SemaphoreSlim _phoneLock = new(1, 1);
 
         public List<OtpChallenge> Challenges { get; } = [];
 
@@ -160,6 +193,20 @@ public sealed class OtpServiceTests
             {
                 return Task.FromResult(Challenges.Count(c => c.PhoneE164 == phoneE164 && c.CreatedAt >= since));
             }
+        }
+
+        public Task<int> CountAllCreatedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken)
+        {
+            lock (_gate)
+            {
+                return Task.FromResult(Challenges.Count(c => c.CreatedAt >= since));
+            }
+        }
+
+        public async Task<IOtpPhoneLock> LockPhoneAsync(string phoneE164, CancellationToken cancellationToken)
+        {
+            await _phoneLock.WaitAsync(cancellationToken);
+            return new Releaser(_phoneLock);
         }
 
         public Task AddAsync(OtpChallenge challenge, CancellationToken cancellationToken)
@@ -201,6 +248,17 @@ public sealed class OtpServiceTests
 
                 Challenges[index] = Copy(current, current.Attempts, consumedAt);
                 return Task.FromResult(true);
+            }
+        }
+
+        private sealed class Releaser(SemaphoreSlim semaphore) : IOtpPhoneLock
+        {
+            public Task CommitAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+            public ValueTask DisposeAsync()
+            {
+                semaphore.Release();
+                return ValueTask.CompletedTask;
             }
         }
 

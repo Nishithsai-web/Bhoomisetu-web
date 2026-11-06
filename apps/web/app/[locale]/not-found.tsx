@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-// Rendered for unknown locales and unknown pages. Kept language-neutral because the locale itself may be invalid.
+// Rendered when a page inside a valid language calls notFound() (for example an unknown parcel id).
+// Unknown languages never reach the layout because dynamicParams is false. Text is in all three languages.
 export default function NotFound() {
   return (
     <section className="page">

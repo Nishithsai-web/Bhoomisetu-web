@@ -39,11 +39,13 @@ public static class AuthEndpoints
 
             var retry = (int)Math.Ceiling((outcome.RetryAfter ?? TimeSpan.FromMinutes(1)).TotalSeconds);
             http.Response.Headers.RetryAfter = retry.ToString(CultureInfo.InvariantCulture);
-            return outcome.Status == OtpRequestStatus.TooSoon
-                ? ApiResults.Problem(StatusCodes.Status429TooManyRequests, "otp.too_soon", "Please wait before asking for another code.",
-                    new Dictionary<string, object?> { ["retryAfterSeconds"] = retry })
-                : ApiResults.Problem(StatusCodes.Status429TooManyRequests, "otp.rate_limited", "Too many codes requested for this number. Try again later.",
-                    new Dictionary<string, object?> { ["retryAfterSeconds"] = retry });
+            var extra = new Dictionary<string, object?> { ["retryAfterSeconds"] = retry };
+            return outcome.Status switch
+            {
+                OtpRequestStatus.TooSoon => ApiResults.Problem(StatusCodes.Status429TooManyRequests, "otp.too_soon", "Please wait before asking for another code.", extra),
+                OtpRequestStatus.Busy => ApiResults.Problem(StatusCodes.Status503ServiceUnavailable, "otp.busy", "We are sending too many codes right now. Please try again in a few minutes.", extra),
+                _ => ApiResults.Problem(StatusCodes.Status429TooManyRequests, "otp.rate_limited", "Too many codes requested for this number. Try again later.", extra),
+            };
         }).RequireRateLimiting(RateLimitPolicies.Otp);
 
         group.MapPost("/otp/verify", async (OtpVerifyBody body, OtpService otp, BhoomisetuDbContext db, TokenService tokens, IClock clock, AuditWriter audit, CancellationToken ct) =>

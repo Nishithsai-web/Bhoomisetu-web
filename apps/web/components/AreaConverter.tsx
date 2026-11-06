@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { AREA_UNITS, type AreaUnit, convertArea, isAreaUnit, parseAreaValue } from "@/lib/units";
 import { formatNumber } from "@/lib/money";
 
-type Labels = { value: string; unit: string; invalid: string; results: string; names: Record<AreaUnit, string> };
+type Labels = { value: string; unit: string; invalid: string; results: string; liveSummary: string; names: Record<AreaUnit, string> };
 
 export function AreaConverter({ intlLocale, labels }: { intlLocale: string; labels: Labels }) {
   const [text, setText] = useState("200");
@@ -55,7 +55,15 @@ export function AreaConverter({ intlLocale, labels }: { intlLocale: string; labe
       ) : (
         <>
           <h2>{labels.results}</h2>
-          <dl className="unit-grid" aria-live="polite">
+          {/* One short sentence for screen readers instead of eight numbers on every keystroke. */}
+          <p className="visually-hidden" aria-live="polite">
+            {labels.liveSummary
+              .replace("{value}", formatNumber(value ?? 0, intlLocale, 4))
+              .replace("{unit}", labels.names[unit])
+              .replace("{gajams}", formatNumber(results.square_yard, intlLocale, 2))
+              .replace("{acres}", formatNumber(results.acre, intlLocale, 4))}
+          </p>
+          <dl className="unit-grid">
             {AREA_UNITS.map((u) => (
               <div key={u} className={u === unit ? "unit selected" : "unit"}>
                 <dt>{labels.names[u]}</dt>

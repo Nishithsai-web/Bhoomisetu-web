@@ -29,17 +29,46 @@ public readonly record struct Area
     /// <summary>Largest area we accept: 100,000 hectares, far above any single parcel, to catch typing errors.</summary>
     public const decimal MaxSquareMetres = 1_000_000_000m;
 
+    /// <summary>Smallest area we accept: 0.01 m². Anything smaller is a typing error and would round to zero in storage.</summary>
+    public const decimal MinSquareMetres = 0.01m;
+
+    /// <summary>Largest number a person may type (fits the database column numeric(14,4)).</summary>
+    public const decimal MaxEnteredValue = 9_999_999_999m;
+
+    /// <summary>Entered values are kept to 4 decimals, the precision stored in the database.</summary>
+    public static decimal NormaliseEntered(decimal value) => Math.Round(value, 4, MidpointRounding.AwayFromZero);
+
     public static Result<Area> From(decimal value, AreaUnit unit)
     {
-        if (value <= 0)
+        var entered = NormaliseEntered(value);
+        if (entered <= 0)
         {
             return Result<Area>.Failure("area.not_positive", "Area must be greater than zero.");
         }
 
-        var sqm = value * FactorToSquareMetres(unit);
+        if (entered > MaxEnteredValue)
+        {
+            return Result<Area>.Failure("area.too_large", "Area is larger than any single parcel we accept.");
+        }
+
+        decimal sqm;
+        try
+        {
+            sqm = entered * FactorToSquareMetres(unit);
+        }
+        catch (OverflowException)
+        {
+            return Result<Area>.Failure("area.too_large", "Area is larger than any single parcel we accept.");
+        }
+
         if (sqm > MaxSquareMetres)
         {
             return Result<Area>.Failure("area.too_large", "Area is larger than any single parcel we accept.");
+        }
+
+        if (sqm < MinSquareMetres)
+        {
+            return Result<Area>.Failure("area.too_small", "Area is too small for a piece of land. Check the number and the unit.");
         }
 
         return Result<Area>.Success(new Area(sqm));

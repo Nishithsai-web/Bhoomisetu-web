@@ -21,14 +21,14 @@ is national, with state rules added as "jurisdiction packs".
 
 | Area | What is built | Status |
 | --- | --- | --- |
-| Area units | Gajam (sq yd), gunta, acre, cent, sq ft, sq m, hectare, ankanam; exact conversions; Telugu and Devanagari digits accepted | Built and tested |
-| Land records | Parcels with survey number normalisation, LGD village code, land class, area source, frontage, depth, facing | Built |
+| Area units | Gajam (sq yd), gunta, acre, cent, sq ft, sq m, hectare, ankanam; exact conversions. The web forms accept Telugu and Devanagari digits; the API's query parameters take ASCII digits | Built and tested |
+| Land records | Parcels with survey numbers as printed (Telugu and Hindi letters kept), LGD village code, land class, area source, frontage, depth, facing | Built |
 | Road access | Road width with its source (approved layout, measured on map, lister), road type, access right, distance to main road | Built |
-| Duplicate land | Same land typed differently ("123/A/1", "0123-a-1") is detected and the second lister is pointed to the existing parcel | Built |
-| Sign-in | Indian mobile number + one-time code, hashed and rate-limited; JWT session | Built (development SMS sender only) |
-| Agent comparison | Effective price, low-price outlier flag, owner authority, checks, four sort orders, badges, score breakdown | Built and tested |
-| Owner authority | Trust reviewer records the owner of record; the owner confirms or revokes agents; all changes audited | Built |
-| Web app | Home, land search, area converter, agent comparison page in `/en`, `/te`, `/hi` | Built |
+| Duplicate land | Same land typed differently ("123/A/1", "0123-a-1"), with or without the village code, is detected and the second lister is pointed to the existing parcel. Spelling variants of village names still need LGD codes | Built |
+| Sign-in | Indian mobile number + one-time code, hashed; limits per number (cooldown, hour, day), per IP and a platform SMS budget; 24-hour session in an httpOnly cookie | Built (development SMS sender only; CAPTCHA not yet) |
+| Agent comparison | Effective price, low-price outlier flag, owner authority, checks, four sort orders, badges, score breakdown. A bare "I am the owner" claim is priced like an agent until a reviewer confirms it | Built and tested |
+| Owner authority | Trust reviewer records the owner of record; the owner confirms agents from their offers or revokes them; all changes audited; reviewer rights re-checked on every action | Built |
+| Web app | Home, search by village, mandal or district, area converter, agent comparison, phone sign-in, "List your land" and "Add your price" forms with plain-language hints, in `/en`, `/te`, `/hi` | Built |
 | Road-widening layer | PostGIS tables and a "parcels near a road project" view | Schema only |
 | Real SMS provider, identity checks, documents, maps, valuation | | Not started |
 
@@ -60,12 +60,13 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `GET /api/v1/me` | Current user and checks passed | Yes |
 | `GET /api/v1/units/area?value=200&unit=square_yard` | Area in every unit | No |
 | `POST /api/v1/parcels` | Create a parcel (409 with the existing id if the land is already listed) | Yes |
-| `GET /api/v1/parcels?village=mokila` | Search parcels | No |
+| `GET /api/v1/parcels?q=mokila` | Search parcels by village, mandal or district (`village`, `mandal`, `district`, `state` also work) | No |
 | `GET /api/v1/parcels/{id}` | Parcel details, area in all units, road facts | No |
 | `POST /api/v1/parcels/{id}/offers` | Add or replace your offer | Yes |
 | `POST /api/v1/parcels/{id}/offers/mine/withdraw` | Withdraw your offer | Yes |
 | `GET /api/v1/parcels/{id}/comparison?sort=best_value` | Compare all offers | No |
-| `POST`/`DELETE /api/v1/parcels/{id}/agents/{userId}/confirm` | Owner confirms or revokes an agent | Owner of record |
+| `POST /api/v1/parcels/{id}/offers/{offerId}/confirm-lister` | Owner confirms the agent who made an offer | Owner of record |
+| `POST`/`DELETE /api/v1/parcels/{id}/agents/{userId}/confirm` | Owner confirms or revokes an agent by account | Owner of record |
 | `POST /api/v1/admin/parcels/{id}/owner-of-record` | Record the owner after document review | Trust reviewer |
 | `GET /health/live`, `/health/ready` | Health checks | No |
 
@@ -101,7 +102,15 @@ cd apps/web && npm test && npm run check:i18n && npm run typecheck
 psql -v ON_ERROR_STOP=1 -f db/tests/core_constraints.sql   # after applying db/migrations
 ```
 
-CI (`.github/workflows/ci.yml`) runs all of these against PostgreSQL with PostGIS on every push.
+CI (`.github/workflows/ci.yml`) runs all of these against PostgreSQL with PostGIS on pushes to `main` and on
+pull requests.
+
+## Guides
+
+- [How Bhoomisetu is built](docs/ARCHITECTURE.md): from the plain idea to the engineering rules
+- [Recipes for changing it safely](docs/CONTRIBUTING.md): add a field, a language, an endpoint; change ranking
+- [AI plan and guardrails](docs/ai.md)
+- Settings you can change without code (ranking weights, OTP limits, rate limits): `src/Bhoomisetu.Api/appsettings.json`
 
 ## Product documents
 

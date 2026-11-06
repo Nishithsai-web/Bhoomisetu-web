@@ -5,9 +5,11 @@ using Bhoomisetu.SharedKernel;
 namespace Bhoomisetu.Modules.Land;
 
 /// <summary>
-/// A survey (or khasra) number such as 123/A/1, normalised so the same land typed differently matches:
-/// upper case, Telugu and Devanagari digits converted, separators (/ - . \ and spaces) unified to "/",
-/// leading zeros removed from numeric parts. Letters and digits inside one part are never split
+/// A survey (or khasra) number such as 123/A/1 or 45/ఆ, normalised so the same land typed differently
+/// matches: upper case, Telugu and Devanagari digits converted to 0-9, separators (/ - . \ and spaces)
+/// unified to "/", leading zeros removed from each part ("0123A" becomes "123A").
+/// Telugu and Devanagari letters are kept exactly as printed on the record; they are not transliterated,
+/// because a mapping such as ఆ to A is ambiguous. Letters and digits inside one part are never split
 /// ("123A" stays "123A"), because "123A" and "123/A" can be different sub-divisions.
 /// </summary>
 public sealed partial record SurveyNumber
@@ -46,7 +48,7 @@ public sealed partial record SurveyNumber
             {
                 return Result<SurveyNumber>.Failure(
                     "survey_number.invalid",
-                    "Survey number may contain only letters, digits and separators such as / or -.");
+                    "Survey number may contain only digits, English, Telugu or Hindi letters and separators such as / or -.");
             }
 
             if (builder.Length > 0)
@@ -54,7 +56,7 @@ public sealed partial record SurveyNumber
                 builder.Append('/');
             }
 
-            builder.Append(part.All(char.IsAsciiDigit) ? TrimLeadingZeros(part) : part);
+            builder.Append(TrimLeadingZeros(part));
         }
 
         var normalized = builder.ToString();
@@ -71,15 +73,16 @@ public sealed partial record SurveyNumber
         return Result<SurveyNumber>.Success(new SurveyNumber(raw, normalized));
     }
 
-    private static string TrimLeadingZeros(string digits)
-    {
-        var trimmed = digits.TrimStart('0');
-        return trimmed.Length == 0 ? "0" : trimmed;
-    }
+    /// <summary>Removes zeros at the start of a part when a digit follows them: "007" → "7", "0123A" → "123A", "0" and "0A" stay.</summary>
+    private static string TrimLeadingZeros(string part) => LeadingZerosPattern().Replace(part, string.Empty);
 
     [GeneratedRegex(@"[\s/\\\-.]+")]
     private static partial Regex SeparatorPattern();
 
-    [GeneratedRegex("^[0-9A-Z]+$")]
+    // Digits, A-Z, and the Telugu (U+0C00-U+0C7F) and Devanagari (U+0900-U+097F) blocks, including vowel signs.
+    [GeneratedRegex("^[0-9A-Z\u0C00-\u0C7F\u0900-\u097F]+$")]
     private static partial Regex PartPattern();
+
+    [GeneratedRegex("^0+(?=[0-9])")]
+    private static partial Regex LeadingZerosPattern();
 }

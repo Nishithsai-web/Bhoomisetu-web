@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "Bhoomisetu — verified land and homes, clear prices",
+    "title": "Bhoomisetu — land and homes with clear checks and clear prices",
     "description": "Compare every agent's price for the same land, see what was checked, and read area in gajams, guntas and acres. In Telugu, Hindi and English."
   },
   "nav": {
@@ -8,11 +8,16 @@
     "parcels": "Land",
     "units": "Area converter",
     "language": "Language",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "sell": "List your land",
+    "signIn": "Sign in",
+    "signOut": "Sign out"
   },
   "amounts": {
     "lakh": "lakh",
-    "crore": "crore"
+    "lakhs": "lakh",
+    "crore": "crore",
+    "crores": "crore"
   },
   "home": {
     "heroTitle": "Trusted land, clear prices",
@@ -41,7 +46,9 @@
     "compare": "Compare offers",
     "previous": "Previous",
     "next": "Next",
-    "page": "Page {page}"
+    "page": "Page {page}",
+    "offersOne": "1 offer",
+    "areaAcres": "{value} acres"
   },
   "units": {
     "title": "Area converter",
@@ -60,7 +67,8 @@
       "square_metre": "Square metres",
       "hectare": "Hectares",
       "ankanam": "Ankanams"
-    }
+    },
+    "liveSummary": "{value} {unit} is {gajams} gajams or {acres} acres"
   },
   "compare": {
     "title": "Compare offers for this land",
@@ -82,7 +90,8 @@
       "checks": "Checks",
       "response": "Usually replies in",
       "confirmed": "Availability confirmed",
-      "score": "Score"
+      "score": "Score",
+      "perAcre": "Per acre"
     },
     "authority": {
       "owner_of_record": "Owner of record",
@@ -116,9 +125,167 @@
     "noOffers": "No offers for this land yet.",
     "notFound": "This land could not be found.",
     "apiDown": "We could not load this page right now. Please try again in a minute.",
-    "invalidSort": "Unknown sort order; showing best value."
+    "invalidSort": "Unknown sort order; showing best value.",
+    "listerNumber": "Lister {number}",
+    "ownerUnverified": "Says owner (not yet verified)"
   },
   "footer": {
     "disclaimer": "Bhoomisetu shows what was checked and when. A check is not a legal title opinion; consult a lawyer before paying."
+  },
+  "signin": {
+    "title": "Sign in with your mobile number",
+    "intro": "We send a 6-digit code by SMS. No password needed.",
+    "phone": "Mobile number",
+    "phoneHint": "10 digits, for example 98480 12345",
+    "sendCode": "Send code",
+    "code": "Code from SMS",
+    "codeHint": "Type the 6 digits we sent to {phone}. The code works for 5 minutes.",
+    "verify": "Sign in",
+    "changeNumber": "Use a different number",
+    "resend": "Send a new code",
+    "privacy": "Your number is never shown to buyers or agents. Calls go through a masked number."
+  },
+  "sell": {
+    "title": "List your land",
+    "intro": "Fill in what you know. If you are not sure about something, leave it empty. You can change it later.",
+    "step1": "1. Where is the land?",
+    "step2": "2. How big is it?",
+    "step3": "3. Road and access",
+    "step4": "4. Check and send",
+    "district": "District",
+    "districtHint": "For example Rangareddy",
+    "mandal": "Mandal",
+    "mandalHint": "For example Shankarpalle",
+    "village": "Village",
+    "villageHint": "Name of the village or colony",
+    "lgdVillageCode": "Village code (optional)",
+    "lgdVillageCodeHint": "Government village code, if you know it. It helps us find the right village.",
+    "surveyNumber": "Survey number",
+    "surveyNumberHint": "Printed on your pahani, 1-B or sale deed, for example 123/A/1",
+    "landClass": "Type of land",
+    "landClasses": {
+      "agricultural": "Farm land (agricultural)",
+      "non_agricultural": "House plot (non-agricultural)",
+      "converted": "Converted from farm land",
+      "unknown": "I am not sure"
+    },
+    "areaValue": "Area",
+    "areaValueHint": "Only the number, for example 200",
+    "areaUnit": "Unit",
+    "areaSource": "Where does this area come from?",
+    "areaSources": {
+      "record": "Land record (pahani, 1-B)",
+      "deed": "Sale deed",
+      "survey": "Surveyor's measurement",
+      "lister": "My own estimate"
+    },
+    "lengthUnit": "Measure lengths in",
+    "lengthUnits": {
+      "feet": "Feet",
+      "metres": "Metres"
+    },
+    "frontage": "Width at the front",
+    "frontageHint": "Side facing the road",
+    "depth": "Length (depth)",
+    "depthHint": "From the road side to the back",
+    "facing": "Which side faces the road?",
+    "facings": {
+      "east": "East",
+      "north": "North",
+      "west": "West",
+      "south": "South",
+      "north_east": "North-east",
+      "north_west": "North-west",
+      "south_east": "South-east",
+      "south_west": "South-west"
+    },
+    "notSure": "Not sure",
+    "roadWidth": "Road width in front",
+    "roadWidthHint": "For example 30 feet",
+    "roadWidthSource": "How do you know the road width?",
+    "roadWidthSources": {
+      "approved_layout": "Written in the approved layout",
+      "measured_on_map": "Measured on a map",
+      "lister": "My own estimate"
+    },
+    "roadType": "Type of road",
+    "roadTypes": {
+      "national_highway": "National highway",
+      "state_highway": "State highway",
+      "main_road": "Main road",
+      "layout_road": "Road inside a layout",
+      "village_road": "Village road",
+      "cart_track": "Cart track (bandi baata)"
+    },
+    "accessRight": "How do you reach the land?",
+    "accessRights": {
+      "direct_public_road": "Directly from a public road",
+      "through_private_land_with_right": "Through someone else's land, with a written right of way",
+      "through_private_land_no_record": "Through someone else's land, nothing in writing",
+      "unknown": "I am not sure"
+    },
+    "distanceToMainRoadM": "Distance to the main road (metres)",
+    "distanceToMainRoadMHint": "Leave empty if the land is on the main road",
+    "submit": "Send for listing",
+    "afterSubmit": "Next you will add your price. Our team checks every listing before it shows a verified badge."
+  },
+  "offer": {
+    "title": "Add your price",
+    "existing": "This land is already on Bhoomisetu. Add your price to it, so buyers can compare all offers in one place.",
+    "created": "Your land is saved. Now add your price.",
+    "listerKind": "Who are you?",
+    "listerKinds": {
+      "owner": "I am the owner",
+      "agent": "I am an agent"
+    },
+    "askingPrice": "Asking price (₹)",
+    "askingPriceHint": "Full price for the whole land, for example 48,50,000",
+    "brokeragePercent": "Brokerage the buyer pays (%)",
+    "brokeragePercentHint": "Leave empty if you do not want to say. Buyers will see 2% assumed.",
+    "brokerageTerms": "Brokerage terms (optional)",
+    "brokerageTermsHint": "For example: 1% on registration, nothing before",
+    "submit": "Save my price",
+    "replaceNote": "If you already gave a price for this land, the new price replaces it."
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "form.required": "Please fill this in.",
+    "form.number_invalid": "Please type a number greater than zero.",
+    "auth.required": "Please sign in again.",
+    "api.unreachable": "We cannot reach our server right now. Please try again in a minute.",
+    "api.error": "Something went wrong on our side. Please try again.",
+    "phone.empty": "Please type your mobile number.",
+    "phone.invalid": "Please type a 10-digit Indian mobile number.",
+    "phone.not_indian": "Only Indian mobile numbers (+91) can be used.",
+    "otp.too_soon": "Please wait a minute before asking for another code.",
+    "otp.rate_limited": "Too many codes asked for this number. Please try again in an hour.",
+    "otp.invalid": "That code is not right. Please check the SMS and try again.",
+    "otp.expired": "This code has expired. Please ask for a new one.",
+    "otp.no_active_code": "Please ask for a new code.",
+    "otp.too_many_attempts": "Too many wrong codes. Please ask for a new one.",
+    "survey_number.empty": "Please type the survey number.",
+    "survey_number.invalid": "Use only numbers, English letters and / or -, for example 123/A/1.",
+    "survey_number.too_long": "The survey number is too long. Please check it.",
+    "location.lgd_invalid": "The village code has only numbers.",
+    "location.district_invalid": "Please type the district.",
+    "location.mandal_invalid": "Please type the mandal.",
+    "location.village_invalid": "Please type the village.",
+    "area.not_positive": "The area must be more than zero.",
+    "area.too_large": "This area is too large for one piece of land. Please check the number and unit.",
+    "area.unit_invalid": "Please choose a unit.",
+    "parcel.dimensions_invalid": "Please check the width and length.",
+    "road.width_source_required": "Please say how you know the road width.",
+    "road.width_invalid": "Please check the road width.",
+    "road.distance_invalid": "Please check the distance to the main road.",
+    "offer.price_invalid": "Please type the full price in rupees, for example 48,50,000.",
+    "offer.brokerage_invalid": "Brokerage must be between 0 and 10%.",
+    "offer.owner_brokerage": "An owner does not charge brokerage. Leave it empty.",
+    "offer.terms_too_long": "Please keep the brokerage terms short (up to 500 letters).",
+    "offer.concurrent_update": "Your price was being saved twice. Please try again.",
+    "not_found": "We could not find this land.",
+    "otp.busy": "We are sending many codes right now. Please try again in a few minutes.",
+    "parcel.invalid": "Some numbers are outside the allowed range. Please check them.",
+    "area.too_small": "This area is too small for a piece of land. Please check the number and unit.",
+    "parcel.concurrent_update": "This was changed at the same moment. Please try again."
   }
 }

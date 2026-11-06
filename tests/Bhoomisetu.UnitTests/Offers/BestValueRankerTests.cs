@@ -61,7 +61,7 @@ public sealed class BestValueRankerTests
 
         Assert.True(result[C].IsLowPriceOutlier);
         Assert.Contains(OfferBadge.VerifyBeforeVisiting, result[C].Badges);
-        Assert.Contains(OfferBadge.LowestPrice, result[C].Badges);
+        Assert.DoesNotContain(OfferBadge.LowestPrice, result[C].Badges); // never reward the bait price
         Assert.Contains(OfferBadge.AvailabilityStale, result[C].Badges);
         Assert.DoesNotContain(OfferBadge.BestValue, result[C].Badges);
         Assert.False(result[A].IsLowPriceOutlier);
@@ -73,7 +73,7 @@ public sealed class BestValueRankerTests
         var result = _ranker.Compare(Market(), ComparisonSort.BestValue).Offers.ToDictionary(o => o.Offer.OfferId);
 
         Assert.Equal(new[] { OfferBadge.BestValue }, result[A].Badges);
-        Assert.Equal(new[] { OfferBadge.AuthorityNotConfirmed }, result[B].Badges);
+        Assert.Equal(new[] { OfferBadge.LowestPrice, OfferBadge.AuthorityNotConfirmed }, result[B].Badges);
         Assert.Equal(new[] { OfferBadge.NoBrokerage }, result[D].Badges);
     }
 
@@ -152,6 +152,31 @@ public sealed class BestValueRankerTests
         var result = _ranker.Compare(offers, ComparisonSort.BestValue).Offers.ToDictionary(o => o.Offer.OfferId);
         Assert.DoesNotContain(OfferBadge.BestValue, result[A].Badges);
         Assert.Contains(OfferBadge.AvailabilityStale, result[A].Badges);
+    }
+
+    [Fact]
+    public void Unverified_owner_claim_is_priced_and_badged_like_an_agent()
+    {
+        var asAgent = _ranker.Compare(Market(), ComparisonSort.BestValue).Offers.Single(o => o.Offer.OfferId == B);
+        var market = Market();
+        market[1] = market[1] with { ListerKind = ListerKind.Owner };
+        var asOwner = _ranker.Compare(market, ComparisonSort.BestValue).Offers.Single(o => o.Offer.OfferId == B);
+
+        Assert.True(asOwner.OwnerClaimUnverified);
+        Assert.False(asAgent.OwnerClaimUnverified);
+        Assert.Equal(asAgent.EffectivePricePaise, asOwner.EffectivePricePaise);
+        Assert.True(asOwner.BrokerageAssumed);
+        Assert.Equal(asAgent.Score, asOwner.Score);
+        Assert.DoesNotContain(OfferBadge.NoBrokerage, asOwner.Badges);
+    }
+
+    [Fact]
+    public void Verified_owner_pays_no_brokerage_and_gets_the_badge()
+    {
+        var d = _ranker.Compare(Market(), ComparisonSort.BestValue).Offers.Single(o => o.Offer.OfferId == D);
+        Assert.False(d.OwnerClaimUnverified);
+        Assert.False(d.BrokerageAssumed);
+        Assert.Contains(OfferBadge.NoBrokerage, d.Badges);
     }
 
     [Fact]

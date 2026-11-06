@@ -11,6 +11,8 @@
   --danger-bg: #fbe4e0;
   --danger: #7a1f14;
   --ok-bg: #e5f0ee;
+  /* Field and control borders: at least 3:1 against white and the page background (WCAG 1.4.11). */
+  --control-border: #7d7562;
   --radius: 12px;
   --font: var(--font-latin), var(--font-telugu), var(--font-devanagari), system-ui, sans-serif;
 }
@@ -43,9 +45,11 @@ a:hover {
   color: var(--saffron-text);
 }
 
+/* A dark ring with a white halo stays visible on light pages, white inputs, saffron buttons and the dark header. */
 :focus-visible {
-  outline: 3px solid var(--saffron);
+  outline: 3px solid var(--teal-dark);
   outline-offset: 2px;
+  box-shadow: 0 0 0 5px #fff;
 }
 
 .skip-link {
@@ -157,11 +161,12 @@ h2 {
 }
 
 input,
-select {
+select,
+textarea {
   font: inherit;
   min-height: 48px;
   padding: 0 14px;
-  border: 1px solid #bfb8a4;
+  border: 1px solid var(--control-border);
   border-radius: 8px;
   background: #fff;
   color: var(--ink);
@@ -281,7 +286,7 @@ button {
   align-items: center;
   padding: 0 16px;
   border-radius: 22px;
-  border: 1px solid #bfb8a4;
+  border: 1px solid var(--control-border);
   background: #fff;
   color: var(--ink);
   text-decoration: none;
@@ -364,4 +369,123 @@ button {
   color: var(--muted);
   font-size: 0.9rem;
   border-top: 1px solid var(--line);
+}
+
+/* ---------------------------------------------------------------- forms (sign-in, listing, offer) */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.page.narrow {
+  max-width: 720px;
+}
+
+.form {
+  display: grid;
+  gap: 16px;
+}
+
+.form fieldset {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+
+.form legend {
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding: 0 4px;
+}
+
+/* Bigger text and targets for people new to forms on a phone. */
+.form.big {
+  font-size: 1.1rem;
+}
+
+.form.big input,
+.form.big select {
+  min-height: 52px;
+}
+
+.form .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.form .row > .field {
+  flex: 1 1 200px;
+}
+
+.form .field input,
+.form .field select,
+.form .field textarea {
+  width: 100%;
+}
+
+textarea {
+  padding: 10px 14px;
+}
+
+.hint {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.field.has-error input,
+.field.has-error select,
+.field.has-error textarea {
+  border: 2px solid var(--danger);
+}
+
+.notice.error {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.choices {
+  border: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.choice input {
+  min-height: auto;
+  width: 22px;
+  height: 22px;
+}
+
+button.secondary {
+  background: #fff;
+  border: 1px solid var(--ink);
+}
+
+button[disabled] {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.form-inline {
+  margin-top: 12px;
 }

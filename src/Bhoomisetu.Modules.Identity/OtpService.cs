@@ -29,31 +29,47 @@ public sealed class OtpService
     public async Task<OtpRequestOutcome> RequestAsync(IndianMobileNumber phone, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(phone);
-        var now = _clock.UtcNow;
+        string code;
 
-        var latest = await _store.GetLatestAsync(phone.E164, cancellationToken).ConfigureAwait(false);
-        if (latest is not null && now - latest.CreatedAt < _options.ResendCooldown)
+        // Checks and insert happen under a per-number lock, so parallel requests cannot all pass the limits.
+        await using (var guard = await _store.LockPhoneAsync(phone.E164, cancellationToken).ConfigureAwait(false))
         {
-            return new OtpRequestOutcome(OtpRequestStatus.TooSoon, _options.ResendCooldown - (now - latest.CreatedAt));
+            var now = _clock.UtcNow;
+            var latest = await _store.GetLatestAsync(phone.E164, cancellationToken).ConfigureAwait(false);
+            if (latest is not null && now - latest.CreatedAt < _options.ResendCooldown)
+            {
+                return new OtpRequestOutcome(OtpRequestStatus.TooSoon, _options.ResendCooldown - (now - latest.CreatedAt));
+            }
+
+            if (await _store.CountCreatedSinceAsync(phone.E164, now - TimeSpan.FromHours(1), cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerHour)
+            {
+                return new OtpRequestOutcome(OtpRequestStatus.RateLimited, TimeSpan.FromHours(1));
+            }
+
+            if (await _store.CountCreatedSinceAsync(phone.E164, now - TimeSpan.FromDays(1), cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerDay)
+            {
+                return new OtpRequestOutcome(OtpRequestStatus.RateLimited, TimeSpan.FromDays(1));
+            }
+
+            // Platform-wide SMS budget: stops SMS-pumping fraud from running up the bill across many numbers.
+            if (await _store.CountAllCreatedSinceAsync(now - TimeSpan.FromHours(1), cancellationToken).ConfigureAwait(false) >= _options.MaxSmsPerHourGlobal)
+            {
+                return new OtpRequestOutcome(OtpRequestStatus.Busy, TimeSpan.FromMinutes(5));
+            }
+
+            code = GenerateCode();
+            await _store.AddAsync(new OtpChallenge
+            {
+                Id = Guid.CreateVersion7(),
+                PhoneE164 = phone.E164,
+                CodeHash = Hash(phone.E164, code),
+                CreatedAt = now,
+                ExpiresAt = now + _options.Lifetime,
+            }, cancellationToken).ConfigureAwait(false);
+            await guard.CommitAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        var recent = await _store.CountCreatedSinceAsync(phone.E164, now - TimeSpan.FromHours(1), cancellationToken).ConfigureAwait(false);
-        if (recent >= _options.MaxRequestsPerHour)
-        {
-            return new OtpRequestOutcome(OtpRequestStatus.RateLimited, TimeSpan.FromHours(1));
-        }
-
-        var code = GenerateCode();
-        var challenge = new OtpChallenge
-        {
-            Id = Guid.CreateVersion7(),
-            PhoneE164 = phone.E164,
-            CodeHash = Hash(phone.E164, code),
-            CreatedAt = now,
-            ExpiresAt = now + _options.Lifetime,
-        };
-
-        await _store.AddAsync(challenge, cancellationToken).ConfigureAwait(false);
+        // The SMS goes out after the lock is released, so a slow provider never blocks other requests.
         await _sender.SendAsync(phone, code, _options.Lifetime, cancellationToken).ConfigureAwait(false);
         return new OtpRequestOutcome(OtpRequestStatus.Sent, null);
     }

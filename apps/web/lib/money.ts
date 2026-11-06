@@ -3,7 +3,8 @@
 const LAKH = 100_000;
 const CRORE = 10_000_000;
 
-export type AmountWords = { lakh: string; crore: string };
+/** Singular and plural words, because Telugu (లక్ష / లక్షలు) and English usage differ. */
+export type AmountWords = { lakh: string; lakhs: string; crore: string; crores: string };
 
 /** ₹ with Indian digit grouping, no decimals for amounts of a rupee or more. */
 export function formatRupees(amount: number, intlLocale: string): string {
@@ -16,13 +17,16 @@ export function formatRupees(amount: number, intlLocale: string): string {
 
 /** "₹1.25 crore" or "₹48.5 lakh"; plain rupees below one lakh. Words come from the dictionary. */
 export function formatRupeesShort(amount: number, intlLocale: string, words: AmountWords): string {
-  const number = (value: number) =>
-    new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 2 }).format(value);
-  if (amount >= CRORE) {
-    return `₹${number(amount / CRORE)} ${words.crore}`;
+  const round2 = (value: number) => Math.round(value * 100) / 100;
+  const number = (value: number) => new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 2 }).format(value);
+  const lakhs = round2(amount / LAKH);
+  // 99,99,999 rounds to 100 lakh, which is read as one crore.
+  if (amount >= CRORE || lakhs >= 100) {
+    const crores = round2(amount / CRORE);
+    return `₹${number(crores)} ${crores === 1 ? words.crore : words.crores}`;
   }
   if (amount >= LAKH) {
-    return `₹${number(amount / LAKH)} ${words.lakh}`;
+    return `₹${number(lakhs)} ${lakhs === 1 ? words.lakh : words.lakhs}`;
   }
   return formatRupees(amount, intlLocale);
 }
