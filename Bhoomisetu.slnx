@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Bhoomisetu.SharedKernel/Bhoomisetu.SharedKernel.csproj" />
+    <Project Path="src/Bhoomisetu.Modules.Land/Bhoomisetu.Modules.Land.csproj" />
+    <Project Path="src/Bhoomisetu.Modules.Offers/Bhoomisetu.Modules.Offers.csproj" />
+    <Project Path="src/Bhoomisetu.Modules.Identity/Bhoomisetu.Modules.Identity.csproj" />
+    <Project Path="src/Bhoomisetu.Api/Bhoomisetu.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Bhoomisetu.UnitTests/Bhoomisetu.UnitTests.csproj" />
+    <Project Path="tests/Bhoomisetu.ArchitectureTests/Bhoomisetu.ArchitectureTests.csproj" />
+    <Project Path="tests/Bhoomisetu.IntegrationTests/Bhoomisetu.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

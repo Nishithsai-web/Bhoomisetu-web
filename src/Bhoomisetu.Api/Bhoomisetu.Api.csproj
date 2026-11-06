@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>Bhoomisetu.Api</RootNamespace>
+    <UserSecretsId>bhoomisetu-api</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Bhoomisetu.SharedKernel\Bhoomisetu.SharedKernel.csproj" />
+    <ProjectReference Include="..\Bhoomisetu.Modules.Land\Bhoomisetu.Modules.Land.csproj" />
+    <ProjectReference Include="..\Bhoomisetu.Modules.Offers\Bhoomisetu.Modules.Offers.csproj" />
+    <ProjectReference Include="..\Bhoomisetu.Modules.Identity\Bhoomisetu.Modules.Identity.csproj" />
+  </ItemGroup>
+
+  <!-- The SQL migrations in db/migrations are the single source of truth for the schema. -->
+  <ItemGroup>
+    <None Include="..\..\db\migrations\*.sql" Link="migrations\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Bhoomisetu.IntegrationTests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Bhoomisetu.SharedKernel\Bhoomisetu.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\src\Bhoomisetu.Modules.Land\Bhoomisetu.Modules.Land.csproj" />
+    <ProjectReference Include="..\..\src\Bhoomisetu.Modules.Offers\Bhoomisetu.Modules.Offers.csproj" />
+    <ProjectReference Include="..\..\src\Bhoomisetu.Modules.Identity\Bhoomisetu.Modules.Identity.csproj" />
+  </ItemGroup>
+</Project>

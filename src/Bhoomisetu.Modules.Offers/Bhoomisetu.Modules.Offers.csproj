@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>Bhoomisetu.Modules.Offers</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Bhoomisetu.SharedKernel\Bhoomisetu.SharedKernel.csproj" />
+  </ItemGroup>
+</Project>

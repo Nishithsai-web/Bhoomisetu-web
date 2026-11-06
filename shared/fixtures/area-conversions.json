@@ -1,0 +1,127 @@
+{
+  "description": "Area conversion cases shared by the .NET and web tests. 1 gajam = 1 square yard; 1 gunta = 121 sq yd; 1 acre = 40 guntas = 4840 sq yd; 1 cent = 1/100 acre; 1 ankanam = 72 sq ft. Values rounded to 6 decimals; compare with an absolute tolerance of 1e-6.",
+  "factorsToSquareMetre": {
+    "square_metre": 1.0,
+    "square_foot": 0.09290304,
+    "square_yard": 0.83612736,
+    "gunta": 101.17141056,
+    "acre": 4046.8564224,
+    "cent": 40.468564224,
+    "hectare": 10000.0,
+    "ankanam": 6.68901888
+  },
+  "cases": [
+    {
+      "value": 1,
+      "unit": "acre",
+      "expected": {
+        "square_metre": 4046.856422,
+        "square_foot": 43560.0,
+        "square_yard": 4840.0,
+        "gunta": 40.0,
+        "acre": 1.0,
+        "cent": 100.0,
+        "hectare": 0.404686,
+        "ankanam": 605.0
+      }
+    },
+    {
+      "value": 1,
+      "unit": "gunta",
+      "expected": {
+        "square_metre": 101.171411,
+        "square_foot": 1089.0,
+        "square_yard": 121.0,
+        "gunta": 1.0,
+        "acre": 0.025,
+        "cent": 2.5,
+        "hectare": 0.010117,
+        "ankanam": 15.125
+      }
+    },
+    {
+      "value": 200,
+      "unit": "square_yard",
+      "expected": {
+        "square_metre": 167.225472,
+        "square_foot": 1800.0,
+        "square_yard": 200.0,
+        "gunta": 1.652893,
+        "acre": 0.041322,
+        "cent": 4.132231,
+        "hectare": 0.016723,
+        "ankanam": 25.0
+      }
+    },
+    {
+      "value": 1,
+      "unit": "hectare",
+      "expected": {
+        "square_metre": 10000.0,
+        "square_foot": 107639.104167,
+        "square_yard": 11959.900463,
+        "gunta": 98.842153,
+        "acre": 2.471054,
+        "cent": 247.105381,
+        "hectare": 1.0,
+        "ankanam": 1494.987558
+      }
+    },
+    {
+      "value": 2.5,
+      "unit": "cent",
+      "expected": {
+        "square_metre": 101.171411,
+        "square_foot": 1089.0,
+        "square_yard": 121.0,
+        "gunta": 1.0,
+        "acre": 0.025,
+        "cent": 2.5,
+        "hectare": 0.010117,
+        "ankanam": 15.125
+      }
+    },
+    {
+      "value": 1800,
+      "unit": "square_foot",
+      "expected": {
+        "square_metre": 167.225472,
+        "square_foot": 1800.0,
+        "square_yard": 200.0,
+        "gunta": 1.652893,
+        "acre": 0.041322,
+        "cent": 4.132231,
+        "hectare": 0.016723,
+        "ankanam": 25.0
+      }
+    },
+    {
+      "value": 50,
+      "unit": "ankanam",
+      "expected": {
+        "square_metre": 334.450944,
+        "square_foot": 3600.0,
+        "square_yard": 400.0,
+        "gunta": 3.305785,
+        "acre": 0.082645,
+        "cent": 8.264463,
+        "hectare": 0.033445,
+        "ankanam": 50.0
+      }
+    },
+    {
+      "value": 1000,
+      "unit": "square_metre",
+      "expected": {
+        "square_metre": 1000.0,
+        "square_foot": 10763.910417,
+        "square_yard": 1195.990046,
+        "gunta": 9.884215,
+        "acre": 0.247105,
+        "cent": 24.710538,
+        "hectare": 0.1,
+        "ankanam": 149.498756
+      }
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  database:
+    name: Database migrations and constraints
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bhoomisetu
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: bhoomisetu
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migrations in order
+        run: |
+          for f in db/migrations/*.sql; do
+            echo "Applying $f"
+            psql -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+      - name: Constraint tests
+        run: psql -v ON_ERROR_STOP=1 -f db/tests/core_constraints.sql
+
+  backend:
+    name: .NET build and tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet restore Bhoomisetu.slnx
+      - run: dotnet build Bhoomisetu.slnx --no-restore -c Release
+      - name: Tests (unit, architecture, integration)
+        run: dotnet test Bhoomisetu.slnx --no-build -c Release --logger "trx" --results-directory TestResults
+        env:
+          BHOOMISETU_TEST_DB: Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dotnet-test-results
+          path: TestResults
+
+  web:
+    name: Web tests and build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # No lockfile is committed yet (the first install could not run in the authoring environment).
+      # Commit apps/web/package-lock.json after the first green run and switch this to `npm ci`.
+      - run: npm install --no-audit --no-fund
+      - run: npm test
+      - run: npm run check:i18n
+      - run: npm run build
+        env:
+          BHOOMISETU_API_URL: http://localhost:5080
+      - run: npm run typecheck

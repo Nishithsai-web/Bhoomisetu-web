@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "title": "Bhoomisetu — verified land and homes, clear prices",
+    "description": "Compare every agent's price for the same land, see what was checked, and read area in gajams, guntas and acres. In Telugu, Hindi and English."
+  },
+  "nav": {
+    "home": "Home",
+    "parcels": "Land",
+    "units": "Area converter",
+    "language": "Language",
+    "skipToContent": "Skip to content"
+  },
+  "amounts": {
+    "lakh": "lakh",
+    "crore": "crore"
+  },
+  "home": {
+    "heroTitle": "Trusted land, clear prices",
+    "heroSubtitle": "Compare every agent's price for the same land in one place, see exactly what was checked, and read the area in gajams, guntas or acres.",
+    "searchLabel": "Village or area",
+    "searchPlaceholder": "e.g. Mokila, Shankarpalle",
+    "searchButton": "Search",
+    "verifiedTitle": "See what was checked",
+    "verifiedBody": "Every badge names the check that was done: phone code, identity, owner confirmation. Nothing more is claimed.",
+    "compareTitle": "One land, many agents",
+    "compareBody": "All agents' prices, brokerage and authority for the same land, side by side, ranked by a rule you can read.",
+    "unitsTitle": "Area in your units",
+    "unitsBody": "Gajams, guntas, acres, cents and square feet, all at once.",
+    "languageTitle": "Telugu, Hindi and English",
+    "languageBody": "Search and read in the language you are most comfortable with.",
+    "safety": "Never pay a token advance before visiting the site and checking the documents."
+  },
+  "parcels": {
+    "title": "Land listings",
+    "resultsFor": "Results for “{query}”",
+    "all": "Latest land",
+    "none": "No land found. Try another village or mandal name.",
+    "survey": "Survey no. {number}",
+    "area": "{value} gajams",
+    "offers": "{count} offers",
+    "compare": "Compare offers",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page}"
+  },
+  "units": {
+    "title": "Area converter",
+    "intro": "Type an area in any unit to see it in all the others. 1 gajam = 1 square yard; 1 gunta = 121 gajams; 1 acre = 40 guntas.",
+    "value": "Area",
+    "unit": "Unit",
+    "invalid": "Enter a number greater than zero.",
+    "results": "The same area in every unit",
+    "note": "Bigha is not shown because its size differs from state to state.",
+    "names": {
+      "square_yard": "Gajams (square yards)",
+      "gunta": "Guntas",
+      "acre": "Acres",
+      "cent": "Cents",
+      "square_foot": "Square feet",
+      "square_metre": "Square metres",
+      "hectare": "Hectares",
+      "ankanam": "Ankanams"
+    }
+  },
+  "compare": {
+    "title": "Compare offers for this land",
+    "summary": "{count} offers · {area} gajams ({acres} acres) · median price {median}",
+    "sortLabel": "Sort by",
+    "sorts": {
+      "best_value": "Best value",
+      "lowest_price": "Lowest price",
+      "best_verified": "Best verified",
+      "fastest_response": "Fastest response"
+    },
+    "columns": {
+      "rank": "Rank",
+      "lister": "Lister",
+      "price": "Price to you",
+      "perGajam": "Per gajam",
+      "brokerage": "Brokerage",
+      "authority": "Authority",
+      "checks": "Checks",
+      "response": "Usually replies in",
+      "confirmed": "Availability confirmed",
+      "score": "Score"
+    },
+    "authority": {
+      "owner_of_record": "Owner of record",
+      "owner_confirmed_agent": "Confirmed by owner",
+      "not_confirmed": "Authority not confirmed"
+    },
+    "checks": {
+      "phone_otp": "Phone code",
+      "identity": "Identity",
+      "rera_agent": "RERA agent"
+    },
+    "badges": {
+      "best_value": "Best value",
+      "lowest_price": "Lowest price",
+      "verify_before_visiting": "Verify before visiting",
+      "no_brokerage": "No brokerage",
+      "availability_stale": "Availability not recently confirmed",
+      "authority_not_confirmed": "Authority not confirmed"
+    },
+    "listerKind": {
+      "owner": "Owner",
+      "agent": "Agent"
+    },
+    "brokerageNone": "None",
+    "brokerageAssumed": "Not disclosed ({percent}% assumed)",
+    "noChecks": "None yet",
+    "hours": "{hours} h",
+    "unknown": "Not known yet",
+    "howTitle": "How best value is worked out",
+    "howBody": "Price to you (asking price plus brokerage) counts {price}%, owner authority {authority}%, checks passed {checks}%, reply time {response}% and how recently availability was confirmed {freshness}%. A price below {outlier}% of the other offers' median is flagged, because very low prices are a common bait. Paid promotion never changes this order.",
+    "noOffers": "No offers for this land yet.",
+    "notFound": "This land could not be found.",
+    "apiDown": "We could not load this page right now. Please try again in a minute.",
+    "invalidSort": "Unknown sort order; showing best value."
+  },
+  "footer": {
+    "disclaimer": "Bhoomisetu shows what was checked and when. A check is not a legal title opinion; consult a lawyer before paying."
+  }
+}
