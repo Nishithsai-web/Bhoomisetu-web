@@ -43,11 +43,27 @@ Change a decision by adding a dated entry here and updating the register; never 
    (not yet verified)".
 7. **A low-price outlier never gets the "lowest price" badge**, so the bait warning and a reward never
    appear together.
-8. **OTP limits are atomic per number** (advisory lock), with a daily cap and a platform-wide SMS budget.
-   Residual risk: someone can still use up a number's hourly quota; a CAPTCHA after the first request is the
-   planned fix before public launch.
+8. **OTP limits are atomic per number** (advisory lock), hourly per number, per IP (IPv6 per /64), with a
+   platform-wide SMS budget that is logged when hit. The daily cap tried first was removed after QA showed it
+   let anyone lock an owner out for a day. Residual risk: someone can still use up a number's hourly quota;
+   a CAPTCHA after the first request is the planned fix before public launch.
 9. **Every parcel keeps a name-based key** as well as the LGD key, so leaving out the village code cannot
    create a duplicate (migration 0003).
 10. **Survey numbers keep Telugu and Devanagari letters as printed**; no transliteration, because it is
     ambiguous.
 11. **Ranking weights and OTP limits are configuration**, validated at start-up.
+
+## Changes after the second QA review (2026-11-06)
+
+12. **Migration 0003 was corrected in place, once.** It failed on databases that already held the same land
+    twice. No shared database had applied it, so the file was fixed instead of adding a new one; later
+    duplicates are set aside in `parcel_duplicate_candidates` for a reviewer to merge. From now on applied
+    migrations are never edited.
+13. **The web server forwards the visitor's IP** (last X-Forwarded-For entry) and the API trusts it only from
+    configured proxies or networks, so per-IP limits apply per visitor.
+14. **A reviewer cannot decide corrections for land they are involved with**, and decisions lock the request
+    row so two reviewers cannot both apply it. A corrected road width is labelled "stated by lister".
+15. **Known gaps, accepted for now:** anyone can make an offer on any parcel and so become able to request
+    corrections (reviewers see who asked); real owners pay the assumed 2% brokerage in comparisons until a
+    reviewer records them, and the document-upload and review screens are not built yet; owners can confirm
+    agents through the API but not yet from a web screen.

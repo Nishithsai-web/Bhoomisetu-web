@@ -16,6 +16,7 @@ test("summarises in lakh and crore", () => {
   assert.equal(formatRupeesShort(100_000, "en-IN", words), "₹1 lakh");
   assert.equal(formatRupeesShort(99_999, "en-IN", words), "₹99,999");
   assert.equal(formatRupeesShort(9_999_999, "en-IN", words), "₹1 crore");
+  assert.equal(formatRupeesShort(99_999.6, "en-IN", words), "₹1 lakh");
 });
 
 test("uses singular and plural words", () => {

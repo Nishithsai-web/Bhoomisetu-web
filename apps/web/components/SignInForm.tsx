@@ -14,16 +14,25 @@ type Labels = {
   changeNumber: string;
   resend: string;
   privacy: string;
+  sending: string;
 };
 
 /** Phone number, then code, driven by one server action so the step always matches the server's answer. */
 export function SignInForm({ locale, next, labels, errors }: { locale: string; next: string; labels: Labels; errors: Record<string, string> }) {
   const [state, action, pending] = useActionState<FormState, FormData>(signInAction, { step: "phone" });
   const phone = state.phone ?? "";
-  const error = state.error ? (errors[state.error] ?? errors.generic) : undefined;
+  const error = state.error ? (Object.hasOwn(errors, state.error) ? errors[state.error] : errors.generic) : undefined;
+
+  // Field errors are not live regions, so the sign-in error is announced here once.
+  const announcement = error ? (
+    <p role="alert" className="visually-hidden">
+      {error}
+    </p>
+  ) : null;
 
   const hidden = (
     <>
+      {announcement}
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="next" value={next} />
     </>
@@ -50,7 +59,7 @@ export function SignInForm({ locale, next, labels, errors }: { locale: string; n
           )}
         </Field>
         <button type="submit" disabled={pending}>
-          {labels.sendCode}
+          {pending ? labels.sending : labels.sendCode}
         </button>
         <p className="hint">{labels.privacy}</p>
       </form>
@@ -70,7 +79,7 @@ export function SignInForm({ locale, next, labels, errors }: { locale: string; n
               name="code"
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={6}
+              maxLength={12}
               required
               autoFocus
               aria-describedby={describedBy}
@@ -79,7 +88,7 @@ export function SignInForm({ locale, next, labels, errors }: { locale: string; n
           )}
         </Field>
         <button type="submit" disabled={pending}>
-          {labels.verify}
+          {pending ? labels.sending : labels.verify}
         </button>
       </form>
       <form action={action} className="form-inline">

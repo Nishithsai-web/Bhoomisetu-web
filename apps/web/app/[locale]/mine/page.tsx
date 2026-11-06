@@ -7,7 +7,7 @@ import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
 import { formatRupeesShort } from "@/lib/money";
 import { clearSession, getSessionToken } from "@/lib/session";
 
-type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ done?: string; error?: string }> };
+type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ done?: string; error?: string; confirm?: string; parcel?: string }> };
 
 export default async function MyListingsPage({ params, searchParams }: Props) {
   const { locale } = await params;
@@ -25,7 +25,9 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
     redirect(`/${locale}/signin?next=/${locale}/mine`);
   }
 
-  const done = query.done && query.done in m.done ? m.done[query.done as keyof typeof m.done] : null;
+  const done = query.done && Object.hasOwn(m.done, query.done) ? m.done[query.done as keyof typeof m.done] : null;
+  // "Mark as sold" and "Remove" first ask "are you sure?" on the same page, so one stray tap changes nothing.
+  const confirming = (query.confirm === "sold" || query.confirm === "withdraw") && query.parcel ? { action: query.confirm, parcelId: query.parcel } : null;
 
   const button = (parcelId: string, action: MyOfferAction, label: string, style?: string) => (
     <form action={myOfferAction}>
@@ -77,11 +79,27 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
                     {offer.daysSinceConfirmed === 0 ? m.confirmedToday : format(m.confirmedDaysAgo, { days: offer.daysSinceConfirmed })}
                   </p>
                   {offer.needsConfirmation && <p className="notice">{m.needsConfirmation}</p>}
-                  <div className="actions">
-                    {button(offer.parcelId, "still-available", m.stillAvailable)}
-                    {button(offer.parcelId, "sold", m.sold, "secondary")}
-                    {button(offer.parcelId, "withdraw", m.withdraw, "secondary")}
-                  </div>
+                  {confirming?.parcelId === offer.parcelId ? (
+                    <div className="notice" role="alertdialog" aria-labelledby={`confirm-${offer.offerId}`}>
+                      <p id={`confirm-${offer.offerId}`}>{confirming.action === "sold" ? m.confirmSold : m.confirmWithdraw}</p>
+                      <div className="actions">
+                        {button(offer.parcelId, confirming.action, m.yes)}
+                        <Link className="button-link" href={`/${locale}/mine`}>
+                          {m.cancel}
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="actions">
+                      {button(offer.parcelId, "still-available", m.stillAvailable)}
+                      <Link className="button-link" href={`/${locale}/mine?confirm=sold&parcel=${offer.parcelId}`}>
+                        {m.sold}
+                      </Link>
+                      <Link className="button-link" href={`/${locale}/mine?confirm=withdraw&parcel=${offer.parcelId}`}>
+                        {m.withdraw}
+                      </Link>
+                    </div>
+                  )}
                 </>
               )}
               <p>

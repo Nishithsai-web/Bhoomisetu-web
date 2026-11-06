@@ -124,18 +124,17 @@ public sealed class OtpServiceTests
     }
 
     [Fact]
-    public async Task Daily_cap_applies_across_hours()
+    public async Task A_rate_limited_number_recovers_within_the_hour()
     {
-        for (var i = 0; i < 10; i++)
+        for (var i = 0; i < 5; i++)
         {
-            Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, CancellationToken.None)).Status);
-            _clock.Advance(TimeSpan.FromMinutes(13)); // 5 per hour stays under the hourly cap
+            await _service.RequestAsync(_phone, CancellationToken.None);
+            _clock.Advance(TimeSpan.FromMinutes(2));
         }
 
-        _clock.Advance(TimeSpan.FromHours(1));
-        var outcome = await _service.RequestAsync(_phone, CancellationToken.None);
-        Assert.Equal(OtpRequestStatus.RateLimited, outcome.Status);
-        Assert.Equal(TimeSpan.FromDays(1), outcome.RetryAfter);
+        var limited = await _service.RequestAsync(_phone, CancellationToken.None);
+        Assert.Equal(OtpRequestStatus.RateLimited, limited.Status);
+        Assert.True(limited.RetryAfter <= TimeSpan.FromHours(1));
     }
 
     [Fact]
@@ -151,7 +150,7 @@ public sealed class OtpServiceTests
     public async Task Parallel_requests_for_one_number_send_only_one_code()
     {
         var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => _service.RequestAsync(_phone, CancellationToken.None)));
-        Assert.Equal(1, results.Count(r => r.Status == OtpRequestStatus.Sent));
+        Assert.Single(results, r => r.Status == OtpRequestStatus.Sent);
         Assert.Single(_store.Challenges);
     }
 

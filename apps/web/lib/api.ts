@@ -37,6 +37,7 @@ export type ComparedOffer = {
 
 export type Comparison = {
   parcelId: string;
+  landClass: "agricultural" | "non_agricultural" | "converted" | "unknown";
   areaSquareYards: number;
   areaAcres: number;
   sort: Sort;
@@ -98,8 +99,30 @@ function baseUrl(): string {
   return url.replace(/\/+$/, "");
 }
 
+/**
+ * The visitor's IP as seen by this web server, forwarded so the API's per-IP limits apply to each visitor and
+ * not to the web server as a whole. Behind a load balancer the last X-Forwarded-For entry is the one the
+ * balancer added (earlier entries can be typed by anyone). The API trusts this header only from the web
+ * server's address (ForwardedHeaders settings).
+ */
+async function visitorIp(): Promise<string | null> {
+  try {
+    const { headers } = await import("next/headers");
+    const h = await headers();
+    const forwarded = h.get("x-forwarded-for");
+    const last = forwarded?.split(",").map((part: string) => part.trim()).filter(Boolean).at(-1);
+    const candidate = last ?? h.get("x-real-ip") ?? null;
+    return candidate && /^[0-9a-fA-F:.]{2,45}$/.test(candidate) ? candidate : null;
+  } catch {
+    // Outside a request (for example at build time) there is no visitor.
+    return null;
+  }
+}
+
 async function request<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown, token?: string): Promise<ApiResult<T>> {
   const headers: Record<string, string> = { accept: "application/json" };
+  const ip = await visitorIp();
+  if (ip) headers["x-forwarded-for"] = ip;
   if (body !== undefined) headers["content-type"] = "application/json";
   if (token) headers.authorization = `Bearer ${token}`;
 

@@ -4,39 +4,45 @@ import { useActionState } from "react";
 import { createOfferAction, type FormState } from "@/app/[locale]/actions";
 import type { Dictionary } from "@/lib/i18n";
 import { Field } from "./Field";
+import { ErrorSummary, useFormFeedback, type FormText } from "./FormFeedback";
 
 type OfferText = Dictionary["offer"];
 
-export function OfferForm({ locale, parcelId, t, errors }: { locale: string; parcelId: string; t: OfferText; errors: Record<string, string> }) {
+export function OfferForm({ locale, parcelId, t, form, errors }: { locale: string; parcelId: string; t: OfferText; form: FormText; errors: Record<string, string> }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createOfferAction, {});
+  const { formRef, summaryRef } = useFormFeedback(state);
   const v = state.values ?? {};
   const fieldError = (name: string) => {
     const code = state.errors?.find((e) => e.field === name)?.code;
-    return code ? (errors[code] ?? errors.generic) : undefined;
+    return code ? (Object.hasOwn(errors, code) ? errors[code] : errors.generic) : undefined;
   };
+  const kindError = fieldError("listerKind");
 
   return (
-    <form action={action} className="card form big" noValidate>
+    <form ref={formRef} action={action} className="card form big" noValidate>
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="parcelId" value={parcelId} />
-      {state.error && (
-        <p role="alert" className="notice error">
-          {errors[state.error] ?? errors.generic}
-        </p>
-      )}
+      <ErrorSummary state={state} text={form} errors={errors} summaryRef={summaryRef} />
 
-      <fieldset className={fieldError("listerKind") ? "choices has-error" : "choices"}>
-        <legend>{t.listerKind}</legend>
+      {/* No answer is pre-selected: agents must not become "owners" by accepting a default. */}
+      <fieldset className={kindError ? "choices has-error" : "choices"} aria-describedby={kindError ? "listerKind-error" : undefined}>
+        <legend>
+          {t.listerKind} <span className="required">{form.requiredMark}</span>
+        </legend>
         {(["owner", "agent"] as const).map((kind) => (
           <label key={kind} className="choice">
-            <input type="radio" name="listerKind" value={kind} defaultChecked={(v.listerKind ?? "owner") === kind} />
+            <input type="radio" name="listerKind" value={kind} defaultChecked={v.listerKind === kind} aria-invalid={Boolean(kindError)} required />
             {t.listerKinds[kind]}
           </label>
         ))}
-        {fieldError("listerKind") && <p className="error">{fieldError("listerKind")}</p>}
+        {kindError && (
+          <p id="listerKind-error" className="error">
+            {kindError}
+          </p>
+        )}
       </fieldset>
 
-      <Field id="askingPrice" label={t.askingPrice} hint={t.askingPriceHint} error={fieldError("askingPrice")}>
+      <Field id="askingPrice" label={t.askingPrice} hint={t.askingPriceHint} error={fieldError("askingPrice")} requiredMark={form.requiredMark}>
         {(describedBy, invalid) => (
           <input id="askingPrice" name="askingPrice" inputMode="decimal" defaultValue={v.askingPrice ?? ""} required aria-describedby={describedBy} aria-invalid={invalid} />
         )}
@@ -56,7 +62,7 @@ export function OfferForm({ locale, parcelId, t, errors }: { locale: string; par
 
       <p className="hint">{t.replaceNote}</p>
       <button type="submit" disabled={pending}>
-        {t.submit}
+        {pending ? form.sending : t.submit}
       </button>
     </form>
   );

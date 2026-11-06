@@ -38,7 +38,7 @@ public sealed record ComparedOfferResponse(
 public sealed record RankingRulesResponse(decimal PriceWeight, decimal AuthorityWeight, decimal ChecksWeight, decimal ResponseWeight, decimal FreshnessWeight,
     decimal LowPriceOutlierRatio, decimal AssumedUndisclosedBrokeragePercent, int StaleAfterDays);
 
-public sealed record ComparisonResponse(Guid ParcelId, decimal AreaSquareYards, decimal AreaAcres, string Sort, decimal? MedianEffectivePriceRupees,
+public sealed record ComparisonResponse(Guid ParcelId, string LandClass, decimal AreaSquareYards, decimal AreaAcres, string Sort, decimal? MedianEffectivePriceRupees,
     RankingRulesResponse Rules, IReadOnlyList<ComparedOfferResponse> Offers);
 
 public static class OfferEndpoints
@@ -202,6 +202,7 @@ public static class OfferEndpoints
         var options = result.Options;
         var response = new ComparisonResponse(
             parcelId,
+            parcel.LandClass,
             Math.Round(squareYards, 2, MidpointRounding.AwayFromZero),
             Math.Round(acres, 4, MidpointRounding.AwayFromZero),
             Vocabulary.Code(parsedSort),
@@ -327,7 +328,16 @@ public static class OfferEndpoints
 
         db.ParcelParties.Remove(existing);
         audit.Add(userId, "parcel.agent_revoked", "parcel", parcelId.ToString(), new { agentUserId });
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // Someone revoked the same agent a moment earlier; the result the owner wanted already holds.
+            return Results.NoContent();
+        }
+
         return Results.NoContent();
     }
 

@@ -13,7 +13,7 @@ export default async function SellPage({ params }: { params: Promise<{ locale: s
     <section className="page narrow">
       <h1>{t.sell.title}</h1>
       <p className="lead">{t.sell.intro}</p>
-      <ParcelForm locale={locale} t={t.sell} unitNames={t.units.names} errors={t.errors as Record<string, string>} />
+      <ParcelForm locale={locale} t={t.sell} unitNames={t.units.names} form={t.form} errors={t.errors as Record<string, string>} />
     </section>
   );
 }

@@ -51,7 +51,8 @@ export async function signInAction(previous: FormState, form: FormData): Promise
     return { step: stay ? "code" : "phone", phone, error: sent.code };
   }
 
-  const result = await verifyOtp(phone, value(form, "code"));
+  // People paste codes as "123 456"; spaces and dashes are not part of the code.
+  const result = await verifyOtp(phone, value(form, "code").replace(/[\s-]/g, ""));
   if (!result.ok) {
     // A finished or locked code needs a fresh one, so send the person back to the phone step.
     const restart = ["otp.expired", "otp.no_active_code", "otp.too_many_attempts"].includes(result.code);

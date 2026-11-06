@@ -64,22 +64,28 @@ public static class AdminEndpoints
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var current = await db.ParcelParties.Where(p => p.ParcelId == parcelId && p.Role == Vocabulary.OwnerOfRecord).ToListAsync(ct);
         db.ParcelParties.RemoveRange(current);
-        await db.SaveChangesAsync(ct);
 
-        db.ParcelParties.Add(new ParcelPartyRecord
+        var newOwner = new ParcelPartyRecord
         {
             ParcelId = parcelId,
             UserId = request.UserId,
             Role = Vocabulary.OwnerOfRecord,
             ConfirmedAt = clock.UtcNow,
             ConfirmedBy = reviewerId,
-        });
+        };
         audit.Add(reviewerId, "parcel.owner_of_record_set", "parcel", parcelId.ToString(),
             new { ownerUserId = request.UserId, previous = current.Select(c => c.UserId).ToArray(), evidence = request.EvidenceNote.Trim() });
         try
         {
+            // Remove the old owner first so the one-owner index never sees two; both steps share the transaction.
+            await db.SaveChangesAsync(ct);
+            db.ParcelParties.Add(newOwner);
             await db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return ApiResults.Problem(StatusCodes.Status409Conflict, "parcel.concurrent_update", "Another reviewer changed the owner at the same moment. Please reload and try again.");
         }
         catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
         {

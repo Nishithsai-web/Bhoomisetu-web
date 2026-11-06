@@ -7,11 +7,12 @@ public sealed record OtpOptions
     public TimeSpan ResendCooldown { get; init; } = TimeSpan.FromSeconds(60);
     public int MaxRequestsPerHour { get; init; } = 5;
 
-    /// <summary>Caps guesses per number per day (5 codes × attempts would otherwise allow unlimited tries over days).</summary>
-    public int MaxRequestsPerDay { get; init; } = 10;
-
-    /// <summary>All numbers together. A safety budget against SMS-pumping fraud; tune with real traffic.</summary>
-    public int MaxSmsPerHourGlobal { get; init; } = 2000;
+    /// <summary>
+    /// All numbers together: a last-resort brake against SMS-pumping fraud. There is deliberately no daily cap
+    /// per number, because anyone could use it to lock a real owner out for a day; per-IP limits and (planned)
+    /// CAPTCHA carry that load instead.
+    /// </summary>
+    public int MaxSmsPerHourGlobal { get; init; } = 20000;
     public int MaxVerifyAttempts { get; init; } = 5;
 
     /// <summary>Server-side secret mixed into the code hash. At least 32 bytes; from the secret store, never from code.</summary>
@@ -24,7 +25,7 @@ public sealed record OtpOptions
             throw new InvalidOperationException("OTP pepper must be at least 32 bytes.");
         }
 
-        if (CodeLength is < 4 or > 8 || Lifetime <= TimeSpan.Zero || ResendCooldown < TimeSpan.Zero || MaxRequestsPerHour < 1 || MaxRequestsPerDay < MaxRequestsPerHour || MaxSmsPerHourGlobal < 1 || MaxVerifyAttempts < 1)
+        if (CodeLength is < 4 or > 8 || Lifetime <= TimeSpan.Zero || ResendCooldown < TimeSpan.Zero || MaxRequestsPerHour < 1 || MaxSmsPerHourGlobal < 1 || MaxVerifyAttempts < 1)
         {
             throw new InvalidOperationException("OTP options are out of range.");
         }

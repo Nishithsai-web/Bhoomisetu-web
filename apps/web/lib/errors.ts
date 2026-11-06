@@ -4,5 +4,6 @@ import type { Dictionary } from "./i18n.ts";
 export function errorText(t: Dictionary, code: string | undefined): string {
   if (!code) return t.errors.generic;
   const messages = t.errors as Record<string, string>;
-  return messages[code] ?? t.errors.generic;
+  // Own keys only: a code such as "constructor" from a URL must not read the object prototype.
+  return Object.hasOwn(messages, code) ? (messages[code] as string) : t.errors.generic;
 }

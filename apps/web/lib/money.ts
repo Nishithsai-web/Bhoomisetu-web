@@ -17,6 +17,7 @@ export function formatRupees(amount: number, intlLocale: string): string {
 
 /** "₹1.25 crore" or "₹48.5 lakh"; plain rupees below one lakh. Words come from the dictionary. */
 export function formatRupeesShort(amount: number, intlLocale: string, words: AmountWords): string {
+  amount = Math.round(amount); // 99,999.6 is read as ₹1 lakh, not ₹1,00,000
   const round2 = (value: number) => Math.round(value * 100) / 100;
   const number = (value: number) => new Intl.NumberFormat(intlLocale, { maximumFractionDigits: 2 }).format(value);
   const lakhs = round2(amount / LAKH);

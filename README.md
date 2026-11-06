@@ -25,7 +25,7 @@ is national, with state rules added as "jurisdiction packs".
 | Land records | Parcels with survey numbers as printed (Telugu and Hindi letters kept), LGD village code, land class, area source, frontage, depth, facing | Built |
 | Road access | Road width with its source (approved layout, measured on map, lister), road type, access right, distance to main road | Built |
 | Duplicate land | Same land typed differently ("123/A/1", "0123-a-1"), with or without the village code, is detected and the second lister is pointed to the existing parcel. Spelling variants of village names still need LGD codes | Built |
-| Sign-in | Indian mobile number + one-time code, hashed; limits per number (cooldown, hour, day), per IP and a platform SMS budget; 24-hour session in an httpOnly cookie | Built (development SMS sender only; CAPTCHA not yet) |
+| Sign-in | Indian mobile number + one-time code (stored only as a keyed hash); limits per number (cooldown, hour), per IP (IPv6 per /64) and a platform SMS budget; 24-hour session in an httpOnly cookie | Built (development SMS sender only; CAPTCHA and sign-out token revocation not yet) |
 | Agent comparison | Effective price, low-price outlier flag, owner authority, checks, four sort orders, badges, score breakdown. A bare "I am the owner" claim is priced like an agent until a reviewer confirms it | Built and tested |
 | Owner authority | Trust reviewer records the owner of record; the owner confirms agents from their offers or revokes them; all changes audited; reviewer rights re-checked on every action | Built |
 | Web app | Home, search by village, mandal or district, area converter, agent comparison, phone sign-in, "List your land" and "Add your price" forms with plain-language hints, in `/en`, `/te`, `/hi` | Built |
@@ -68,6 +68,13 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `POST /api/v1/parcels/{id}/offers/{offerId}/confirm-lister` | Owner confirms the agent who made an offer | Owner of record |
 | `POST`/`DELETE /api/v1/parcels/{id}/agents/{userId}/confirm` | Owner confirms or revokes an agent by account | Owner of record |
 | `POST /api/v1/admin/parcels/{id}/owner-of-record` | Record the owner after document review | Trust reviewer |
+| `GET /api/v1/me/offers` | My listings: all my offers with how long since availability was confirmed | Yes |
+| `POST /api/v1/parcels/{id}/offers/mine/still-available` | Confirm my land is still available | Yes |
+| `POST /api/v1/parcels/{id}/offers/mine/sold` | Mark my offer as sold | Yes |
+| `POST /api/v1/parcels/{id}/change-requests` | Ask to correct a land detail, with a reason | Listed, offered or owns the land |
+| `GET /api/v1/me/change-requests` | My correction requests and their decisions | Yes |
+| `GET /api/v1/admin/change-requests?status=pending` | Correction queue, oldest first | Trust reviewer |
+| `POST /api/v1/admin/change-requests/{id}/decision` | Approve or reject (not your own, not land you are involved with) | Trust reviewer |
 | `GET /health/live`, `/health/ready` | Health checks | No |
 
 Errors use RFC 9457 problem responses with a stable `code` (for example `parcel.already_exists`) that the
@@ -91,8 +98,10 @@ npm install
 npm run dev                                    # http://localhost:3000
 ```
 
-In Development the one-time code is written to the API log instead of being sent by SMS. The API refuses to
-start in any other environment until a DLT-registered SMS provider is added.
+In Development (and the automated "Testing" environment) the one-time code is written to the API log
+instead of being sent by SMS. The API refuses to start in any other environment until a DLT-registered SMS
+provider is added and `ForwardedHeaders:KnownProxies` or `KnownNetworks` lists the load balancer and the web
+server, so rate limits see real visitor IPs.
 
 ## Tests
 

@@ -29,7 +29,7 @@ export default async function OfferPage({ params, searchParams }: Props) {
           {t.offer.created}
         </p>
       )}
-      <OfferForm locale={locale} parcelId={id} t={t.offer} errors={t.errors as Record<string, string>} />
+      <OfferForm locale={locale} parcelId={id} t={t.offer} form={t.form} errors={t.errors as Record<string, string>} />
     </section>
   );
 }

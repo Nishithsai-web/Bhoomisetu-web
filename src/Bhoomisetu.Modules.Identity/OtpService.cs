@@ -46,12 +46,8 @@ public sealed class OtpService
                 return new OtpRequestOutcome(OtpRequestStatus.RateLimited, TimeSpan.FromHours(1));
             }
 
-            if (await _store.CountCreatedSinceAsync(phone.E164, now - TimeSpan.FromDays(1), cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerDay)
-            {
-                return new OtpRequestOutcome(OtpRequestStatus.RateLimited, TimeSpan.FromDays(1));
-            }
-
-            // Platform-wide SMS budget: stops SMS-pumping fraud from running up the bill across many numbers.
+            // Platform-wide SMS budget: a last-resort brake against SMS-pumping fraud across many numbers. Set it
+            // far above normal traffic; the API logs every refusal so it is noticed and tuned, not silently hit.
             if (await _store.CountAllCreatedSinceAsync(now - TimeSpan.FromHours(1), cancellationToken).ConfigureAwait(false) >= _options.MaxSmsPerHourGlobal)
             {
                 return new OtpRequestOutcome(OtpRequestStatus.Busy, TimeSpan.FromMinutes(5));

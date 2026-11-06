@@ -38,15 +38,15 @@ export default async function ComparePage({ params, searchParams }: Props) {
   const data = result.data;
   const dateFormat = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
   const words = t.amounts;
-  // Farmland is priced per acre, plots per gajam: show whichever buyers of this land use.
-  const perAcre = data.areaAcres >= 1;
+  // Farmland is priced per acre, house plots per gajam: show whichever buyers of this land use.
+  const perAcre = data.landClass === "agricultural";
 
   return (
     <section className="page">
       <h1>{c.title}</h1>
       <p className="lead">
         {format(c.summary, {
-          count: data.offers.length,
+          offers: data.offers.length === 1 ? t.parcels.offersOne : format(t.parcels.offers, { count: data.offers.length }),
           area: formatNumber(data.areaSquareYards, intl),
           acres: formatNumber(data.areaAcres, intl, 4),
           median: data.medianEffectivePriceRupees === null ? c.unknown : formatRupeesShort(data.medianEffectivePriceRupees, intl, words),

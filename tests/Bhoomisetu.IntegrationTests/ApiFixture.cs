@@ -62,6 +62,7 @@ public sealed class ApiFixture : IAsyncLifetime
         Environment.SetEnvironmentVariable("RateLimits__OtpPerIpPerMinute", "10000");
         Environment.SetEnvironmentVariable("Otp__ResendCooldownSeconds", "0");
         Environment.SetEnvironmentVariable("Otp__MaxRequestsPerHour", "100");
+        Environment.SetEnvironmentVariable("Otp__MaxSmsPerHourGlobal", "100000");
         Environment.SetEnvironmentVariable("RateLimits__RequestsPerIpPerMinute", "100000");
 
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
@@ -108,7 +109,7 @@ public sealed class ApiFixture : IAsyncLifetime
         var e164 = IndianMobileNumber.Parse(phone).Value.E164;
         var verify = await client.PostAsJsonAsync("/api/v1/auth/otp/verify", new { phone, code = Sms.CodeFor(e164) }, Ct);
         verify.EnsureSuccessStatusCode();
-        var body = await verify.Content.ReadFromJsonAsync<SignIn>(, Ct);
+        var body = await verify.Content.ReadFromJsonAsync<SignIn>(Ct);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.AccessToken);
         return (client, body.UserId);
     }

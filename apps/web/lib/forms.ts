@@ -170,8 +170,13 @@ export function parseOfferForm(form: Form): Parsed<CreateOffer> {
   };
 }
 
-/** Only same-site relative paths, so a crafted ?next= cannot send people to another site after sign-in. */
+/**
+ * Where to go after sign-in. Only this site's own pages: a language prefix, then letters, digits, - and /,
+ * with an optional simple query. Anything else (other sites, //, \\, tabs or newlines that browsers drop)
+ * falls back, so a crafted ?next= cannot send people elsewhere after they sign in.
+ */
+const SAFE_NEXT = /^\/(en|te|hi)(\/[A-Za-z0-9\-/]*)?(\?[A-Za-z0-9=&%\-_.]*)?$/;
+
 export function safeNextPath(raw: unknown, fallback: string): string {
-  if (typeof raw !== "string" || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) return fallback;
-  return raw;
+  return typeof raw === "string" && SAFE_NEXT.test(raw) && !raw.includes("//") ? raw : fallback;
 }

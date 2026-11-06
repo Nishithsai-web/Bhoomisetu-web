@@ -103,6 +103,14 @@ test("offer form rules", () => {
   assert.ok(!tooHigh.ok);
 });
 
+test("next path rejects control characters and anything outside this site", () => {
+  for (const bad of ["/\t/evil.example", "/en\n//evil.example", "/%09/evil.example", "/fr/sell", "/en/../../x", "javascript:alert(1)", "/en//evil"]) {
+    assert.equal(safeNextPath(bad, "/en"), "/en", JSON.stringify(bad));
+  }
+  assert.equal(safeNextPath("/hi/parcels/0b8f5c2e-1111-4a2b-9c3d-123456789abc/offer", "/en"), "/hi/parcels/0b8f5c2e-1111-4a2b-9c3d-123456789abc/offer");
+  assert.equal(safeNextPath("/te/mine?done=sold", "/en"), "/te/mine?done=sold");
+});
+
 test("only same-site next paths are allowed", () => {
   assert.equal(safeNextPath("/te/sell", "/en"), "/te/sell");
   assert.equal(safeNextPath("//evil.example", "/en"), "/en");

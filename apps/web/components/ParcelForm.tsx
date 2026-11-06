@@ -6,6 +6,7 @@ import { ACCESS_RIGHTS, AREA_SOURCES, FACINGS, LAND_CLASSES, LENGTH_UNITS, ROAD_
 import { AREA_UNITS, type AreaUnit } from "@/lib/units";
 import type { Dictionary } from "@/lib/i18n";
 import { Field } from "./Field";
+import { ErrorSummary, useFormFeedback, type FormText } from "./FormFeedback";
 
 type SellText = Dictionary["sell"];
 
@@ -13,19 +14,20 @@ type SellText = Dictionary["sell"];
  * The land listing form, in four short numbered sections with a hint under every field. Only location,
  * survey number, land type and area are required; everything else can be left empty and added later.
  */
-export function ParcelForm({ locale, t, unitNames, errors }: { locale: string; t: SellText; unitNames: Record<AreaUnit, string>; errors: Record<string, string> }) {
+export function ParcelForm({ locale, t, unitNames, form, errors }: { locale: string; t: SellText; unitNames: Record<AreaUnit, string>; form: FormText; errors: Record<string, string> }) {
   const [state, action, pending] = useActionState<FormState, FormData>(createParcelAction, {});
+  const { formRef, summaryRef } = useFormFeedback(state);
   const v = state.values ?? {};
   const fieldError = (name: string) => {
     const code = state.errors?.find((e) => e.field === name)?.code;
-    return code ? (errors[code] ?? errors.generic) : undefined;
+    return code ? (Object.hasOwn(errors, code) ? errors[code] : errors.generic) : undefined;
   };
 
   const text = (name: keyof SellText & string, required = false, inputMode?: "decimal" | "numeric") => {
     const hintKey = `${name}Hint` as keyof SellText;
     const hint = typeof t[hintKey] === "string" ? (t[hintKey] as string) : undefined;
     return (
-      <Field id={name} label={t[name] as string} hint={hint} error={fieldError(name)}>
+      <Field id={name} label={t[name] as string} hint={hint} error={fieldError(name)} requiredMark={required ? form.requiredMark : undefined}>
         {(describedBy, invalid) => (
           <input id={name} name={name} defaultValue={v[name] ?? ""} required={required} inputMode={inputMode} aria-describedby={describedBy} aria-invalid={invalid} />
         )}
@@ -34,10 +36,10 @@ export function ParcelForm({ locale, t, unitNames, errors }: { locale: string; t
   };
 
   const select = (name: string, label: string, options: readonly string[], names: Record<string, string>, opts: { required?: boolean; empty?: string; initial?: string } = {}) => (
-    <Field id={name} label={label} error={fieldError(name)}>
+    <Field id={name} label={label} error={fieldError(name)} requiredMark={opts.required ? form.requiredMark : undefined}>
       {(describedBy, invalid) => (
         <select id={name} name={name} defaultValue={v[name] ?? opts.initial ?? ""} required={opts.required} aria-describedby={describedBy} aria-invalid={invalid}>
-          {opts.empty !== undefined && <option value="">{opts.empty}</option>}
+          {opts.empty !== undefined && <option value="">{opts.empty || form.choose}</option>}
           {options.map((o) => (
             <option key={o} value={o}>
               {names[o] ?? o}
@@ -49,13 +51,9 @@ export function ParcelForm({ locale, t, unitNames, errors }: { locale: string; t
   );
 
   return (
-    <form action={action} className="form big" noValidate>
+    <form ref={formRef} action={action} className="form big" noValidate>
       <input type="hidden" name="locale" value={locale} />
-      {state.error && (
-        <p role="alert" className="notice error">
-          {errors[state.error] ?? errors.generic}
-        </p>
-      )}
+      <ErrorSummary state={state} text={form} errors={errors} summaryRef={summaryRef} />
 
       <fieldset className="card">
         <legend>{t.step1}</legend>
@@ -95,7 +93,7 @@ export function ParcelForm({ locale, t, unitNames, errors }: { locale: string; t
         <legend>{t.step4}</legend>
         <p className="hint">{t.afterSubmit}</p>
         <button type="submit" disabled={pending}>
-          {t.submit}
+          {pending ? form.sending : t.submit}
         </button>
       </fieldset>
     </form>

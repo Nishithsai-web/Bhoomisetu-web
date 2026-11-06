@@ -39,10 +39,24 @@ var otpOptions = new OtpOptions
     Pepper = string.IsNullOrWhiteSpace(pepperBase64) ? [] : Convert.FromBase64String(pepperBase64),
     ResendCooldown = TimeSpan.FromSeconds(config.GetValue("Otp:ResendCooldownSeconds", 60)),
     MaxRequestsPerHour = config.GetValue("Otp:MaxRequestsPerHour", 5),
-    MaxRequestsPerDay = config.GetValue("Otp:MaxRequestsPerDay", 10),
-    MaxSmsPerHourGlobal = config.GetValue("Otp:MaxSmsPerHourGlobal", 2000),
+    MaxSmsPerHourGlobal = config.GetValue("Otp:MaxSmsPerHourGlobal", 20000),
 };
 otpOptions.Validate();
+
+// Behind a load balancer or the web server, the client IP comes from X-Forwarded-For, which is trusted only
+// from these addresses (KnownProxies) or ranges (KnownNetworks, CIDR such as 10.0.0.0/16 for a VPC).
+var knownProxies = (config.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
+    .Select(address => System.Net.IPAddress.Parse(address))
+    .ToList();
+var knownNetworks = (config.GetSection("ForwardedHeaders:KnownNetworks").Get<string[]>() ?? [])
+    .Select(cidr => System.Net.IPNetwork.Parse(cidr))
+    .ToList();
+var isLocalEnvironment = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
+if (!isLocalEnvironment && knownProxies.Count == 0 && knownNetworks.Count == 0)
+{
+    throw new InvalidOperationException(
+        "ForwardedHeaders:KnownProxies or KnownNetworks must list the load balancer and web server, or every user shares one rate limit.");
+}
 
 var smsProvider = config["Sms:Provider"] ?? "development";
 if (!string.Equals(smsProvider, "development", StringComparison.OrdinalIgnoreCase))
@@ -52,20 +66,10 @@ if (!string.Equals(smsProvider, "development", StringComparison.OrdinalIgnoreCas
 }
 
 // "Testing" is the automated test environment (WebApplicationFactory); it never serves real users.
-var isLocalEnvironment = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
 if (!isLocalEnvironment)
 {
     throw new InvalidOperationException(
         "Refusing to start: the development OTP sender writes codes to the log. Configure a DLT-registered SMS provider before running outside Development.");
-}
-
-// Behind a load balancer the client IP comes from X-Forwarded-For, which is trusted only from these proxies.
-var knownProxies = (config.GetSection("ForwardedHeaders:KnownProxies").Get<string[]>() ?? [])
-    .Select(System.Net.IPAddress.Parse)
-    .ToList();
-if (!isLocalEnvironment && knownProxies.Count == 0)
-{
-    throw new InvalidOperationException("ForwardedHeaders:KnownProxies must list the load balancer addresses, or every user shares one rate limit.");
 }
 
 var otpRequestsPerIpPerMinute = config.GetValue("RateLimits:OtpPerIpPerMinute", 10);
@@ -118,10 +122,10 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.AddPolicy(RateLimitPolicies.Otp, http => RateLimitPartition.GetFixedWindowLimiter(
-        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        RateLimitPolicies.ClientKey(http),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = otpRequestsPerIpPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http => RateLimitPartition.GetFixedWindowLimiter(
-        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        RateLimitPolicies.ClientKey(http),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = requestsPerIpPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
 
@@ -136,6 +140,11 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     foreach (var proxy in knownProxies)
     {
         options.KnownProxies.Add(proxy);
+    }
+
+    foreach (var network in knownNetworks)
+    {
+        options.KnownIPNetworks.Add(network);
     }
 });
 
@@ -189,6 +198,33 @@ namespace Bhoomisetu.Api
     public static class RateLimitPolicies
     {
         public const string Otp = "otp";
+
+        /// <summary>
+        /// Rate-limit key for a client: the IPv4 address, or the /64 prefix for IPv6, because one home or phone
+        /// connection usually owns a whole /64 and could otherwise rotate addresses to dodge the limit.
+        /// </summary>
+        public static string ClientKey(HttpContext http)
+        {
+            var ip = http.Connection.RemoteIpAddress;
+            if (ip is null)
+            {
+                return "unknown";
+            }
+
+            if (ip.IsIPv4MappedToIPv6)
+            {
+                ip = ip.MapToIPv4();
+            }
+
+            if (ip.AddressFamily != System.Net.Sockets.AddressFamily.InterNetworkV6)
+            {
+                return ip.ToString();
+            }
+
+            var bytes = ip.GetAddressBytes();
+            Array.Clear(bytes, 8, 8);
+            return new System.Net.IPAddress(bytes) + "/64";
+        }
     }
 
     internal sealed class DatabaseHealthCheck(BhoomisetuDbContext db) : IHealthCheck

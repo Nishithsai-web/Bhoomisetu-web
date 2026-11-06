@@ -100,19 +100,25 @@ reads the system clock directly.
 | Time comes from `IClock` | Rules about expiry and freshness must be testable | architecture test |
 | Anything that changes trust (owner, agent confirmation) is audited in the same transaction | Disputes need evidence | `AuditWriter`, append-only trigger |
 | Ranking weights are configuration, published to users | Fairness must be visible and changeable without code | `Ranking` in `appsettings.json`, `RankingOptions.Validate` |
-| Personal data stays minimal: phone numbers are hashed into OTPs and masked in responses | DPDP-aligned, less to leak | code review, tests |
+| Personal data stays minimal: one-time codes are stored only as keyed hashes; phone numbers are stored (they are the account) but masked in every response | DPDP-aligned, less to leak | code review, tests |
 
 ### Security model in one page
 
-- Sign-in is phone + one-time code. Codes are stored as HMAC hashes with a server secret, compared in
-  constant time, limited per number (cooldown, hourly, daily), per IP, and by a platform-wide SMS budget.
-  Requests for one number are serialised with a database advisory lock.
+- Sign-in is phone + one-time code. Codes are stored as HMAC hashes with a server secret and compared in
+  constant time. Requests are limited per number (cooldown and hourly; no daily cap, because anyone could use
+  it to lock a real owner out), per IP (IPv6 per /64), and by a platform-wide SMS budget that is logged when
+  hit. Requests for one number are serialised with a database advisory lock. A CAPTCHA is planned before
+  public launch.
+- The web server calls the API on the visitor's behalf and forwards the visitor's IP; the API trusts that
+  header only from addresses listed in `ForwardedHeaders`.
 - The API issues a signed token (24 hours). The web app keeps it in an httpOnly cookie.
 - Roles: anyone signed in can list land and offers; only the **owner of record** can confirm agents; only a
   **trust reviewer** can record an owner, and the database is re-checked on every reviewer action so a removed
   reviewer loses access at once.
-- The API refuses to start outside Development until a DLT-registered SMS provider is configured, and outside
-  local environments until trusted proxy addresses are set (so rate limits see real client IPs).
+- Outside Development and Testing the API refuses to start until trusted proxy addresses or networks are set
+  (checked first) and a DLT-registered SMS provider is configured.
+- Signing out deletes the cookie; the token itself stays valid until it expires (24 hours). Server-side
+  revocation is planned.
 
 ### Where AI fits (planned)
 

@@ -85,6 +85,7 @@ public sealed partial record ParcelLocation
         return Result<ParcelLocation>.Success(new ParcelLocation(state, Clean(district), Clean(mandal), Clean(village), lgd, survey.Value));
     }
 
+    /// <summary>Trim and collapse whitespace (including U+00A0). Must match parcel_name_part() in migration 0003.</summary>
     private static string Clean(string? value) => WhitespacePattern().Replace((value ?? string.Empty).Trim(), " ");
 
     private static string Key(string value) => Clean(value).ToLowerInvariant();

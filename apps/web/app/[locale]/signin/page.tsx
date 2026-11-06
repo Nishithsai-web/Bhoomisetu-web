@@ -16,7 +16,7 @@ export default async function SignInPage({ params, searchParams }: Props) {
     <section className="page narrow">
       <h1>{t.signin.title}</h1>
       <p className="lead">{t.signin.intro}</p>
-      <SignInForm locale={locale} next={next} labels={t.signin} errors={t.errors as Record<string, string>} />
+      <SignInForm locale={locale} next={next} labels={{ ...t.signin, sending: t.form.sending }} errors={t.errors as Record<string, string>} />
     </section>
   );
 }

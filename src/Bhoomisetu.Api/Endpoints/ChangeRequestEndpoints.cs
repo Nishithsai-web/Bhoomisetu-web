@@ -142,7 +142,10 @@ public static class ChangeRequestEndpoints
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var request = await db.ChangeRequests.FirstOrDefaultAsync(r => r.Id == requestId, ct);
+        // Lock the row, so two reviewers deciding at the same moment cannot both apply it.
+        var request = (await db.ChangeRequests
+            .FromSql($"SELECT * FROM parcel_change_requests WHERE id = {requestId} FOR UPDATE")
+            .ToListAsync(ct)).SingleOrDefault();
         if (request is null)
         {
             return ApiResults.NotFound("Change request");
@@ -156,6 +159,15 @@ public static class ChangeRequestEndpoints
         if (request.RequestedBy == reviewerId)
         {
             return ApiResults.Forbidden("change.self_review", "A reviewer cannot decide their own request.");
+        }
+
+        // A reviewer with a stake in the land (listed it, has an offer, or is a party) must leave it to another reviewer.
+        var reviewerInvolved = await db.Parcels.AnyAsync(p => p.Id == request.ParcelId && p.CreatedBy == reviewerId, ct)
+            || await db.Offers.AnyAsync(o => o.ParcelId == request.ParcelId && o.ListerUserId == reviewerId, ct)
+            || await db.ParcelParties.AnyAsync(p => p.ParcelId == request.ParcelId && p.UserId == reviewerId, ct);
+        if (reviewerInvolved)
+        {
+            return ApiResults.Forbidden("change.reviewer_involved", "You are involved with this land, so another reviewer must decide.");
         }
 
         var now = clock.UtcNow;
@@ -249,8 +261,9 @@ public static class ParcelFacts
             case "facing": p.Facing = value; break;
             case "road_width_m":
                 p.RoadWidthM = decimal.Parse(value, CultureInfo.InvariantCulture);
-                // A corrected width is someone's statement until a reviewer measures it; keep any stronger source.
-                p.RoadWidthSource ??= "lister";
+                // The new number is the requester's statement, so the label must say so, even if the old width came
+                // from an approved layout. A reviewer who measures it can upgrade the source later.
+                p.RoadWidthSource = "lister";
                 break;
             case "road_type": p.RoadType = value; break;
             case "access_right": p.AccessRight = value; break;

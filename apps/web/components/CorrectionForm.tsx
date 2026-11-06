@@ -5,6 +5,7 @@ import { changeRequestAction, type FormState } from "@/app/[locale]/actions";
 import { ACCESS_RIGHTS, CHANGE_FIELDS, FACINGS, LAND_CLASSES, ROAD_TYPES } from "@/lib/forms";
 import type { Dictionary } from "@/lib/i18n";
 import { Field } from "./Field";
+import { ErrorSummary, useFormFeedback, type FormText } from "./FormFeedback";
 
 type ChangeField = (typeof CHANGE_FIELDS)[number];
 
@@ -14,13 +15,15 @@ type ChangeField = (typeof CHANGE_FIELDS)[number];
  */
 export function CorrectionForm({ locale, parcelId, t, errors }: { locale: string; parcelId: string; t: Dictionary; errors: Record<string, string> }) {
   const [state, action, pending] = useActionState<FormState, FormData>(changeRequestAction, {});
+  const { formRef, summaryRef } = useFormFeedback(state);
+  const form: FormText = t.form;
   const v = state.values ?? {};
   const [field, setField] = useState<ChangeField>((CHANGE_FIELDS as readonly string[]).includes(v.field ?? "") ? (v.field as ChangeField) : "road_width_m");
   const c = t.correct;
   const s = t.sell;
   const fieldError = (name: string) => {
     const code = state.errors?.find((e) => e.field === name)?.code;
-    return code ? (errors[code] ?? errors.generic) : undefined;
+    return code ? (Object.hasOwn(errors, code) ? errors[code] : errors.generic) : undefined;
   };
 
   const choices: Partial<Record<ChangeField, { options: readonly string[]; names: Record<string, string> }>> = {
@@ -33,14 +36,10 @@ export function CorrectionForm({ locale, parcelId, t, errors }: { locale: string
   const isLength = field === "road_width_m" || field === "frontage_m" || field === "depth_m";
 
   return (
-    <form action={action} className="card form big" noValidate>
+    <form ref={formRef} action={action} className="card form big" noValidate>
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="parcelId" value={parcelId} />
-      {state.error && (
-        <p role="alert" className="notice error">
-          {errors[state.error] ?? errors.generic}
-        </p>
-      )}
+      <ErrorSummary state={state} text={form} errors={errors} summaryRef={summaryRef} />
 
       <Field id="field" label={c.field} error={fieldError("field")}>
         {(describedBy) => (
@@ -54,11 +53,11 @@ export function CorrectionForm({ locale, parcelId, t, errors }: { locale: string
         )}
       </Field>
 
-      <Field id="proposedValue" label={c.proposedValue} hint={choice ? undefined : c.proposedValueHint} error={fieldError("proposedValue")}>
+      <Field id="proposedValue" label={c.proposedValue} hint={choice ? undefined : c.proposedValueHint} error={fieldError("proposedValue")} requiredMark={form.requiredMark}>
         {(describedBy, invalid) =>
           choice ? (
-            <select id="proposedValue" name="proposedValue" key={field} defaultValue="" aria-describedby={describedBy} aria-invalid={invalid}>
-              <option value="" />
+            <select id="proposedValue" name="proposedValue" key={field} defaultValue={v.field === field ? (v.proposedValue ?? "") : ""} aria-describedby={describedBy} aria-invalid={invalid}>
+              <option value="">{form.choose}</option>
               {choice.options.map((o) => (
                 <option key={o} value={o}>
                   {choice.names[o] ?? o}
@@ -82,7 +81,7 @@ export function CorrectionForm({ locale, parcelId, t, errors }: { locale: string
         </Field>
       )}
 
-      <Field id="reason" label={c.reason} hint={c.reasonHint} error={fieldError("reason")}>
+      <Field id="reason" label={c.reason} hint={c.reasonHint} error={fieldError("reason")} requiredMark={form.requiredMark}>
         {(describedBy, invalid) => (
           <textarea id="reason" name="reason" rows={3} maxLength={1000} defaultValue={v.reason ?? ""} aria-describedby={describedBy} aria-invalid={invalid} />
         )}
@@ -90,7 +89,7 @@ export function CorrectionForm({ locale, parcelId, t, errors }: { locale: string
 
       <p className="hint">{c.notListed}</p>
       <button type="submit" disabled={pending}>
-        {c.submit}
+        {pending ? form.sending : c.submit}
       </button>
     </form>
   );

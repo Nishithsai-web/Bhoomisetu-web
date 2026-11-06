@@ -37,6 +37,12 @@ public static class AuthEndpoints
                 return Results.Accepted();
             }
 
+            if (outcome.Status == OtpRequestStatus.Busy)
+            {
+                http.RequestServices.GetRequiredService<ILogger<OtpRequestBody>>()
+                    .LogWarning("Platform SMS budget reached; OTP refused for {Phone}. Check for SMS-pumping or raise Otp:MaxSmsPerHourGlobal.", phone.Value.Masked);
+            }
+
             var retry = (int)Math.Ceiling((outcome.RetryAfter ?? TimeSpan.FromMinutes(1)).TotalSeconds);
             http.Response.Headers.RetryAfter = retry.ToString(CultureInfo.InvariantCulture);
             var extra = new Dictionary<string, object?> { ["retryAfterSeconds"] = retry };

@@ -18,6 +18,8 @@ public sealed class SurveyNumberAndLocationTests
     [InlineData("७/क", "7/क")] // Devanagari khasra sub-division
     [InlineData("0123A", "123A")] // leading zeros in a mixed part
     [InlineData("0A/1", "0A/1")] // a zero followed by a letter is kept
+    [InlineData("45/\u0C06\u200C", "45/\u0C06")] // zero-width non-joiner from a phone keyboard
+    [InlineData("12/\u0964", null)] // Devanagari danda is punctuation
     [InlineData("౧౨౩/A", "123/A")] // Telugu digits
     [InlineData("१२३/A", "123/A")] // Devanagari digits
     [InlineData("0", "0")]
@@ -75,6 +77,14 @@ public sealed class SurveyNumberAndLocationTests
         Assert.NotEqual(withCode.ParcelKey, withoutCode.ParcelKey);
         Assert.Equal(withCode.NameKey, withoutCode.NameKey);
         Assert.Equal(withoutCode.ParcelKey, withoutCode.NameKey);
+    }
+
+    [Fact]
+    public void Non_breaking_spaces_in_names_match_normal_spaces()
+    {
+        var a = ParcelLocation.Create("TG", "Ranga\u00A0Reddy", "Shankarpalle", "Mokila", null, "123").Value;
+        var b = ParcelLocation.Create("TG", "ranga reddy", "Shankarpalle", "Mokila", null, "123").Value;
+        Assert.Equal(a.NameKey, b.NameKey);
     }
 
     [Fact]

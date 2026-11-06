@@ -73,7 +73,7 @@
   },
   "compare": {
     "title": "Compare offers for this land",
-    "summary": "{count} offers · {area} gajams ({acres} acres) · median price {median}",
+    "summary": "{offers} · {area} gajams ({acres} acres) · median price {median}",
     "sortLabel": "Sort by",
     "sorts": {
       "best_value": "Best value",
@@ -144,7 +144,7 @@
     "verify": "Sign in",
     "changeNumber": "Use a different number",
     "resend": "Send a new code",
-    "privacy": "Your number is never shown to buyers or agents. Calls go through a masked number."
+    "privacy": "Your mobile number is not shown on listings. We use it only to sign you in."
   },
   "sell": {
     "title": "List your land",
@@ -228,7 +228,7 @@
     "distanceToMainRoadM": "Distance to the main road (metres)",
     "distanceToMainRoadMHint": "Leave empty if the land is on the main road",
     "submit": "Send for listing",
-    "afterSubmit": "Next you will add your price. Our team checks every listing before it shows a verified badge."
+    "afterSubmit": "Next you will add your price. Buyers see exactly which checks were done for your listing."
   },
   "offer": {
     "title": "Add your price",
@@ -294,7 +294,8 @@
     "change.same_value": "That is already the recorded value.",
     "change.value_invalid": "Please check the new value.",
     "change.value_required": "Please give the correct value.",
-    "change.field_invalid": "Please choose which detail is wrong."
+    "change.field_invalid": "Please choose which detail is wrong.",
+    "change.reviewer_involved": "You are involved with this land, so another reviewer must decide."
   },
   "mine": {
     "title": "My listings",
@@ -302,7 +303,7 @@
     "empty": "You have not listed any land yet.",
     "listLand": "List your land",
     "stillAvailable": "Still available",
-    "sold": "Sold",
+    "sold": "Mark as sold",
     "withdraw": "Remove my offer",
     "correct": "Correct a land detail",
     "confirmedDaysAgo": "Availability confirmed {days} days ago",
@@ -324,7 +325,11 @@
       "pending": "Waiting for review",
       "approved": "Approved",
       "rejected": "Not approved"
-    }
+    },
+    "confirmSold": "Mark this land as sold? It will stop showing to buyers.",
+    "confirmWithdraw": "Remove your offer? Buyers will no longer see your price.",
+    "yes": "Yes, continue",
+    "cancel": "Cancel"
   },
   "correct": {
     "title": "Correct a land detail",
@@ -346,5 +351,12 @@
     "reasonHint": "For example: the panchayat widened the road last year",
     "submit": "Send for review",
     "notListed": "Location and survey number cannot be changed here, because they decide which land this is. Contact support for those."
+  },
+  "form": {
+    "choose": "Choose one",
+    "requiredMark": "(required)",
+    "fixBelow": "Please check the {count} highlighted fields below.",
+    "fixOne": "Please check the highlighted field below.",
+    "sending": "Sending…"
   }
 }
