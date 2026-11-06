@@ -11,7 +11,8 @@
     "skipToContent": "Skip to content",
     "sell": "List your land",
     "signIn": "Sign in",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "mine": "My listings"
   },
   "amounts": {
     "lakh": "lakh",
@@ -286,6 +287,64 @@
     "otp.busy": "We are sending many codes right now. Please try again in a few minutes.",
     "parcel.invalid": "Some numbers are outside the allowed range. Please check them.",
     "area.too_small": "This area is too small for a piece of land. Please check the number and unit.",
-    "parcel.concurrent_update": "This was changed at the same moment. Please try again."
+    "parcel.concurrent_update": "This was changed at the same moment. Please try again.",
+    "change.reason_required": "Please say briefly why the detail is wrong.",
+    "change.not_involved": "Only people who listed, offered or own this land can ask for a correction.",
+    "change.already_pending": "You already asked to correct this detail. A reviewer will look at it soon.",
+    "change.same_value": "That is already the recorded value.",
+    "change.value_invalid": "Please check the new value.",
+    "change.value_required": "Please give the correct value.",
+    "change.field_invalid": "Please choose which detail is wrong."
+  },
+  "mine": {
+    "title": "My listings",
+    "intro": "Keep your prices up to date. Buyers see when you last confirmed the land is available.",
+    "empty": "You have not listed any land yet.",
+    "listLand": "List your land",
+    "stillAvailable": "Still available",
+    "sold": "Sold",
+    "withdraw": "Remove my offer",
+    "correct": "Correct a land detail",
+    "confirmedDaysAgo": "Availability confirmed {days} days ago",
+    "confirmedToday": "Availability confirmed today",
+    "needsConfirmation": "Please confirm this land is still available. Old offers move down the list.",
+    "status": {
+      "active": "Showing to buyers",
+      "withdrawn": "Removed",
+      "sold": "Sold"
+    },
+    "done": {
+      "still-available": "Thanks. Buyers can see the land is still available.",
+      "sold": "Marked as sold. It no longer shows to buyers.",
+      "withdraw": "Your offer is removed.",
+      "change-requested": "Your correction was sent. A reviewer will check it, usually within two working days."
+    },
+    "requests": "My correction requests",
+    "requestStatus": {
+      "pending": "Waiting for review",
+      "approved": "Approved",
+      "rejected": "Not approved"
+    }
+  },
+  "correct": {
+    "title": "Correct a land detail",
+    "intro": "Tell us what is wrong. A reviewer checks every correction before it changes the listing.",
+    "field": "Which detail is wrong?",
+    "fields": {
+      "road_width_m": "Road width",
+      "frontage_m": "Width at the front",
+      "depth_m": "Length (depth)",
+      "facing": "Which side faces the road",
+      "road_type": "Type of road",
+      "access_right": "How you reach the land",
+      "distance_to_main_road_m": "Distance to the main road (metres)",
+      "land_class": "Type of land"
+    },
+    "proposedValue": "Correct value",
+    "proposedValueHint": "Only the new value, for example 30",
+    "reason": "Why is it wrong?",
+    "reasonHint": "For example: the panchayat widened the road last year",
+    "submit": "Send for review",
+    "notListed": "Location and survey number cannot be changed here, because they decide which land this is. Contact support for those."
   }
 }

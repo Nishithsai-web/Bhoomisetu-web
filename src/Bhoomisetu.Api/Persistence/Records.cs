@@ -106,3 +106,19 @@ public sealed class AuditRecord
     public string EntityId { get; set; } = string.Empty;
     public string Details { get; set; } = "{}";
 }
+
+public sealed class ParcelChangeRequestRecord
+{
+    public Guid Id { get; set; }
+    public Guid ParcelId { get; set; }
+    public Guid RequestedBy { get; set; }
+    public string Field { get; set; } = string.Empty;
+    public string? CurrentValue { get; set; }
+    public string ProposedValue { get; set; } = string.Empty;
+    public string Reason { get; set; } = string.Empty;
+    public string Status { get; set; } = "pending";
+    public Guid? DecidedBy { get; set; }
+    public DateTimeOffset? DecidedAt { get; set; }
+    public string? DecisionNote { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}

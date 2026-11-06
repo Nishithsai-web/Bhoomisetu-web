@@ -190,3 +190,51 @@ export type CreateOffer = { listerKind: "owner" | "agent"; askingPriceRupees: nu
 export function createOffer(parcelId: string, body: CreateOffer, token: string): Promise<ApiResult<{ id: string }>> {
   return request<{ id: string }>("POST", `/api/v1/parcels/${encodeURIComponent(parcelId)}/offers`, body, token);
 }
+
+export type MyOffer = {
+  offerId: string;
+  parcelId: string;
+  village: string;
+  mandal: string;
+  district: string;
+  surveyNumber: string;
+  areaSquareYards: number;
+  listerKind: "owner" | "agent";
+  askingPriceRupees: number;
+  buyerBrokeragePercent: number | null;
+  status: "active" | "withdrawn" | "sold";
+  availabilityConfirmedAt: string;
+  daysSinceConfirmed: number;
+  needsConfirmation: boolean;
+};
+
+export function getMyOffers(token: string): Promise<ApiResult<MyOffer[]>> {
+  return get<MyOffer[]>("/api/v1/me/offers", token);
+}
+
+export type MyOfferAction = "still-available" | "sold" | "withdraw";
+
+export function updateMyOffer(parcelId: string, action: MyOfferAction, token: string): Promise<ApiResult<void>> {
+  return request<void>("POST", `/api/v1/parcels/${encodeURIComponent(parcelId)}/offers/mine/${action}`, undefined, token);
+}
+
+export type ChangeRequest = {
+  id: string;
+  parcelId: string;
+  field: string;
+  currentValue: string | null;
+  proposedValue: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  createdAt: string;
+  decidedAt: string | null;
+  decisionNote: string | null;
+};
+
+export function requestChange(parcelId: string, body: { field: string; proposedValue: string; reason: string }, token: string): Promise<ApiResult<ChangeRequest>> {
+  return request<ChangeRequest>("POST", `/api/v1/parcels/${encodeURIComponent(parcelId)}/change-requests`, body, token);
+}
+
+export function getMyChangeRequests(token: string): Promise<ApiResult<ChangeRequest[]>> {
+  return get<ChangeRequest[]>("/api/v1/me/change-requests", token);
+}

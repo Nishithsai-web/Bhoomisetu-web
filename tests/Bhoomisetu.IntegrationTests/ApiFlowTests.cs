@@ -340,6 +340,67 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task My_listings_show_offers_and_one_tap_updates_work()
+    {
+        RequireDatabase();
+        var (client, _) = await fixture.SignInAsync("9848022221");
+        var created = await client.PostAsJsonAsync("/api/v1/parcels", NewParcel("911"), Ct);
+        var parcelId = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        await client.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/offers", new { listerKind = "agent", askingPriceRupees = 2_500_000m, buyerBrokeragePercent = 1m }, Ct);
+
+        var mine = await client.GetFromJsonAsync<JsonElement>("/api/v1/me/offers", Ct);
+        var offer = Assert.Single(mine.EnumerateArray());
+        Assert.Equal("active", offer.GetProperty("status").GetString());
+        Assert.False(offer.GetProperty("needsConfirmation").GetBoolean());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/v1/parcels/{parcelId}/offers/mine/still-available", null, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync($"/api/v1/parcels/{parcelId}/offers/mine/sold", null, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.PostAsync($"/api/v1/parcels/{parcelId}/offers/mine/sold", null, Ct)).StatusCode);
+
+        var after = await client.GetFromJsonAsync<JsonElement>("/api/v1/me/offers", Ct);
+        Assert.Equal("sold", Assert.Single(after.EnumerateArray()).GetProperty("status").GetString());
+        Assert.Empty((await GetComparison(parcelId)).GetProperty("offers").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Corrections_are_requested_by_involved_people_and_decided_by_another_reviewer()
+    {
+        RequireDatabase();
+        var (lister, _) = await fixture.SignInAsync("9848022222");
+        var (stranger, _) = await fixture.SignInAsync("9848022223");
+        var created = await lister.PostAsJsonAsync("/api/v1/parcels", NewParcel("912"), Ct);
+        var parcelId = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+
+        var body = new { field = "road_width_m", proposedValue = "12.2", reason = "Panchayat widened the road last year" };
+        Assert.Equal(HttpStatusCode.Forbidden, (await stranger.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/change-requests", body, Ct)).StatusCode);
+
+        var requested = await lister.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/change-requests", body, Ct);
+        Assert.Equal(HttpStatusCode.Created, requested.StatusCode);
+        var request = await requested.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Equal("9", request.GetProperty("currentValue").GetString());
+        Assert.Equal("12.2", request.GetProperty("proposedValue").GetString());
+        Assert.Equal(HttpStatusCode.Conflict, (await lister.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/change-requests", body, Ct)).StatusCode);
+
+        var bad = new { field = "survey_number", proposedValue = "1", reason = "typo" };
+        Assert.Equal(HttpStatusCode.BadRequest, (await lister.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/change-requests", bad, Ct)).StatusCode);
+
+        var (reviewer, reviewerId) = await fixture.SignInAsync("9848022224");
+        await fixture.ExecuteSqlAsync("UPDATE users SET is_trust_reviewer = true WHERE id = @id", ("id", reviewerId));
+        (reviewer, _) = await fixture.SignInAsync("9848022224");
+
+        var queue = await reviewer.GetFromJsonAsync<JsonElement>("/api/v1/admin/change-requests", Ct);
+        Assert.Contains(queue.EnumerateArray(), r => r.GetProperty("parcelId").GetGuid() == parcelId);
+
+        var requestId = request.GetProperty("id").GetGuid();
+        var decided = await reviewer.PostAsJsonAsync($"/api/v1/admin/change-requests/{requestId}/decision", new { decision = "approve", note = "Checked on satellite map" }, Ct);
+        Assert.Equal(HttpStatusCode.OK, decided.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, (await reviewer.PostAsJsonAsync($"/api/v1/admin/change-requests/{requestId}/decision", new { decision = "reject" }, Ct)).StatusCode);
+
+        var parcel = await lister.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}", Ct);
+        Assert.Equal(12.2m, parcel.GetProperty("road").GetProperty("widthM").GetDecimal());
+    }
+
     private async Task<JsonElement> GetComparison(Guid parcelId, string sort = "best_value") =>
         await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/comparison?sort={sort}", Ct);
 

@@ -174,6 +174,8 @@ app.MapUnitsEndpoints();
 app.MapParcelEndpoints();
 app.MapOfferEndpoints();
 app.MapAdminEndpoints();
+app.MapMyOffersEndpoints();
+app.MapChangeRequestEndpoints();
 
 await app.RunAsync();
 

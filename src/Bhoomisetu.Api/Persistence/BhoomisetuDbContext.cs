@@ -17,6 +17,7 @@ public sealed class BhoomisetuDbContext(DbContextOptions<BhoomisetuDbContext> op
     public DbSet<OfferRecord> Offers => Set<OfferRecord>();
     public DbSet<ListerStatsRecord> ListerStats => Set<ListerStatsRecord>();
     public DbSet<AuditRecord> AuditLog => Set<AuditRecord>();
+    public DbSet<ParcelChangeRequestRecord> ChangeRequests => Set<ParcelChangeRequestRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -74,6 +75,12 @@ public sealed class BhoomisetuDbContext(DbContextOptions<BhoomisetuDbContext> op
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).ValueGeneratedOnAdd();
             e.Property(x => x.Details).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<ParcelChangeRequestRecord>(e =>
+        {
+            e.ToTable("parcel_change_requests");
+            e.HasKey(x => x.Id);
         });
 
         // Columns are snake_case in SQL; properties are PascalCase in C#.

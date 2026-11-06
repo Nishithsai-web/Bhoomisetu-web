@@ -489,3 +489,17 @@ button[disabled] {
 .form-inline {
   margin-top: 12px;
 }
+
+/* ---------------------------------------------------------------- My listings */
+
+.card.attention {
+  border-color: var(--saffron);
+  border-width: 2px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}

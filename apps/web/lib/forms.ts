@@ -14,6 +14,9 @@ export const LENGTH_UNITS = ["feet", "metres"] as const;
 
 export const METRES_PER_FOOT = 0.3048;
 
+/** Land details a person can ask to correct (location and survey number change which land it is, so they are not here). */
+export const CHANGE_FIELDS = ["road_width_m", "frontage_m", "depth_m", "facing", "road_type", "access_right", "distance_to_main_road_m", "land_class"] as const;
+
 /** A field-level problem. `code` is translated through the dictionary's `errors` section. */
 export type FieldError = { field: string; code: string };
 

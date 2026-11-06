@@ -49,6 +49,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             <Link href={`/${locale}/parcels`}>{t.nav.parcels}</Link>
             <Link href={`/${locale}/units`}>{t.nav.units}</Link>
             <Link href={`/${locale}/sell`}>{t.nav.sell}</Link>
+            <Link href={`/${locale}/mine`}>{t.nav.mine}</Link>
           </nav>
           <LanguageSwitcher current={locale} label={t.nav.language} />
         </header>

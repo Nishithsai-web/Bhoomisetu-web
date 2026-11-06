@@ -23,7 +23,7 @@ public static class AdminEndpoints
     /// The role claim lives in a token that stays valid for up to its lifetime, so the database is checked on
     /// every admin call: removing someone's reviewer flag takes effect immediately.
     /// </summary>
-    private static async ValueTask<object?> RequireCurrentReviewerAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    internal static async ValueTask<object?> RequireCurrentReviewerAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var http = context.HttpContext;
         var db = http.RequestServices.GetRequiredService<BhoomisetuDbContext>();
