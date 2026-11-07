@@ -16,14 +16,42 @@ export const RUNTIME_CODES = [
   "location.village_invalid",
 ];
 
-const call = /\b(?:Invalid|Forbidden|Failure|Problem|Conflict)\s*\(([^;]*?)\)\s*[;,:)]/gs;
-const literal = /@?"([a-z0-9_]+(?:\.[a-z0-9_]+)+)"/;
+const callStart = /\b(?:Invalid|Forbidden|Failure|Problem|Conflict)\s*\(/g;
+const codeShape = /^[a-z0-9_]+(?:\.[a-z0-9_]+)+$/;
+
+/**
+ * String literals passed directly to the call starting at `open` (the index of its "("), in order.
+ * Brackets are matched and string contents skipped, so ";" or ")" inside a message, nested calls and
+ * multi-line arguments do not end the call early.
+ */
+function argumentLiterals(source, open) {
+  const literals = [];
+  let depth = 0;
+  for (let i = open; i < source.length; i++) {
+    const ch = source[i];
+    if (ch === '"') {
+      const verbatim = source[i - 1] === "@";
+      let j = i + 1;
+      let text = "";
+      while (j < source.length) {
+        if (verbatim && source[j] === '"' && source[j + 1] === '"') { text += '"'; j += 2; continue; }
+        if (!verbatim && source[j] === "\\") { text += source[j + 1]; j += 2; continue; }
+        if (source[j] === '"') break;
+        text += source[j++];
+      }
+      if (depth === 1 && source[i - 1] !== "$" && source[i - 2] !== "$") literals.push(text);
+      i = j;
+    } else if (ch === "(") depth++;
+    else if (ch === ")" && --depth === 0) break;
+  }
+  return literals;
+}
 
 export function findCodes(source) {
   const codes = [];
-  for (const m of source.matchAll(call)) {
-    const code = literal.exec(m[1]);
-    if (code) codes.push(code[1]);
+  for (const m of source.matchAll(callStart)) {
+    const code = argumentLiterals(source, m.index + m[0].length - 1).find((text) => codeShape.test(text));
+    if (code) codes.push(code);
   }
   return codes;
 }

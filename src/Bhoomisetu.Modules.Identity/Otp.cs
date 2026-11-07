@@ -18,6 +18,12 @@ public sealed record OtpOptions
     public int MaxRequestsPerHourPerNumber { get; init; } = 10;
 
     /// <summary>
+    /// Hard cap per number when the request passed a human check. Higher than the normal cap, so strangers
+    /// using up the normal cap cannot lock the owner out, yet still bounded, so solved checks cannot flood a phone.
+    /// </summary>
+    public int MaxHumanCheckedRequestsPerHourPerNumber { get; init; } = 20;
+
+    /// <summary>
     /// All numbers together: a last-resort brake against SMS-pumping fraud. There is deliberately no daily cap
     /// per number, because anyone could use it to lock a real owner out for a day; per-IP limits and (planned)
     /// CAPTCHA carry that load instead.
@@ -36,7 +42,7 @@ public sealed record OtpOptions
             throw new InvalidOperationException("OTP pepper must be at least 32 bytes.");
         }
 
-        if (CodeLength is < 4 or > 8 || Lifetime <= TimeSpan.Zero || ResendCooldown < TimeSpan.Zero || MaxRequestsPerHour < 1 || MaxRequestsPerHourPerNumber < MaxRequestsPerHour || MaxSmsPerHourGlobal < 1 || MaxVerifyAttempts < 1)
+        if (CodeLength is < 4 or > 8 || Lifetime <= TimeSpan.Zero || ResendCooldown < TimeSpan.Zero || MaxRequestsPerHour < 1 || MaxRequestsPerHourPerNumber < MaxRequestsPerHour || MaxHumanCheckedRequestsPerHourPerNumber < MaxRequestsPerHourPerNumber || MaxSmsPerHourGlobal < 1 || MaxVerifyAttempts < 1)
         {
             throw new InvalidOperationException("OTP options are out of range.");
         }

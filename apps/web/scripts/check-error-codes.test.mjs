@@ -14,6 +14,9 @@ test("finds codes in the C# call shapes the API uses", () => {
         StatusCodes.Status409Conflict,
         "p.q",
         "multi-line");
+    ApiResults.Invalid("r.s", "You are the owner; you do not (really) need this.");
+    ApiResults.Problem(Status(), "t.u", "nested call first");
+    ApiResults.Invalid("v.w", "say \\"hi\\" then go");
     Invalid(error.Code);`;
-  assert.deepEqual(findCodes(source), ["a.b", "c.d", "g.h_2", "e.f", "i.j.k", "l.m", "p.q"]);
+  assert.deepEqual(findCodes(source), ["a.b", "c.d", "g.h_2", "e.f", "i.j.k", "l.m", "p.q", "r.s", "t.u", "v.w"]);
 });

@@ -193,6 +193,18 @@ public sealed class OtpServiceTests
     }
 
     [Fact]
+    public async Task Human_checked_requests_still_have_a_hard_cap_per_number()
+    {
+        for (var i = 0; i < 20; i++)
+        {
+            Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, $"solver-{i}", CancellationToken.None, humanVerified: true)).Status);
+            _clock.Advance(TimeSpan.FromMinutes(2));
+        }
+
+        Assert.Equal(OtpRequestStatus.RateLimited, (await _service.RequestAsync(_phone, "solver-x", CancellationToken.None, humanVerified: true)).Status);
+    }
+
+    [Fact]
     public void Short_pepper_is_rejected()
     {
         Assert.Throws<InvalidOperationException>(() => new OtpService(_store, _sender, _clock, new OtpOptions { Pepper = new byte[16] }));

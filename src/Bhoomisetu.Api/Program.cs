@@ -40,6 +40,7 @@ var otpOptions = new OtpOptions
     ResendCooldown = TimeSpan.FromSeconds(config.GetValue("Otp:ResendCooldownSeconds", 60)),
     MaxRequestsPerHour = config.GetValue("Otp:MaxRequestsPerHour", 5),
     MaxRequestsPerHourPerNumber = config.GetValue("Otp:MaxRequestsPerHourPerNumber", 10),
+    MaxHumanCheckedRequestsPerHourPerNumber = config.GetValue("Otp:MaxHumanCheckedRequestsPerHourPerNumber", 20),
     MaxVerifyAttempts = config.GetValue("Otp:MaxVerifyAttempts", 3),
     MaxSmsPerHourGlobal = config.GetValue("Otp:MaxSmsPerHourGlobal", 20000),
 };

@@ -85,14 +85,26 @@ public static class AdminEndpoints
 
         try
         {
-            // Owner and agents: copy what the kept record lacks, then remove them from the duplicate.
+            // Owner and agents: copy what the kept record lacks. Where both have the same agent, the confirmation made
+            // by the owner who ends up on the kept record wins (an older owner's confirmation no longer counts).
+            var resultingOwner = keptOwner ?? duplicateOwner ?? Guid.Empty;
             var movedParties = await db.Database.ExecuteSqlAsync(
                 $"""
                 INSERT INTO parcel_parties (parcel_id, user_id, role, confirmed_at, confirmed_by)
                 SELECT {keptId}, user_id, role, confirmed_at, confirmed_by FROM parcel_parties WHERE parcel_id = {parcelId}
-                ON CONFLICT DO NOTHING
+                ON CONFLICT (parcel_id, user_id, role) DO UPDATE
+                    SET confirmed_by = EXCLUDED.confirmed_by, confirmed_at = EXCLUDED.confirmed_at
+                    WHERE EXCLUDED.confirmed_by = {resultingOwner} AND parcel_parties.confirmed_by <> {resultingOwner}
                 """, ct);
             await db.Database.ExecuteSqlAsync($"DELETE FROM parcel_parties WHERE parcel_id = {parcelId}", ct);
+
+            // Another reviewer may have recorded a different owner on the kept record since the check above.
+            if (duplicateOwner is { } movingOwner
+                && !await db.ParcelParties.AnyAsync(p => p.ParcelId == keptId && p.Role == Vocabulary.OwnerOfRecord && p.UserId == movingOwner, ct))
+            {
+                return ApiResults.Problem(StatusCodes.Status409Conflict, "merge.owner_conflict",
+                    "The two records have different owners. Check the documents and record the right owner on the kept record first.");
+            }
 
             // Offers: per lister, only the most recent active offer across both records survives.
             var withdrawn = await db.Database.ExecuteSqlAsync(
@@ -143,9 +155,15 @@ public static class AdminEndpoints
             return ApiResults.Invalid("admin.evidence_required", "Describe the documents checked (up to 1,000 characters).");
         }
 
-        if (!await db.Parcels.AnyAsync(p => p.Id == parcelId, ct))
+        var parcel = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId, ct);
+        if (parcel is null)
         {
             return ApiResults.NotFound("Parcel");
+        }
+
+        if (ParcelEndpoints.RejectIfDuplicate(parcel) is { } duplicate)
+        {
+            return duplicate;
         }
 
         if (!await db.Users.AnyAsync(u => u.Id == request.UserId, ct))
