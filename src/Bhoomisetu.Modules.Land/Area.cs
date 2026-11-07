@@ -77,6 +77,10 @@ public readonly record struct Area
     public decimal In(AreaUnit unit) => SquareMetres / FactorToSquareMetres(unit);
 
     /// <summary>The same area in every supported unit, rounded for display.</summary>
-    public IReadOnlyDictionary<AreaUnit, decimal> InAllUnits(int decimals = 6) =>
-        AreaUnitCodes.All.ToDictionary(unit => unit, unit => Math.Round(In(unit), decimals, MidpointRounding.AwayFromZero));
+    public IReadOnlyDictionary<AreaUnit, decimal> InAllUnits(int decimals = 6)
+    {
+        // A lambda inside a struct cannot capture `this`, so take a copy first.
+        var area = this;
+        return AreaUnitCodes.All.ToDictionary(unit => unit, unit => Math.Round(area.In(unit), decimals, MidpointRounding.AwayFromZero));
+    }
 }

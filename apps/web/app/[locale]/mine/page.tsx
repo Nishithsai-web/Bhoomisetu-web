@@ -27,7 +27,8 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
 
   const done = query.done && Object.hasOwn(m.done, query.done) ? m.done[query.done as keyof typeof m.done] : null;
   // "Mark as sold" and "Remove" first ask "are you sure?" on the same page, so one stray tap changes nothing.
-  const confirming = (query.confirm === "sold" || query.confirm === "withdraw") && query.parcel ? { action: query.confirm, parcelId: query.parcel } : null;
+  const confirmAction: MyOfferAction | null = query.confirm === "sold" || query.confirm === "withdraw" ? query.confirm : null;
+  const confirming = confirmAction && query.parcel ? { action: confirmAction, parcelId: query.parcel } : null;
 
   const button = (parcelId: string, action: MyOfferAction, label: string, style?: string) => (
     <form action={myOfferAction}>
