@@ -32,7 +32,7 @@ jobs:
       PGPASSWORD: postgres
       PGDATABASE: bhoomisetu
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Apply migrations in order
         run: |
           for f in db/migrations/*.sql; do
@@ -55,8 +55,8 @@ jobs:
           --health-cmd "pg_isready -U postgres"
           --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
       - run: dotnet restore Bhoomisetu.slnx
@@ -74,13 +74,18 @@ jobs:
       run:
         working-directory: apps/web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
       # No lockfile is committed yet (the first install could not run in the authoring environment).
       # Commit apps/web/package-lock.json after the first green run and switch this to `npm ci`.
       - run: npm install --no-audit --no-fund
+      # Temporary: publish the lockfile npm just wrote so it can be committed, then switch to `npm ci`.
+      - uses: actions/upload-artifact@v5
+        with:
+          name: web-package-lock
+          path: apps/web/package-lock.json
       - run: npm test
       - run: npm run check:i18n
       - run: npm run build
