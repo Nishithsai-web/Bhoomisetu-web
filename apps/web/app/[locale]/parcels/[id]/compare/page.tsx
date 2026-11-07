@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { contactAction, ownerConfirmAction } from "../../../actions";
-import { SORTS, getComparison, getParcelDocuments, getParcelPlace, getViewer, isSort, isUuid, type ParcelViewer, type Sort } from "@/lib/api";
+import { SORTS, getComparison, getParcelDocuments, getViewer, isSort, isUuid, type ParcelViewer, type Sort } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { getSessionToken } from "@/lib/session";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
@@ -47,14 +47,7 @@ export default async function ComparePage({ params, searchParams }: Props) {
 
   // Signed-in owners of record get confirm / remove buttons on each agent's row.
   const token = await getSessionToken();
-  const [viewerResult, placeResult, documentsResult] = await Promise.all([
-    token ? getViewer(id, token) : Promise.resolve(null),
-    getParcelPlace(id),
-    getParcelDocuments(id),
-  ]);
-  const place = placeResult.ok
-    ? `${placeResult.data.location.village}, ${placeResult.data.location.mandal} (${placeResult.data.location.surveyNumber})`
-    : "";
+  const [viewerResult, documentsResult] = await Promise.all([token ? getViewer(id, token) : Promise.resolve(null), getParcelDocuments(id)]);
   const checkedDocuments = documentsResult.ok ? documentsResult.data.available.reduce((sum, a) => sum + a.count, 0) : 0;
   const viewer: ParcelViewer | null = viewerResult?.ok ? viewerResult.data : null;
   const dateFormat = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
@@ -158,12 +151,11 @@ export default async function ComparePage({ params, searchParams }: Props) {
                         )}
                       </form>
                     )}
-                    {offer.offerId !== viewer?.myOfferId && (
+                    {offer.contactable && offer.offerId !== viewer?.myOfferId && (
                       <form action={contactAction} className="form-inline">
                         <input type="hidden" name="locale" value={locale} />
                         <input type="hidden" name="parcelId" value={id} />
                         <input type="hidden" name="offerId" value={offer.offerId} />
-                        <input type="hidden" name="place" value={place} />
                         <button type="submit" className="whatsapp"
                           aria-label={`${t.contact.whatsapp}: ${offer.listerName ?? format(c.listerNumber, { number: offer.listerNumber })}`}>
                           {t.contact.whatsapp}

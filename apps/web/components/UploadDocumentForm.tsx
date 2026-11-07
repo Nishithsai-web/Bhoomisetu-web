@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, type FormEvent } from "react";
 import { uploadDocumentAction, type FormState } from "@/app/[locale]/actions";
 import type { DocumentType } from "@/lib/api";
 import type { Dictionary } from "@/lib/i18n";
@@ -11,7 +11,7 @@ import { ErrorSummary, useFormFeedback } from "./FormFeedback";
  * Lister adds one public document. The dropdown lists only the allowed types; the number field appears
  * as required for papers that carry one (HMDA/DTCP approval, RERA certificate, building permission).
  */
-export function UploadDocumentForm({ locale, parcelId, types, t }: { locale: string; parcelId: string; types: DocumentType[]; t: Dictionary }) {
+export function UploadDocumentForm({ locale, parcelId, types, maxBytes, t }: { locale: string; parcelId: string; types: DocumentType[]; maxBytes: number; t: Dictionary }) {
   const [state, action, pending] = useActionState<FormState, FormData>(uploadDocumentAction, {});
   const { formRef, summaryRef } = useFormFeedback(state);
   const d = t.documents;
@@ -19,14 +19,28 @@ export function UploadDocumentForm({ locale, parcelId, types, t }: { locale: str
   const labels = d.types as Record<string, string>;
   const v = state.values ?? {};
   const [type, setType] = useState(v.type ?? "");
+  const [tooLarge, setTooLarge] = useState(false);
   const selected = types.find((x) => x.code === type);
   const fieldError = (name: string) => {
     const code = state.errors?.find((e) => e.field === name)?.code;
+    if (name === "file" && tooLarge) return errors["document.too_large"];
     return code ? (Object.hasOwn(errors, code) ? errors[code] : errors.generic) : undefined;
   };
 
+  // Files over 10 MB are stopped here: sent to the server, they would be refused before any helpful message.
+  const checkSize = (event: FormEvent<HTMLFormElement>) => {
+    const input = event.currentTarget.elements.namedItem("file");
+    const file = input instanceof HTMLInputElement ? input.files?.[0] : undefined;
+    const large = Boolean(file && file.size > maxBytes);
+    setTooLarge(large);
+    if (large) {
+      event.preventDefault();
+      (input as HTMLInputElement).focus();
+    }
+  };
+
   return (
-    <form ref={formRef} action={action} className="card form" noValidate>
+    <form ref={formRef} action={action} onSubmit={checkSize} className="card form" noValidate>
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="parcelId" value={parcelId} />
       <ErrorSummary state={state} text={t.form} errors={errors} summaryRef={summaryRef} />

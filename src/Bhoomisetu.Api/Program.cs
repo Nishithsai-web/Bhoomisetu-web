@@ -183,6 +183,9 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(RateLimitPolicies.Otp, http => RateLimitPartition.GetFixedWindowLimiter(
         RateLimitPolicies.ClientKey(http),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = otpRequestsPerIpPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    options.AddPolicy(RateLimitPolicies.Contact, http => RateLimitPartition.GetFixedWindowLimiter(
+        RateLimitPolicies.ClientKey(http),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = config.GetValue("RateLimits:ContactsPerIpPerDay", 100), Window = TimeSpan.FromDays(1), QueueLimit = 0 }));
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http => RateLimitPartition.GetFixedWindowLimiter(
         RateLimitPolicies.ClientKey(http),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = requestsPerIpPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -190,7 +193,7 @@ builder.Services.AddRateLimiter(options =>
 
 var webOrigins = config.GetSection("Cors:WebOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
-    policy.WithOrigins(webOrigins).AllowAnyHeader().WithMethods("GET", "POST", "DELETE")));
+    policy.WithOrigins(webOrigins).AllowAnyHeader().WithMethods("GET", "POST", "PUT", "DELETE")));
 
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -259,6 +262,9 @@ namespace Bhoomisetu.Api
     public static class RateLimitPolicies
     {
         public const string Otp = "otp";
+
+        /// <summary>WhatsApp number reveals per IP (or IPv6 /64) per day, on top of the per-account limit.</summary>
+        public const string Contact = "contact";
 
         /// <summary>
         /// Rate-limit key for a client: the IPv4 address, or the /64 prefix for IPv6, because one home or phone

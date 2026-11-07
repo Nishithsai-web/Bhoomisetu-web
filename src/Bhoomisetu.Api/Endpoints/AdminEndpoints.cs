@@ -1,4 +1,5 @@
 using Bhoomisetu.Api.Auth;
+using Bhoomisetu.Api.Documents;
 using Bhoomisetu.Api.Persistence;
 using Bhoomisetu.SharedKernel;
 using Microsoft.EntityFrameworkCore;
@@ -45,7 +46,7 @@ public static class AdminEndpoints
     /// <item>Offers: a lister with active offers on both keeps the most recent one; the older is withdrawn.</item>
     /// </list>
     /// </summary>
-    private static async Task<IResult> MergeDuplicateAsync(Guid parcelId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
+    private static async Task<IResult> MergeDuplicateAsync(Guid parcelId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, IDocumentStorage storage, CancellationToken ct)
     {
         var reviewerId = http.User.UserId();
         var now = clock.UtcNow;
@@ -119,13 +120,27 @@ public static class AdminEndpoints
                 """, ct);
             var moved = await db.Database.ExecuteSqlAsync(
                 $"UPDATE offers SET parcel_id = {keptId}, updated_at = {now} WHERE parcel_id = {parcelId} AND status = 'active'", ct);
+            // Documents follow the land. A file already live on the kept record is removed from the duplicate.
+            var clashing = await db.Database.SqlQuery<string>(
+                $"""
+                UPDATE parcel_documents d SET status = 'removed', updated_at = {now}
+                WHERE d.parcel_id = {parcelId} AND d.status IN ('pending', 'approved')
+                  AND EXISTS (SELECT 1 FROM parcel_documents k WHERE k.parcel_id = {keptId} AND k.sha256 = d.sha256 AND k.status IN ('pending', 'approved'))
+                RETURNING d.storage_key AS "Value"
+                """).ToListAsync(ct);
+            var movedDocuments = await db.Database.ExecuteSqlAsync(
+                $"UPDATE parcel_documents SET parcel_id = {keptId}, updated_at = {now} WHERE parcel_id = {parcelId} AND status <> 'removed'", ct);
             await db.Database.ExecuteSqlAsync(
                 $"UPDATE parcel_duplicate_candidates SET resolved_at = {now} WHERE parcel_id = {parcelId}", ct);
 
             audit.Add(reviewerId, "parcel.duplicate_merged", "parcel", parcelId.ToString(),
-                new { keptParcelId = keptId, moved, withdrawn, movedParties, ownerMoved = keptOwner is null && duplicateOwner is not null });
+                new { keptParcelId = keptId, moved, withdrawn, movedParties, movedDocuments, removedDocuments = clashing.Count, ownerMoved = keptOwner is null && duplicateOwner is not null });
             await db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
+            foreach (var key in clashing)
+            {
+                await storage.DeleteAsync(key, CancellationToken.None);
+            }
             return Results.Ok(new { keptParcelId = keptId, movedOffers = moved, withdrawnOffers = withdrawn });
         }
         catch (Exception ex) when (IsUniqueViolation(ex))

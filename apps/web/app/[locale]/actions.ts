@@ -9,6 +9,7 @@ import {
   decideDocument,
   findUserByPhone,
   getContact,
+  getParcelPlace,
   isUuid,
   mergeDuplicate,
   removeDocument,
@@ -326,8 +327,11 @@ export async function contactAction(form: FormData): Promise<void> {
     }
     redirect(`${back}?error=${encodeURIComponent(result.code)}`);
   }
+  // The place in the first message comes from the land record, never from the submitted form.
   const t = getDictionary(locale);
-  const message = t.contact.firstMessage.replace("{place}", value(form, "place").slice(0, 200));
+  const parcel = await getParcelPlace(parcelId);
+  const place = parcel.ok ? `${parcel.data.location.village}, ${parcel.data.location.mandal} (${parcel.data.location.surveyNumber})` : "";
+  const message = t.contact.firstMessage.replace("{place}", place);
   const link = whatsappLink(result.data.whatsappE164, message);
   redirect(link ?? `${back}?error=api.error`);
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { removeDocumentAction } from "../../../actions";
+import { ConfirmBox } from "@/components/ConfirmBox";
 import { UploadDocumentForm } from "@/components/UploadDocumentForm";
 import { getDocumentTypes, getParcelDocuments, getParcelPlace, getSubscription, isUuid, type ParcelDocument } from "@/lib/api";
 import { formatFileSize } from "@/lib/contact";
@@ -11,7 +12,7 @@ import { getSessionToken } from "@/lib/session";
 
 type Props = {
   params: Promise<{ locale: string; id: string }>;
-  searchParams: Promise<{ done?: string; error?: string }>;
+  searchParams: Promise<{ done?: string; error?: string; remove?: string }>;
 };
 
 /**
@@ -75,23 +76,30 @@ export default async function DocumentsPage({ params, searchParams }: Props) {
         <span className={`badge badge-doc-${doc.status}`}>{d.status[doc.status]}</span> · {formatFileSize(doc.sizeBytes, intl)} · {dateFormat.format(new Date(doc.createdAt))}
       </p>
       {doc.status === "rejected" && doc.reviewNote && <p className="notice">{format(d.rejectedReason, { note: doc.reviewNote })}</p>}
+      {doc.status === "approved" && doc.referenceNumber && <p className="hint">{format(d.verifyYourself, { number: doc.referenceNumber })}</p>}
       <p className="form-inline">
         {doc.status !== "rejected" && (
           <a className="button-link" href={`/files/${id}/${doc.id}?l=${locale}`}>
             {d.open}
           </a>
         )}
-        {doc.uploadedByMe && (
-          <form action={removeDocumentAction}>
+        {doc.uploadedByMe && query.remove !== doc.id && (
+          <Link className="button-link" href={`${back}?remove=${doc.id}`}>
+            {d.remove}
+          </Link>
+        )}
+      </p>
+      {/* Removing cannot be undone, so it asks first. */}
+      {doc.uploadedByMe && query.remove === doc.id && (
+        <ConfirmBox id={`remove-${doc.id}`} question={d.confirmRemove}>
+          <form action={removeDocumentAction} className="form-inline">
             <input type="hidden" name="locale" value={locale} />
             <input type="hidden" name="parcelId" value={id} />
             <input type="hidden" name="documentId" value={doc.id} />
-            <button type="submit" className="secondary">
-              {d.remove}
-            </button>
+            <button type="submit">{d.yesRemove}</button> <Link href={back}>{d.cancel}</Link>
           </form>
-        )}
-      </p>
+        </ConfirmBox>
+      )}
     </li>
   );
 
@@ -104,6 +112,7 @@ export default async function DocumentsPage({ params, searchParams }: Props) {
         </p>
       )}
       <p>{d.intro}</p>
+      <p className="hint">{d.reviewNote}</p>
 
       {query.done === "uploaded" && (
         <p className="notice" role="status">
@@ -144,7 +153,11 @@ export default async function DocumentsPage({ params, searchParams }: Props) {
           <Link href={`/${locale}/signin?next=${encodeURIComponent(back)}`}>{d.signInToView}</Link>
         </p>
       )}
-      {data.access === "subscribe" && data.available.length > 0 && <p className="notice">{d.subscribeToView}</p>}
+      {data.access === "subscribe" && data.available.length > 0 && (
+        <p className="notice">
+          {d.subscribeToView} {d.buyerHowTo}
+        </p>
+      )}
 
       {others.length > 0 && (
         <>
@@ -173,7 +186,7 @@ export default async function DocumentsPage({ params, searchParams }: Props) {
               ))}
             </ul>
           </div>
-          <UploadDocumentForm locale={locale} parcelId={id} types={types.data.allowed} t={t} />
+          <UploadDocumentForm locale={locale} parcelId={id} types={types.data.allowed} maxBytes={types.data.maxBytes} t={t} />
         </>
       )}
       {data.uploadBlockedReason === "subscribe" && (

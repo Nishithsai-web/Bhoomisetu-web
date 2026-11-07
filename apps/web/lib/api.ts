@@ -33,6 +33,8 @@ export type ComparedOffer = {
   score: number;
   breakdown: { price: number; authority: number; checks: number; response: number; freshness: number };
   badges: Badge[];
+  /** The lister has an active owner/agent subscription, so buyers can message them on WhatsApp. */
+  contactable: boolean;
 };
 
 export type Comparison = {

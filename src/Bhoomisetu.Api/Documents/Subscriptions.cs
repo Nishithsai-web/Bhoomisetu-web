@@ -30,17 +30,41 @@ public static class Audiences
 /// <summary>Answers "is this person subscribed right now?" the same way for every endpoint.</summary>
 public sealed class SubscriptionService(BhoomisetuDbContext db, IClock clock, SubscriptionOptions options)
 {
+    /// <summary>One paid month. Fixed length, so a period bought on 31 January is as long as one bought on 1 March.</summary>
+    public const int DaysPerMonth = 30;
+
     public bool ViewerPlanIsFree => options.ViewerPriceRupees <= 0;
 
-    /// <summary>End of the person's current period for the audience, or null when not subscribed.</summary>
+    /// <summary>
+    /// When the person's subscription runs out, counting renewals that follow on without a gap; null when not
+    /// subscribed right now. A lister who renewed early sees the later date, so they do not pay twice.
+    /// </summary>
     public async Task<DateTimeOffset?> ActiveUntilAsync(Guid userId, string audience, CancellationToken ct)
     {
         var now = clock.UtcNow;
-        return await db.Subscriptions.AsNoTracking()
-            .Where(s => s.UserId == userId && s.Audience == audience && s.CancelledAt == null && s.StartsAt <= now && s.EndsAt > now)
-            .OrderByDescending(s => s.EndsAt)
-            .Select(s => (DateTimeOffset?)s.EndsAt)
-            .FirstOrDefaultAsync(ct);
+        var periods = await db.Subscriptions.AsNoTracking()
+            .Where(s => s.UserId == userId && s.Audience == audience && s.CancelledAt == null && s.EndsAt > now)
+            .OrderBy(s => s.StartsAt)
+            .Select(s => new { s.StartsAt, s.EndsAt })
+            .ToListAsync(ct);
+
+        DateTimeOffset? until = null;
+        foreach (var period in periods)
+        {
+            if (until is null)
+            {
+                if (period.StartsAt <= now)
+                {
+                    until = period.EndsAt;
+                }
+            }
+            else if (period.StartsAt <= until)
+            {
+                until = period.EndsAt > until ? period.EndsAt : until;
+            }
+        }
+
+        return until;
     }
 
     public async Task<bool> IsListerAsync(Guid userId, CancellationToken ct) => await ActiveUntilAsync(userId, Audiences.Lister, ct) is not null;

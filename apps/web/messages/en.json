@@ -150,7 +150,7 @@
     "verify": "Sign in",
     "changeNumber": "Use a different number",
     "resend": "Send a new code",
-    "privacy": "Your mobile number is not shown on listings. We use it only to sign you in."
+    "privacy": "We use your mobile number to sign you in. It is not shown on listings, except: if you take an owner/agent subscription, signed-in buyers can message the WhatsApp number you choose (your sign-in number unless you set another)."
   },
   "sell": {
     "title": "List your land",
@@ -357,8 +357,10 @@
     "subscription.audience_invalid": "Choose owner/agent or buyer.",
     "subscription.months_invalid": "Months must be between 1 and 24.",
     "subscription.amount_invalid": "Enter the amount received in rupees.",
-    "subscription.reference_required": "Enter the payment reference (UPI or receipt number).",
-    "subscription.self": "A reviewer cannot start their own subscription."
+    "subscription.reference_required": "Enter the UPI transaction ID (UTR) or receipt number.",
+    "subscription.self": "A reviewer cannot start their own subscription.",
+    "subscription.reference_invalid": "Enter the transaction ID (UTR) or receipt number, not a UPI ID or phone number.",
+    "subscription.reference_used": "This payment reference is already recorded."
   },
   "mine": {
     "title": "My listings",
@@ -459,14 +461,14 @@
   "documents": {
     "title": "Documents",
     "linkFromCompare": "Documents for this land",
-    "countChecked": "{count} checked by Bhoomisetu",
+    "countChecked": "{count} reviewed by Bhoomisetu",
     "intro": "Public papers shared by the owner or agent: brochure, site plan, maps, HMDA or DTCP approval, RERA certificate, building permission and photos.",
     "safetyTitle": "Before you pay any token amount",
     "safety": "Bhoomisetu never shows the sale deed, EC, pattadar passbook or ROR-1B. Ask the seller to show the originals, check them at the sub-registrar office or Dharani/Meebhoomi, and pay any token amount only after that, against a written receipt.",
     "signInToView": "Sign in (free) to open the documents.",
     "subscribeToView": "Opening documents needs a buyer subscription.",
-    "available": "Checked documents for this land",
-    "noneAvailable": "No checked documents yet. Ask the owner or agent on WhatsApp.",
+    "available": "Reviewed documents for this land",
+    "noneAvailable": "No reviewed documents yet. Ask the owner or agent on WhatsApp.",
     "yours": "Documents you added",
     "list": "Documents",
     "open": "Open",
@@ -475,7 +477,7 @@
     "rejectedReason": "Not accepted: {note}",
     "status": {
       "pending": "Waiting for Bhoomisetu check",
-      "approved": "Checked by Bhoomisetu",
+      "approved": "Reviewed: allowed public paper",
       "rejected": "Not accepted"
     },
     "uploadTitle": "Add a document",
@@ -508,7 +510,13 @@
       "identity_documents": "Aadhaar, PAN or any ID card"
     },
     "listerNeedsSubscription": "Owners and agents need a subscription ({price} a month) to add documents and to be contacted on WhatsApp.",
-    "notInvolved": "Only the owner or an agent with a price on this land can add documents."
+    "notInvolved": "Only the owner or an agent with a price on this land can add documents.",
+    "verifyYourself": "Bhoomisetu only checked that this is an allowed public paper, not that it is genuine. Check number {number} with HMDA/DTCP, RERA or the municipality yourself.",
+    "reviewNote": "Bhoomisetu checks only that each file is an allowed public paper. It does not confirm that an approval is genuine.",
+    "confirmRemove": "Remove this document? Buyers will no longer see it.",
+    "yesRemove": "Yes, remove",
+    "cancel": "Cancel",
+    "buyerHowTo": "To get a buyer subscription, message Bhoomisetu on WhatsApp."
   },
   "contact": {
     "whatsapp": "Chat on WhatsApp",
@@ -530,7 +538,8 @@
     "whatsappLabel": "WhatsApp number buyers will message",
     "whatsappHint": "Leave empty to use the number you sign in with. Now: {number}",
     "save": "Save",
-    "whatsappSaved": "WhatsApp number saved."
+    "whatsappSaved": "WhatsApp number saved.",
+    "contactNumber": "Buyers who message you will see: {number}. Change it below if you prefer another number."
   },
   "reviewExtra": {
     "documentsTitle": "Documents waiting for a check",
@@ -542,9 +551,9 @@
     "audience": "Plan",
     "audienceLister": "Owner / agent",
     "audienceViewer": "Buyer",
-    "months": "Months",
+    "months": "Months (30 days each)",
     "amount": "Amount received (₹)",
-    "paymentReference": "Payment reference (UPI or receipt number)",
+    "paymentReference": "UPI transaction ID (UTR) or receipt number",
     "activate": "Start subscription",
     "subscriptionDone": "Subscription recorded."
   }

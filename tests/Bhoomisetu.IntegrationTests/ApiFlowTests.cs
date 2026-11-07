@@ -586,6 +586,24 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         var status = await lister.GetFromJsonAsync<JsonElement>("/api/v1/me/subscription", Ct);
         Assert.True(status.GetProperty("listerActive").GetBoolean());
 
+        // One payment, one period: the reference cannot be reused, and UPI IDs or phone numbers are refused.
+        Assert.Equal("subscription.reference_used", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
+            new { phone = "9848077772", audience = "viewer", months = 1, amountRupees = 99m, paymentReference = "upi-123456" }, Ct)));
+        Assert.Equal("subscription.reference_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
+            new { phone = "9848077772", audience = "viewer", months = 1, amountRupees = 99m, paymentReference = "someone@ybl" }, Ct)));
+        Assert.Equal("subscription.reference_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
+            new { phone = "9848077772", audience = "viewer", months = 1, amountRupees = 99m, paymentReference = "+91 9848012345" }, Ct)));
+
+        // A renewal follows on from the current period, and "active until" shows the later date (30-day months).
+        var firstEnd = status.GetProperty("listerUntil").GetDateTimeOffset();
+        Assert.Equal(HttpStatusCode.OK, (await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
+            new { phone = "9848077771", audience = "lister", months = 2, amountRupees = 998m, paymentReference = "UTR-998877" }, Ct)).StatusCode);
+        var renewed = (await lister.GetFromJsonAsync<JsonElement>("/api/v1/me/subscription", Ct)).GetProperty("listerUntil").GetDateTimeOffset();
+        Assert.Equal(firstEnd.AddDays(60), renewed);
+
+        // The comparison now marks this lister as reachable on WhatsApp.
+        Assert.True((await GetComparison(parcelId)).GetProperty("offers")[0].GetProperty("contactable").GetBoolean());
+
         // Only allowed types, a real file, the number for approvals, and the declaration.
         Assert.Equal("document.type_invalid", await CodeOf(await Upload(lister, parcelId, "sale_deed", brochure)));
         Assert.Equal("document.format", await CodeOf(await Upload(lister, parcelId, "brochure", "MZ fake exe"u8.ToArray())));

@@ -33,7 +33,8 @@ public sealed record ComparedOfferResponse(
     DateTimeOffset AvailabilityConfirmedAt,
     decimal Score,
     ScoreBreakdownResponse Breakdown,
-    IReadOnlyList<string> Badges);
+    IReadOnlyList<string> Badges,
+    bool Contactable);
 
 public sealed record RankingRulesResponse(decimal PriceWeight, decimal AuthorityWeight, decimal ChecksWeight, decimal ResponseWeight, decimal FreshnessWeight,
     decimal LowPriceOutlierRatio, decimal AssumedUndisclosedBrokeragePercent, int StaleAfterDays);
@@ -162,7 +163,7 @@ public static class OfferEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> CompareAsync(Guid parcelId, string? sort, BhoomisetuDbContext db, BestValueRanker ranker, CancellationToken ct)
+    private static async Task<IResult> CompareAsync(Guid parcelId, string? sort, BhoomisetuDbContext db, BestValueRanker ranker, IClock clock, CancellationToken ct)
     {
         if (!Vocabulary.TryParseSort(sort, out var parsedSort))
         {
@@ -203,6 +204,12 @@ public static class OfferEndpoints
 
         var result = ranker.Compare(snapshots, parsedSort);
 
+        // Listers with an active owner/agent subscription can be messaged on WhatsApp; the button shows only for them.
+        var now = clock.UtcNow;
+        var contactable = (await db.Subscriptions.AsNoTracking()
+            .Where(s => listerIds.Contains(s.UserId) && s.Audience == "lister" && s.CancelledAt == null && s.StartsAt <= now && s.EndsAt > now)
+            .Select(s => s.UserId).Distinct().ToListAsync(ct)).ToHashSet();
+
         // Stable numbers by when each lister joined the parcel, so "Lister 2" means the same person in every sort.
         // The web app turns the number into words in the reader's language.
         var listerNumbers = offers.OrderBy(o => o.CreatedAt).ThenBy(o => o.Id).Select((o, i) => (o.Id, Number: i + 1)).ToDictionary(x => x.Id, x => x.Number);
@@ -240,7 +247,8 @@ public static class OfferEndpoints
                 r.Offer.AvailabilityConfirmedAt,
                 r.Score,
                 new ScoreBreakdownResponse(r.Breakdown.Price, r.Breakdown.Authority, r.Breakdown.Checks, r.Breakdown.Response, r.Breakdown.Freshness),
-                r.Badges.Select(Vocabulary.Code).ToList())).ToList());
+                r.Badges.Select(Vocabulary.Code).ToList(),
+                contactable.Contains(r.Offer.ListerUserId))).ToList());
 
         return Results.Ok(response);
     }

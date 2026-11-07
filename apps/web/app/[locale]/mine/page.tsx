@@ -159,6 +159,9 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
                 ? format(t.subscription.listerActive, { date: dateFormat.format(new Date(subscription.data.listerUntil)) })
                 : t.subscription.listerInactive}
             </p>
+            {subscription.data.listerActive && (
+              <p className="hint">{format(t.subscription.contactNumber, { number: formatIndianMobile(subscription.data.whatsappE164) })}</p>
+            )}
             {!subscription.data.listerActive && (
               <>
                 <p>{format(t.subscription.price, { price: formatRupees(subscription.data.listerMonthlyPriceRupees, intl) })}</p>

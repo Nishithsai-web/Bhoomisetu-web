@@ -103,3 +103,9 @@ Change a decision by adding a dated entry here and updating the register; never 
     reason kept. The site tells buyers to see original ownership papers in person and pay token money only after that.
 28. **Files live outside the database** behind `IDocumentStorage` (local folder now; S3-compatible storage and a
     virus scan such as ClamAV are proposed before launch). Storage keys are generated, never taken from the uploader.
+29. **"Reviewed", not "verified".** A document review confirms only that the file is an allowed public paper; the
+    site says so and asks buyers to check approval numbers with HMDA/DTCP, RERA or the municipality themselves.
+30. **Subscriptions are sold in 30-day months**, one payment reference per paid period (unique, case-insensitive);
+    UPI IDs and phone numbers are refused as references because the audit log is permanent.
+31. **WhatsApp contact is limited per account (50/day) and per IP (100/day)**, and the button shows only for
+    listers with an active subscription. The sign-in privacy text says plainly when a number is shared.

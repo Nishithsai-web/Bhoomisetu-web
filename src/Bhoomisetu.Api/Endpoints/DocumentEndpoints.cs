@@ -46,7 +46,7 @@ public sealed record SubscriptionResponse(Guid Id, Guid UserId, string Audience,
 /// <item>Signed-in visitors can contact a subscribed lister on WhatsApp.</item>
 /// </list>
 /// </summary>
-public static class DocumentEndpoints
+public static partial class DocumentEndpoints
 {
     internal const int MaxContactsPerUserPerDay = 50;
 
@@ -61,7 +61,7 @@ public static class DocumentEndpoints
         parcel.MapPost("/documents", UploadAsync).RequireAuthorization();
         parcel.MapGet("/documents/{documentId:guid}/file", FileAsync).RequireAuthorization();
         parcel.MapDelete("/documents/{documentId:guid}", RemoveAsync).RequireAuthorization();
-        parcel.MapGet("/offers/{offerId:guid}/contact", ContactAsync).RequireAuthorization();
+        parcel.MapGet("/offers/{offerId:guid}/contact", ContactAsync).RequireAuthorization().RequireRateLimiting(RateLimitPolicies.Contact);
 
         var me = app.MapGroup("/api/v1/me").WithTags("Subscriptions").RequireAuthorization();
         me.MapGet("/subscription", StatusAsync);
@@ -379,7 +379,10 @@ public static class DocumentEndpoints
         }
 
         var reviewerId = http.User.UserId();
-        var document = await db.ParcelDocuments.FirstOrDefaultAsync(d => d.Id == documentId, ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        // Row lock: two reviewers deciding at once are serialised, so the second sees "already decided".
+        var document = await db.ParcelDocuments.FromSql($"SELECT * FROM parcel_documents WHERE id = {documentId} FOR UPDATE").FirstOrDefaultAsync(ct);
         if (document is null)
         {
             return ApiResults.NotFound("Document");
@@ -403,6 +406,7 @@ public static class DocumentEndpoints
         document.UpdatedAt = now;
         audit.Add(reviewerId, $"document.{document.Status}", "parcel", document.ParcelId.ToString(), new { documentId, note = document.ReviewNote });
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
 
         // A rejected file is kept only as long as needed: the row keeps the reason, the file is deleted.
         if (document.Status == "rejected")
@@ -433,7 +437,13 @@ public static class DocumentEndpoints
         var reference = request.PaymentReference?.Trim();
         if (string.IsNullOrEmpty(reference) || reference.Length > 100)
         {
-            return ApiResults.Invalid("subscription.reference_required", "Enter the payment reference (UPI or receipt number).");
+            return ApiResults.Invalid("subscription.reference_required", "Enter the UPI transaction ID (UTR) or receipt number.");
+        }
+
+        // The audit log is permanent, so no UPI IDs (name@bank) or mobile numbers go into it.
+        if (reference.Contains('@') || MobileLike().IsMatch(reference))
+        {
+            return ApiResults.Invalid("subscription.reference_invalid", "Enter the transaction ID (UTR) or receipt number, not a UPI ID or phone number.");
         }
 
         var phone = IndianMobileNumber.Parse(request.Phone);
@@ -455,6 +465,10 @@ public static class DocumentEndpoints
             return ApiResults.Forbidden("subscription.self", "A reviewer cannot activate their own subscription.");
         }
 
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        // Lock the account so two reviewers recording at once chain their periods instead of overlapping them.
+        await db.Database.ExecuteSqlAsync($"SELECT 1 FROM users WHERE id = {user.Id} FOR UPDATE", ct);
         var starts = await subscriptions.NextStartAsync(user.Id, request.Audience, ct);
         var record = new SubscriptionRecord
         {
@@ -462,7 +476,8 @@ public static class DocumentEndpoints
             UserId = user.Id,
             Audience = request.Audience,
             StartsAt = starts,
-            EndsAt = starts.AddMonths(request.Months),
+            // 30-day months: no days lost at month ends, and renewals add exactly what was paid for.
+            EndsAt = starts.AddDays(SubscriptionService.DaysPerMonth * request.Months),
             AmountPaise = (long)(request.AmountRupees * 100),
             PaymentReference = reference,
             ActivatedBy = reviewerId,
@@ -471,7 +486,16 @@ public static class DocumentEndpoints
         db.Subscriptions.Add(record);
         audit.Add(reviewerId, "subscription.activated", "user", user.Id.ToString(),
             new { record.Audience, request.Months, record.AmountPaise, paymentReference = reference, record.StartsAt, record.EndsAt });
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation })
+        {
+            return ApiResults.Problem(StatusCodes.Status409Conflict, "subscription.reference_used", "This payment reference is already recorded.");
+        }
+
         return Results.Ok(new SubscriptionResponse(record.Id, record.UserId, record.Audience, record.StartsAt, record.EndsAt));
     }
 
@@ -488,4 +512,11 @@ public static class DocumentEndpoints
 
     private static ParcelDocumentResponse ToResponse(ParcelDocumentRecord d, Guid? viewer) =>
         new(d.Id, d.DocType, d.ReferenceNumber, d.ContentType, d.SizeBytes, d.Status, d.UploadedBy == viewer ? d.ReviewNote : null, d.UploadedBy == viewer, d.CreatedAt);
+
+    /// <summary>
+    /// A standalone 10-digit Indian mobile (optionally "+91 " in front). Digits inside a longer number, such as a
+    /// 12-digit UPI transaction ID (UTR), do not match.
+    /// </summary>
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?<!\d)(?:\+91[\s-]?|91[\s-])?[6-9]\d{9}(?!\d)")]
+    private static partial System.Text.RegularExpressions.Regex MobileLike();
 }
