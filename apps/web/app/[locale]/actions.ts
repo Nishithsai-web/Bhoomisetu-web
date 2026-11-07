@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createOffer, createParcel, isUuid, requestChange, requestOtp, updateMyOffer, verifyOtp, type MyOfferAction } from "@/lib/api";
+import { createOffer, createParcel, isUuid, requestChange, requestOtp, signOut, updateMyOffer, verifyOtp, type MyOfferAction } from "@/lib/api";
 import { CHANGE_FIELDS, parseOfferForm, parseParcelForm, safeNextPath, toMetres, type FieldError } from "@/lib/forms";
 import { parseAreaValue } from "@/lib/units";
 import { isLocale } from "@/lib/i18n";
@@ -63,6 +63,9 @@ export async function signInAction(previous: FormState, form: FormData): Promise
 }
 
 export async function signOutAction(form: FormData): Promise<void> {
+  const token = await getSessionToken();
+  // End the session on the server too; the cookie is cleared even if the API cannot be reached.
+  if (token) await signOut(token);
   await clearSession();
   redirect(`/${localeOf(form)}`);
 }

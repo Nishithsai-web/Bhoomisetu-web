@@ -11,6 +11,9 @@ public sealed class AuthOptions
     public const string TrustReviewerRole = "trust_reviewer";
     public const string RoleClaimType = "role";
 
+    /// <summary>Claim carrying users.token_version; a lower number than the user's current one means signed out.</summary>
+    public const string TokenVersionClaimType = "tv";
+
     /// <summary>Base64 HMAC key, at least 32 bytes after decoding. From the secret store, never committed.</summary>
     public string SigningKey { get; set; } = string.Empty;
 
@@ -45,11 +48,15 @@ public sealed class TokenService(AuthOptions options, IClock clock)
 {
     private readonly SymmetricSecurityKey _key = options.CreateKey();
 
-    public (string Token, DateTimeOffset ExpiresAt) Issue(Guid userId, bool isTrustReviewer)
+    public (string Token, DateTimeOffset ExpiresAt) Issue(Guid userId, bool isTrustReviewer, int tokenVersion)
     {
         var now = clock.UtcNow;
         var expires = now + options.TokenLifetime;
-        var claims = new List<Claim> { new(JwtRegisteredClaimNames.Sub, userId.ToString()) };
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(AuthOptions.TokenVersionClaimType, tokenVersion.ToString(System.Globalization.CultureInfo.InvariantCulture), ClaimValueTypes.Integer32),
+        };
         if (isTrustReviewer)
         {
             claims.Add(new Claim(AuthOptions.RoleClaimType, AuthOptions.TrustReviewerRole));

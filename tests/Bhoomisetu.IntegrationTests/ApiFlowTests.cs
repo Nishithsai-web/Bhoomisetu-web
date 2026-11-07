@@ -81,6 +81,16 @@ public sealed class ApiFlowTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task Signing_out_ends_the_session_on_the_server()
+    {
+        RequireDatabase();
+        var (client, _) = await fixture.SignInAsync("9848033334");
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/v1/me", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsync("/api/v1/auth/sign-out", null, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/v1/me", Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task Wrong_code_is_rejected_with_a_stable_error_code()
     {
         RequireDatabase();
@@ -399,6 +409,42 @@ public sealed class ApiFlowTests(ApiFixture fixture)
 
         var parcel = await lister.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}", Ct);
         Assert.Equal(12.2m, parcel.GetProperty("road").GetProperty("widthM").GetDecimal());
+    }
+
+    [Fact]
+    public async Task Set_aside_duplicates_are_hidden_and_a_reviewer_can_merge_them()
+    {
+        RequireDatabase();
+        var (lister, listerId) = await fixture.SignInAsync("9848044441");
+        var created = await lister.PostAsJsonAsync("/api/v1/parcels", NewParcel("913", village: "Janwada"), Ct);
+        var keptId = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+
+        // Simulate what migration 0003 does with land that was listed twice before it ran.
+        var duplicateId = Guid.NewGuid();
+        await fixture.ExecuteSqlAsync(
+            """
+            INSERT INTO parcels (id, parcel_key, name_key, state_code, district, mandal, village, survey_number_raw, survey_number,
+                                 land_class, recorded_area_sqm, entered_area_value, entered_area_unit, area_source, created_by)
+            SELECT @dup, 'TG|lgd:999|913', name_key || '|duplicate-of:' || id, state_code, district, mandal, village, survey_number_raw,
+                   survey_number, land_class, recorded_area_sqm, entered_area_value, entered_area_unit, area_source, created_by
+            FROM parcels WHERE id = @kept;
+            INSERT INTO parcel_duplicate_candidates (parcel_id, kept_parcel_id, name_key) SELECT @dup, @kept, name_key FROM parcels WHERE id = @kept;
+            INSERT INTO offers (parcel_id, lister_user_id, lister_kind, asking_price_paise) VALUES (@dup, @lister, 'agent', 100000000);
+            """,
+            ("dup", duplicateId), ("kept", keptId), ("lister", listerId));
+
+        var search = await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/parcels?q=janwada", Ct);
+        Assert.Equal(1, search.GetProperty("total").GetInt32());
+        var compareDuplicate = await fixture.CreateClient().GetAsync($"/api/v1/parcels/{duplicateId}/comparison", Ct);
+        Assert.Equal(HttpStatusCode.Conflict, compareDuplicate.StatusCode);
+
+        var (reviewer, reviewerId) = await fixture.SignInAsync("9848044442");
+        await fixture.ExecuteSqlAsync("UPDATE users SET is_trust_reviewer = true WHERE id = @id", ("id", reviewerId));
+        (reviewer, _) = await fixture.SignInAsync("9848044442");
+        var merged = await reviewer.PostAsync($"/api/v1/admin/duplicates/{duplicateId}/merge", null, Ct);
+        Assert.Equal(HttpStatusCode.OK, merged.StatusCode);
+        Assert.Single((await GetComparison(keptId)).GetProperty("offers").EnumerateArray());
+        Assert.Equal(HttpStatusCode.NotFound, (await reviewer.PostAsync($"/api/v1/admin/duplicates/{duplicateId}/merge", null, Ct)).StatusCode);
     }
 
     private async Task<JsonElement> GetComparison(Guid parcelId, string sort = "best_value") =>

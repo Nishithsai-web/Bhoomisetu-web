@@ -212,6 +212,16 @@ public static class ParcelEndpoints
             .FirstOrDefaultAsync(ct);
     }
 
+    /// <summary>Suffix migration 0003 adds to a set-aside duplicate's name key, followed by the kept parcel's id.</summary>
+    internal const string DuplicateMarker = "|duplicate-of:";
+
+    /// <summary>The parcel this record duplicates, when it was set aside as a duplicate; otherwise null.</summary>
+    internal static Guid? DuplicateOf(ParcelRecord parcel)
+    {
+        var at = parcel.NameKey.IndexOf(DuplicateMarker, StringComparison.Ordinal);
+        return at >= 0 && Guid.TryParse(parcel.NameKey.AsSpan(at + DuplicateMarker.Length), out var kept) ? kept : null;
+    }
+
     private static decimal? Round2(decimal? value) => value is { } v ? Math.Round(v, 2, MidpointRounding.AwayFromZero) : null;
 
     private static IResult DuplicateParcel(Guid existingId) => ApiResults.Problem(
@@ -239,7 +249,8 @@ public static class ParcelEndpoints
         var p = Math.Clamp(page ?? 1, 1, 10_000);
         var size = Math.Clamp(pageSize ?? 20, 1, 100);
 
-        var query = db.Parcels.AsNoTracking();
+        // Records set aside as duplicates (migration 0003) stay out of search until a reviewer merges them.
+        var query = db.Parcels.AsNoTracking().Where(x => !x.NameKey.Contains(DuplicateMarker));
         if (!string.IsNullOrWhiteSpace(state))
         {
             var s = state.Trim().ToUpperInvariant();

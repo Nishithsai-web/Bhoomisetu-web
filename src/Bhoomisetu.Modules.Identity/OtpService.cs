@@ -26,9 +26,11 @@ public sealed class OtpService
         _options = options;
     }
 
-    public async Task<OtpRequestOutcome> RequestAsync(IndianMobileNumber phone, CancellationToken cancellationToken)
+    /// <param name="requesterKey">Who is asking (IP or IPv6 /64), so one person's requests cannot use up another's quota.</param>
+    public async Task<OtpRequestOutcome> RequestAsync(IndianMobileNumber phone, string requesterKey, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(phone);
+        ArgumentException.ThrowIfNullOrWhiteSpace(requesterKey);
         string code;
 
         // Checks and insert happen under a per-number lock, so parallel requests cannot all pass the limits.
@@ -41,7 +43,9 @@ public sealed class OtpService
                 return new OtpRequestOutcome(OtpRequestStatus.TooSoon, _options.ResendCooldown - (now - latest.CreatedAt));
             }
 
-            if (await _store.CountCreatedSinceAsync(phone.E164, now - TimeSpan.FromHours(1), cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerHour)
+            var hourAgo = now - TimeSpan.FromHours(1);
+            if (await _store.CountCreatedSinceAsync(phone.E164, hourAgo, requesterKey, cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerHour
+                || await _store.CountCreatedSinceAsync(phone.E164, hourAgo, null, cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerHourPerNumber)
             {
                 return new OtpRequestOutcome(OtpRequestStatus.RateLimited, TimeSpan.FromHours(1));
             }
@@ -61,6 +65,7 @@ public sealed class OtpService
                 CodeHash = Hash(phone.E164, code),
                 CreatedAt = now,
                 ExpiresAt = now + _options.Lifetime,
+                RequesterKey = requesterKey,
             }, cancellationToken).ConfigureAwait(false);
             await guard.CommitAsync(cancellationToken).ConfigureAwait(false);
         }

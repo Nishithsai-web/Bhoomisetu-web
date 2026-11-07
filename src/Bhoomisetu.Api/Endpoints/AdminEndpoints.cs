@@ -17,6 +17,7 @@ public static class AdminEndpoints
         var group = app.MapGroup("/api/v1/admin").WithTags("Admin").RequireAuthorization(TrustReviewerPolicy)
             .AddEndpointFilter(RequireCurrentReviewerAsync);
         group.MapPost("/parcels/{parcelId:guid}/owner-of-record", SetOwnerOfRecordAsync);
+        group.MapPost("/duplicates/{parcelId:guid}/merge", MergeDuplicateAsync);
     }
 
     /// <summary>
@@ -32,6 +33,44 @@ public static class AdminEndpoints
         return stillReviewer
             ? await next(context)
             : ApiResults.Forbidden("admin.not_reviewer", "You are no longer a trust reviewer.");
+    }
+
+    /// <summary>
+    /// Merges a record that migration 0003 set aside as a duplicate into the record kept for that land: active
+    /// offers move across (a lister who already has an active offer on the kept record keeps that one and the
+    /// duplicate's offer is withdrawn), and the candidate is marked resolved. The duplicate record itself stays,
+    /// hidden from search, so its history is not lost.
+    /// </summary>
+    private static async Task<IResult> MergeDuplicateAsync(Guid parcelId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
+    {
+        var reviewerId = http.User.UserId();
+        var now = clock.UtcNow;
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var kept = await db.Database
+            .SqlQuery<Guid>($"SELECT kept_parcel_id AS \"Value\" FROM parcel_duplicate_candidates WHERE parcel_id = {parcelId} AND resolved_at IS NULL FOR UPDATE")
+            .ToListAsync(ct);
+        if (kept.Count == 0)
+        {
+            return ApiResults.NotFound("Unresolved duplicate");
+        }
+
+        var keptId = kept[0];
+        var withdrawn = await db.Database.ExecuteSqlAsync(
+            $"""
+            UPDATE offers d SET status = 'withdrawn', updated_at = {now}
+            WHERE d.parcel_id = {parcelId} AND d.status = 'active'
+              AND EXISTS (SELECT 1 FROM offers k WHERE k.parcel_id = {keptId} AND k.lister_user_id = d.lister_user_id AND k.status = 'active')
+            """, ct);
+        var moved = await db.Database.ExecuteSqlAsync(
+            $"UPDATE offers SET parcel_id = {keptId}, updated_at = {now} WHERE parcel_id = {parcelId} AND status = 'active'", ct);
+        await db.Database.ExecuteSqlAsync(
+            $"UPDATE parcel_duplicate_candidates SET resolved_at = {now} WHERE parcel_id = {parcelId}", ct);
+
+        audit.Add(reviewerId, "parcel.duplicate_merged", "parcel", parcelId.ToString(), new { keptParcelId = keptId, moved, withdrawn });
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+        return Results.Ok(new { keptParcelId = keptId, movedOffers = moved, withdrawnOffers = withdrawn });
     }
 
     /// <summary>

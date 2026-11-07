@@ -39,6 +39,8 @@ var otpOptions = new OtpOptions
     Pepper = string.IsNullOrWhiteSpace(pepperBase64) ? [] : Convert.FromBase64String(pepperBase64),
     ResendCooldown = TimeSpan.FromSeconds(config.GetValue("Otp:ResendCooldownSeconds", 60)),
     MaxRequestsPerHour = config.GetValue("Otp:MaxRequestsPerHour", 5),
+    MaxRequestsPerHourPerNumber = config.GetValue("Otp:MaxRequestsPerHourPerNumber", 10),
+    MaxVerifyAttempts = config.GetValue("Otp:MaxVerifyAttempts", 3),
     MaxSmsPerHourGlobal = config.GetValue("Otp:MaxSmsPerHourGlobal", 20000),
 };
 otpOptions.Validate();
@@ -113,6 +115,30 @@ builder.Services
             ClockSkew = TimeSpan.FromMinutes(1),
             NameClaimType = JwtRegisteredClaimNames.Sub,
             RoleClaimType = AuthOptions.RoleClaimType,
+        };
+
+        // A token is only as good as the user's current token version: signing out bumps it, which ends every
+        // session at once instead of waiting up to 24 hours for the token to expire.
+        options.Events = new JwtBearerEvents
+        {
+            OnTokenValidated = async context =>
+            {
+                var principal = context.Principal;
+                var sub = principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                var tv = principal?.FindFirst(AuthOptions.TokenVersionClaimType)?.Value;
+                if (!Guid.TryParse(sub, out var userId) || !int.TryParse(tv, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var version))
+                {
+                    context.Fail("Token is missing its subject or version.");
+                    return;
+                }
+
+                var db = context.HttpContext.RequestServices.GetRequiredService<BhoomisetuDbContext>();
+                var current = await db.Users.AsNoTracking().AnyAsync(u => u.Id == userId && u.TokenVersion == version, context.HttpContext.RequestAborted);
+                if (!current)
+                {
+                    context.Fail("Session has ended.");
+                }
+            },
         };
     });
 builder.Services.AddAuthorizationBuilder()

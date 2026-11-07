@@ -67,3 +67,16 @@ Change a decision by adding a dated entry here and updating the register; never 
     corrections (reviewers see who asked); real owners pay the assumed 2% brokerage in comparisons until a
     reviewer records them, and the document-upload and review screens are not built yet; owners can confirm
     agents through the API but not yet from a web screen.
+
+## Changes after the third QA review (2026-11-07)
+
+16. **CI is the compiler of record.** The authoring workspace has no .NET SDK; GitHub Actions builds with
+    warnings as errors and runs all tests (155 at the time of writing) against PostGIS, plus a production
+    smoke test of the web server. Tests run on Microsoft.Testing.Platform (`global.json`).
+17. **OTP quotas are counted per requester** (IP or IPv6 /64) with a higher per-number cap (10/hour) and 3
+    tries per code, so a stranger cannot lock out an owner and guessing stays bounded (about 30 guesses per
+    number per hour). A CAPTCHA remains the planned fix for distributed attacks.
+18. **Sign-out ends sessions on the server**: tokens carry a version that sign-out bumps (migration 0005).
+19. **Set-aside duplicates are hidden** from search and comparison until a reviewer merges them.
+20. **The web server forwards visitor IPs only when declared to sit behind a load balancer**
+    (`BHOOMISETU_BEHIND_LOAD_BALANCER=true`); otherwise the header could be forged.

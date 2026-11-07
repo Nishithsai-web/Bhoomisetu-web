@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { myOfferAction } from "../actions";
-import { getMyChangeRequests, getMyOffers, type MyOfferAction } from "@/lib/api";
+import { myOfferAction, signOutAction } from "../actions";
+import { ConfirmBox } from "@/components/ConfirmBox";
+import { getMyChangeRequests, getMyOffers, getMyParcelsWithoutPrice, type MyOfferAction } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
 import { formatRupeesShort } from "@/lib/money";
@@ -19,7 +20,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
   const m = t.mine;
   const intl = INTL_LOCALE[locale];
   const query = await searchParams;
-  const [offers, requests] = await Promise.all([getMyOffers(token), getMyChangeRequests(token)]);
+  const [offers, requests, unpriced] = await Promise.all([getMyOffers(token), getMyChangeRequests(token), getMyParcelsWithoutPrice(token)]);
   if (!offers.ok && offers.status === 401) {
     await clearSession();
     redirect(`/${locale}/signin?next=/${locale}/mine`);
@@ -81,15 +82,14 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
                   </p>
                   {offer.needsConfirmation && <p className="notice">{m.needsConfirmation}</p>}
                   {confirming?.parcelId === offer.parcelId ? (
-                    <div className="notice" role="alertdialog" aria-labelledby={`confirm-${offer.offerId}`}>
-                      <p id={`confirm-${offer.offerId}`}>{confirming.action === "sold" ? m.confirmSold : m.confirmWithdraw}</p>
+                    <ConfirmBox id={`confirm-${offer.offerId}`} question={confirming.action === "sold" ? m.confirmSold : m.confirmWithdraw}>
                       <div className="actions">
                         {button(offer.parcelId, confirming.action, m.yes)}
                         <Link className="button-link" href={`/${locale}/mine`}>
                           {m.cancel}
                         </Link>
                       </div>
-                    </div>
+                    </ConfirmBox>
                   ) : (
                     <div className="actions">
                       {button(offer.parcelId, "still-available", m.stillAvailable)}
@@ -112,6 +112,24 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
         </ul>
       )}
 
+      {unpriced.ok && unpriced.data.length > 0 && (
+        <>
+          <h2>{m.unpriced}</h2>
+          <ul className="parcel-list">
+            {unpriced.data.map((p) => (
+              <li key={p.id} className="card">
+                <p>
+                  {p.village}, {p.mandal} · {format(t.parcels.survey, { number: p.surveyNumber })}
+                </p>
+                <Link className="button-link" href={`/${locale}/parcels/${p.id}/offer`}>
+                  {m.addPrice}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
       {requests.ok && requests.data.length > 0 && (
         <>
           <h2>{m.requests}</h2>
@@ -130,6 +148,12 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
           </ul>
         </>
       )}
+      <form action={signOutAction} className="form-inline">
+        <input type="hidden" name="locale" value={locale} />
+        <button type="submit" className="secondary">
+          {t.nav.signOut}
+        </button>
+      </form>
     </section>
   );
 }

@@ -25,7 +25,7 @@ is national, with state rules added as "jurisdiction packs".
 | Land records | Parcels with survey numbers as printed (Telugu and Hindi letters kept), LGD village code, land class, area source, frontage, depth, facing | Built |
 | Road access | Road width with its source (approved layout, measured on map, lister), road type, access right, distance to main road | Built |
 | Duplicate land | Same land typed differently ("123/A/1", "0123-a-1"), with or without the village code, is detected and the second lister is pointed to the existing parcel. Spelling variants of village names still need LGD codes | Built |
-| Sign-in | Indian mobile number + one-time code (stored only as a keyed hash); limits per number (cooldown, hour), per IP (IPv6 per /64) and a platform SMS budget; 24-hour session in an httpOnly cookie | Built (development SMS sender only; CAPTCHA and sign-out token revocation not yet) |
+| Sign-in | Indian mobile number + one-time code (stored only as a keyed hash); limits per number (cooldown, hour), counted per requester so strangers cannot use up an owner's quota, plus a per-number cap, 3 tries per code, IPv6 per /64, and a platform SMS budget; 24-hour session in an httpOnly cookie, ended on the server at sign-out | Built (development SMS sender only; CAPTCHA not yet) |
 | Agent comparison | Effective price, low-price outlier flag, owner authority, checks, four sort orders, badges, score breakdown. A bare "I am the owner" claim is priced like an agent until a reviewer confirms it | Built and tested |
 | Owner authority | Trust reviewer records the owner of record; the owner confirms agents from their offers or revokes them; all changes audited; reviewer rights re-checked on every action | Built |
 | Web app | Home, search by village, mandal or district, area converter, agent comparison, phone sign-in, "List your land" and "Add your price" forms with plain-language hints, in `/en`, `/te`, `/hi` | Built |
@@ -68,13 +68,16 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `POST /api/v1/parcels/{id}/offers/{offerId}/confirm-lister` | Owner confirms the agent who made an offer | Owner of record |
 | `POST`/`DELETE /api/v1/parcels/{id}/agents/{userId}/confirm` | Owner confirms or revokes an agent by account | Owner of record |
 | `POST /api/v1/admin/parcels/{id}/owner-of-record` | Record the owner after document review | Trust reviewer |
+| `POST /api/v1/auth/sign-out` | End all of my sessions on the server | Yes |
 | `GET /api/v1/me/offers` | My listings: all my offers with how long since availability was confirmed | Yes |
+| `GET /api/v1/me/parcels-without-price` | Land I listed but have not priced yet | Yes |
 | `POST /api/v1/parcels/{id}/offers/mine/still-available` | Confirm my land is still available | Yes |
 | `POST /api/v1/parcels/{id}/offers/mine/sold` | Mark my offer as sold | Yes |
 | `POST /api/v1/parcels/{id}/change-requests` | Ask to correct a land detail, with a reason | Listed, offered or owns the land |
 | `GET /api/v1/me/change-requests` | My correction requests and their decisions | Yes |
 | `GET /api/v1/admin/change-requests?status=pending` | Correction queue, oldest first | Trust reviewer |
 | `POST /api/v1/admin/change-requests/{id}/decision` | Approve or reject (not your own, not land you are involved with) | Trust reviewer |
+| `POST /api/v1/admin/duplicates/{parcelId}/merge` | Merge a record set aside as a duplicate into the kept one | Trust reviewer |
 | `GET /health/live`, `/health/ready` | Health checks | No |
 
 Errors use RFC 9457 problem responses with a stable `code` (for example `parcel.already_exists`) that the
@@ -102,6 +105,14 @@ In Development (and the automated "Testing" environment) the one-time code is wr
 instead of being sent by SMS. The API refuses to start in any other environment until a DLT-registered SMS
 provider is added and `ForwardedHeaders:KnownProxies` or `KnownNetworks` lists the load balancer and the web
 server, so rate limits see real visitor IPs.
+
+If your local database applied an earlier version of migration 0003 (before 2026-11-07), the API stops with
+"Migration 0003 was changed after it was applied". Reset the local database once with
+`docker compose down -v && docker compose up -d db`.
+
+In production the web server must sit behind a load balancer that appends the visitor's IP to
+`X-Forwarded-For`; set `BHOOMISETU_BEHIND_LOAD_BALANCER=true` on the web server and list the web server in the
+API's `ForwardedHeaders` settings. Without both, per-visitor rate limits do not work.
 
 ## Tests
 

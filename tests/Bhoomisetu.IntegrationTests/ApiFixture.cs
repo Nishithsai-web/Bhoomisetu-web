@@ -62,6 +62,7 @@ public sealed class ApiFixture : IAsyncLifetime
         Environment.SetEnvironmentVariable("RateLimits__OtpPerIpPerMinute", "10000");
         Environment.SetEnvironmentVariable("Otp__ResendCooldownSeconds", "0");
         Environment.SetEnvironmentVariable("Otp__MaxRequestsPerHour", "100");
+        Environment.SetEnvironmentVariable("Otp__MaxRequestsPerHourPerNumber", "100");
         Environment.SetEnvironmentVariable("Otp__MaxSmsPerHourGlobal", "100000");
         Environment.SetEnvironmentVariable("RateLimits__RequestsPerIpPerMinute", "100000");
 

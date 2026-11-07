@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { SORTS, getComparison, isSort, isUuid, type Sort } from "@/lib/api";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
 import { formatNumber, formatRupees, formatRupeesShort } from "@/lib/money";
@@ -24,6 +24,10 @@ export default async function ComparePage({ params, searchParams }: Props) {
   const invalidSort = rawSort !== undefined && !isSort(rawSort);
 
   const result = await getComparison(id, sort);
+  if (!result.ok && result.code === "parcel.duplicate" && result.existingParcelId && isUuid(result.existingParcelId)) {
+    // This record was merged into another one for the same land.
+    redirect(`/${locale}/parcels/${result.existingParcelId}/compare?sort=${sort}`);
+  }
   if (!result.ok) {
     return (
       <section className="page">

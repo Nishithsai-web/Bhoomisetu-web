@@ -169,6 +169,13 @@ public static class OfferEndpoints
             return ApiResults.NotFound("Parcel");
         }
 
+        if (ParcelEndpoints.DuplicateOf(parcel) is { } kept)
+        {
+            // Comparing a set-aside duplicate would split the offers for one piece of land; point to the kept record.
+            return ApiResults.Problem(StatusCodes.Status409Conflict, "parcel.duplicate", "This land is listed under another record.",
+                new Dictionary<string, object?> { ["existingParcelId"] = kept });
+        }
+
         var offers = await db.Offers.AsNoTracking().Where(o => o.ParcelId == parcelId && o.Status == "active").ToListAsync(ct);
         var listerIds = offers.Select(o => o.ListerUserId).Distinct().ToList();
         var parties = await db.ParcelParties.AsNoTracking().Where(p => p.ParcelId == parcelId).ToListAsync(ct);

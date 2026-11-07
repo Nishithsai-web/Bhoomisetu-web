@@ -31,7 +31,7 @@ public static class AuthEndpoints
                 return ApiResults.Invalid(phone.Error!);
             }
 
-            var outcome = await otp.RequestAsync(phone.Value, ct);
+            var outcome = await otp.RequestAsync(phone.Value, RateLimitPolicies.ClientKey(http), ct);
             if (outcome.Status == OtpRequestStatus.Sent)
             {
                 return Results.Accepted();
@@ -79,7 +79,7 @@ public static class AuthEndpoints
 
             var now = clock.UtcNow;
             await using var transaction = await db.Database.BeginTransactionAsync(ct);
-            var (userId, isReviewer) = await UpsertVerifiedUserAsync(db, phone.Value.E164, now, ct);
+            var (userId, isReviewer, tokenVersion) = await UpsertVerifiedUserAsync(db, phone.Value.E164, now, ct);
             await db.Database.ExecuteSqlAsync(
                 $"INSERT INTO user_checks (user_id, check_type, verified_at) VALUES ({userId}, 'phone_otp', {now}) ON CONFLICT (user_id, check_type) DO UPDATE SET verified_at = EXCLUDED.verified_at",
                 ct);
@@ -88,9 +88,20 @@ public static class AuthEndpoints
             await db.SaveChangesAsync(ct);
             await transaction.CommitAsync(ct);
 
-            var (token, expiresAt) = tokens.Issue(userId, isReviewer);
+            var (token, expiresAt) = tokens.Issue(userId, isReviewer, tokenVersion);
             return Results.Ok(new SignInResponse(token, expiresAt, userId));
         }).RequireRateLimiting(RateLimitPolicies.Otp);
+
+        // Ends every session of this user on the server, not just the cookie in one browser.
+        app.MapPost("/api/v1/auth/sign-out", async (HttpContext http, BhoomisetuDbContext db, AuditWriter audit, CancellationToken ct) =>
+        {
+            var userId = http.User.UserId();
+            await db.Users.Where(u => u.Id == userId)
+                .ExecuteUpdateAsync(s => s.SetProperty(u => u.TokenVersion, u => u.TokenVersion + 1), ct);
+            audit.Add(userId, "auth.signed_out", "user", userId.ToString());
+            await db.SaveChangesAsync(ct);
+            return Results.NoContent();
+        }).RequireAuthorization().WithTags("Auth");
 
         app.MapGet("/api/v1/me", async (HttpContext http, BhoomisetuDbContext db, CancellationToken ct) =>
         {
@@ -110,7 +121,7 @@ public static class AuthEndpoints
     /// Insert-or-update in one statement, so two parallel sign-ins for a new number cannot both insert.
     /// Runs inside the caller's EF transaction.
     /// </summary>
-    private static async Task<(Guid UserId, bool IsTrustReviewer)> UpsertVerifiedUserAsync(BhoomisetuDbContext db, string phoneE164, DateTimeOffset now, CancellationToken ct)
+    private static async Task<(Guid UserId, bool IsTrustReviewer, int TokenVersion)> UpsertVerifiedUserAsync(BhoomisetuDbContext db, string phoneE164, DateTimeOffset now, CancellationToken ct)
     {
         var transaction = db.Database.CurrentTransaction?.GetDbTransaction() as NpgsqlTransaction
             ?? throw new InvalidOperationException("UpsertVerifiedUserAsync must run inside a transaction.");
@@ -119,7 +130,7 @@ public static class AuthEndpoints
             INSERT INTO users (id, phone_e164, phone_verified_at, created_at, updated_at)
             VALUES (@id, @phone, @now, @now, @now)
             ON CONFLICT (phone_e164) DO UPDATE SET phone_verified_at = EXCLUDED.phone_verified_at, updated_at = EXCLUDED.updated_at
-            RETURNING id, is_trust_reviewer
+            RETURNING id, is_trust_reviewer, token_version
             """,
             transaction.Connection,
             transaction);
@@ -132,6 +143,6 @@ public static class AuthEndpoints
             throw new InvalidOperationException("User upsert returned no row.");
         }
 
-        return (reader.GetGuid(0), reader.GetBoolean(1));
+        return (reader.GetGuid(0), reader.GetBoolean(1), reader.GetInt32(2));
     }
 }

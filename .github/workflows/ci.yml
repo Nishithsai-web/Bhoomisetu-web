@@ -78,19 +78,25 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
-      # No lockfile is committed yet (the first install could not run in the authoring environment).
-      # Commit apps/web/package-lock.json after the first green run and switch this to `npm ci`.
-      - run: npm install --no-audit --no-fund
-      # Temporary: print the lockfile npm just wrote (gzip + base64) so it can be committed, then use `npm ci`.
-      - name: Show generated lockfile
-        run: |
-          echo "LOCKFILE-BEGIN"
-          gzip -9c package-lock.json | base64 -w 0
-          echo
-          echo "LOCKFILE-END"
+      - run: npm ci --no-audit --no-fund
       - run: npm test
       - run: npm run check:i18n
       - run: npm run build
         env:
           BHOOMISETU_API_URL: http://localhost:5080
       - run: npm run typecheck
+      # Production smoke test: the built server answers in every language and rejects unknown ones.
+      - name: Smoke test the production server
+        env:
+          BHOOMISETU_API_URL: http://localhost:5080
+        run: |
+          npx next start -p 3100 &
+          for i in $(seq 1 30); do curl -sf -o /dev/null http://localhost:3100/en && break; sleep 1; done
+          check() { code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:3100$1"); echo "$1 -> $code"; [ "$code" = "$2" ]; }
+          check /en 200
+          check /te 200
+          check /hi 200
+          check /te/units 200
+          check /fr 404
+          check /en/parcels/not-a-uuid/compare 404
+          check / 307

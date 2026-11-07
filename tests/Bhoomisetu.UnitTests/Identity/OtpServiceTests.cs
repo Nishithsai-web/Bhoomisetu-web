@@ -20,7 +20,7 @@ public sealed class OtpServiceTests
     [Fact]
     public async Task Sends_a_six_digit_code_and_stores_only_a_hash()
     {
-        var outcome = await _service.RequestAsync(_phone, CancellationToken.None);
+        var outcome = await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
 
         Assert.Equal(OtpRequestStatus.Sent, outcome.Status);
         Assert.Matches("^[0-9]{6}$", _sender.LastCode);
@@ -32,7 +32,7 @@ public sealed class OtpServiceTests
     [Fact]
     public async Task Correct_code_verifies_once_only()
     {
-        await _service.RequestAsync(_phone, CancellationToken.None);
+        await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         var code = _sender.LastCode;
 
         Assert.Equal(OtpVerifyStatus.Verified, await _service.VerifyAsync(_phone, code, CancellationToken.None));
@@ -42,7 +42,7 @@ public sealed class OtpServiceTests
     [Fact]
     public async Task Code_typed_in_telugu_digits_verifies()
     {
-        await _service.RequestAsync(_phone, CancellationToken.None);
+        await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         var telugu = new string(_sender.LastCode!.Select(c => (char)('౦' + (c - '0'))).ToArray());
         Assert.Equal(OtpVerifyStatus.Verified, await _service.VerifyAsync(_phone, telugu, CancellationToken.None));
     }
@@ -50,18 +50,18 @@ public sealed class OtpServiceTests
     [Fact]
     public async Task Expired_code_is_rejected()
     {
-        await _service.RequestAsync(_phone, CancellationToken.None);
+        await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         _clock.Advance(TimeSpan.FromMinutes(5));
         Assert.Equal(OtpVerifyStatus.Expired, await _service.VerifyAsync(_phone, _sender.LastCode, CancellationToken.None));
     }
 
     [Fact]
-    public async Task Locks_after_five_wrong_codes_even_if_the_right_one_follows()
+    public async Task Locks_after_three_wrong_codes_even_if_the_right_one_follows()
     {
-        await _service.RequestAsync(_phone, CancellationToken.None);
+        await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         var wrong = _sender.LastCode == "000000" ? "111111" : "000000";
 
-        for (var i = 0; i < 4; i++)
+        for (var i = 0; i < 2; i++)
         {
             Assert.Equal(OtpVerifyStatus.Invalid, await _service.VerifyAsync(_phone, wrong, CancellationToken.None));
         }
@@ -78,17 +78,17 @@ public sealed class OtpServiceTests
     [InlineData("1234567")]
     public async Task Malformed_codes_are_invalid(string? code)
     {
-        await _service.RequestAsync(_phone, CancellationToken.None);
+        await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         Assert.Equal(OtpVerifyStatus.Invalid, await _service.VerifyAsync(_phone, code, CancellationToken.None));
     }
 
     [Fact]
     public async Task Resend_within_cooldown_is_refused_with_wait_time()
     {
-        await _service.RequestAsync(_phone, CancellationToken.None);
+        await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         _clock.Advance(TimeSpan.FromSeconds(20));
 
-        var outcome = await _service.RequestAsync(_phone, CancellationToken.None);
+        var outcome = await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         Assert.Equal(OtpRequestStatus.TooSoon, outcome.Status);
         Assert.Equal(TimeSpan.FromSeconds(40), outcome.RetryAfter);
     }
@@ -98,22 +98,22 @@ public sealed class OtpServiceTests
     {
         for (var i = 0; i < 5; i++)
         {
-            Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, CancellationToken.None)).Status);
+            Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, "client-a", CancellationToken.None)).Status);
             _clock.Advance(TimeSpan.FromMinutes(2));
         }
 
-        Assert.Equal(OtpRequestStatus.RateLimited, (await _service.RequestAsync(_phone, CancellationToken.None)).Status);
+        Assert.Equal(OtpRequestStatus.RateLimited, (await _service.RequestAsync(_phone, "client-a", CancellationToken.None)).Status);
         _clock.Advance(TimeSpan.FromMinutes(55));
-        Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, CancellationToken.None)).Status);
+        Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, "client-a", CancellationToken.None)).Status);
     }
 
     [Fact]
     public async Task A_new_code_replaces_the_old_one()
     {
-        await _service.RequestAsync(_phone, CancellationToken.None);
+        await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         var first = _sender.LastCode;
         _clock.Advance(TimeSpan.FromMinutes(1));
-        await _service.RequestAsync(_phone, CancellationToken.None);
+        await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
 
         if (first != _sender.LastCode)
         {
@@ -128,11 +128,11 @@ public sealed class OtpServiceTests
     {
         for (var i = 0; i < 5; i++)
         {
-            await _service.RequestAsync(_phone, CancellationToken.None);
+            await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
             _clock.Advance(TimeSpan.FromMinutes(2));
         }
 
-        var limited = await _service.RequestAsync(_phone, CancellationToken.None);
+        var limited = await _service.RequestAsync(_phone, "client-a", CancellationToken.None);
         Assert.Equal(OtpRequestStatus.RateLimited, limited.Status);
         Assert.True(limited.RetryAfter <= TimeSpan.FromHours(1));
     }
@@ -141,17 +141,42 @@ public sealed class OtpServiceTests
     public async Task Global_sms_budget_stops_sending()
     {
         var service = new OtpService(_store, _sender, _clock, new OtpOptions { Pepper = new byte[32], MaxSmsPerHourGlobal = 2 });
-        Assert.Equal(OtpRequestStatus.Sent, (await service.RequestAsync(IndianMobileNumber.Parse("9000000001").Value, CancellationToken.None)).Status);
-        Assert.Equal(OtpRequestStatus.Sent, (await service.RequestAsync(IndianMobileNumber.Parse("9000000002").Value, CancellationToken.None)).Status);
-        Assert.Equal(OtpRequestStatus.Busy, (await service.RequestAsync(IndianMobileNumber.Parse("9000000003").Value, CancellationToken.None)).Status);
+        Assert.Equal(OtpRequestStatus.Sent, (await service.RequestAsync(IndianMobileNumber.Parse("9000000001").Value, "client-a", CancellationToken.None)).Status);
+        Assert.Equal(OtpRequestStatus.Sent, (await service.RequestAsync(IndianMobileNumber.Parse("9000000002").Value, "client-a", CancellationToken.None)).Status);
+        Assert.Equal(OtpRequestStatus.Busy, (await service.RequestAsync(IndianMobileNumber.Parse("9000000003").Value, "client-a", CancellationToken.None)).Status);
     }
 
     [Fact]
     public async Task Parallel_requests_for_one_number_send_only_one_code()
     {
-        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => _service.RequestAsync(_phone, CancellationToken.None)));
+        var results = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => _service.RequestAsync(_phone, "client-a", CancellationToken.None)));
         Assert.Single(results, r => r.Status == OtpRequestStatus.Sent);
         Assert.Single(_store.Challenges);
+    }
+
+    [Fact]
+    public async Task A_stranger_cannot_use_up_the_owners_quota()
+    {
+        for (var i = 0; i < 5; i++)
+        {
+            await _service.RequestAsync(_phone, "attacker", CancellationToken.None);
+            _clock.Advance(TimeSpan.FromMinutes(2));
+        }
+
+        Assert.Equal(OtpRequestStatus.RateLimited, (await _service.RequestAsync(_phone, "attacker", CancellationToken.None)).Status);
+        Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, "owner", CancellationToken.None)).Status);
+    }
+
+    [Fact]
+    public async Task Per_number_cap_holds_across_requesters()
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, $"client-{i}", CancellationToken.None)).Status);
+            _clock.Advance(TimeSpan.FromMinutes(2));
+        }
+
+        Assert.Equal(OtpRequestStatus.RateLimited, (await _service.RequestAsync(_phone, "client-new", CancellationToken.None)).Status);
     }
 
     [Fact]
@@ -186,11 +211,11 @@ public sealed class OtpServiceTests
             }
         }
 
-        public Task<int> CountCreatedSinceAsync(string phoneE164, DateTimeOffset since, CancellationToken cancellationToken)
+        public Task<int> CountCreatedSinceAsync(string phoneE164, DateTimeOffset since, string? requesterKey, CancellationToken cancellationToken)
         {
             lock (_gate)
             {
-                return Task.FromResult(Challenges.Count(c => c.PhoneE164 == phoneE164 && c.CreatedAt >= since));
+                return Task.FromResult(Challenges.Count(c => c.PhoneE164 == phoneE164 && c.CreatedAt >= since && (requesterKey is null || c.RequesterKey == requesterKey)));
             }
         }
 
@@ -268,6 +293,7 @@ public sealed class OtpServiceTests
             CodeHash = c.CodeHash,
             CreatedAt = c.CreatedAt,
             ExpiresAt = c.ExpiresAt,
+            RequesterKey = c.RequesterKey,
             Attempts = attempts,
             ConsumedAt = consumedAt,
         };

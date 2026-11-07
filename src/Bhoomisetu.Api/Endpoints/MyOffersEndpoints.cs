@@ -23,6 +23,7 @@ public static class MyOffersEndpoints
     public static void MapMyOffersEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapGet("/api/v1/me/offers", MineAsync).RequireAuthorization().WithTags("My listings");
+        app.MapGet("/api/v1/me/parcels-without-price", ParcelsWithoutPriceAsync).RequireAuthorization().WithTags("My listings");
         var mine = app.MapGroup("/api/v1/parcels/{parcelId:guid}/offers/mine").WithTags("My listings").RequireAuthorization();
         mine.MapPost("/still-available", StillAvailableAsync);
         mine.MapPost("/sold", SoldAsync);
@@ -51,6 +52,21 @@ public static class MyOffersEndpoints
                 x.o.AvailabilityConfirmedAt, Math.Max(0, days), x.o.Status == "active" && days >= ConfirmAfterDays);
         }).ToList();
         return Results.Ok(result);
+    }
+
+    /// <summary>Land I listed but have not priced yet (for example, the form was left after the first step).</summary>
+    private static async Task<IResult> ParcelsWithoutPriceAsync(HttpContext http, BhoomisetuDbContext db, CancellationToken ct)
+    {
+        var userId = http.User.UserId();
+        var squareYard = Area.FactorToSquareMetres(AreaUnit.SquareYard);
+        var rows = await db.Parcels.AsNoTracking()
+            .Where(p => p.CreatedBy == userId && !db.Offers.Any(o => o.ParcelId == p.Id && o.ListerUserId == userId && o.Status == "active"))
+            .OrderByDescending(p => p.CreatedAt)
+            .Take(100)
+            .Select(p => new { p.Id, p.Village, p.Mandal, p.District, p.SurveyNumber, p.RecordedAreaSqm })
+            .ToListAsync(ct);
+        return Results.Ok(rows.Select(p => new ParcelSummary(p.Id, string.Empty, p.District, p.Mandal, p.Village, p.SurveyNumber, string.Empty,
+            Math.Round(p.RecordedAreaSqm / squareYard, 2, MidpointRounding.AwayFromZero), 0)).ToList());
     }
 
     private static Task<IResult> StillAvailableAsync(Guid parcelId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct) =>

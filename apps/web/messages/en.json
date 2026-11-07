@@ -329,7 +329,9 @@
     "confirmSold": "Mark this land as sold? It will stop showing to buyers.",
     "confirmWithdraw": "Remove your offer? Buyers will no longer see your price.",
     "yes": "Yes, continue",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "unpriced": "Land you listed without a price",
+    "addPrice": "Add your price"
   },
   "correct": {
     "title": "Correct a land detail",

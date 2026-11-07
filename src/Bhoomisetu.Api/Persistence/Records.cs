@@ -11,6 +11,7 @@ public sealed class UserRecord
     public string? DisplayName { get; set; }
     public string PreferredLocale { get; set; } = "en";
     public bool IsTrustReviewer { get; set; }
+    public int TokenVersion { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -32,6 +33,7 @@ public sealed class OtpChallengeRecord
     public DateTimeOffset ExpiresAt { get; set; }
     public int Attempts { get; set; }
     public DateTimeOffset? ConsumedAt { get; set; }
+    public string? RequesterKey { get; set; }
 }
 
 public sealed class ParcelRecord

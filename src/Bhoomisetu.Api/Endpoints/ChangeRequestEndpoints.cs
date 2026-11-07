@@ -22,6 +22,8 @@ public sealed record ChangeRequestResponse(
 /// </summary>
 public static class ChangeRequestEndpoints
 {
+    private const int MaxRequestsPerUserPerDay = 20;
+
     public static void MapChangeRequestEndpoints(this IEndpointRouteBuilder app)
     {
         app.MapPost("/api/v1/parcels/{parcelId:guid}/change-requests", CreateAsync).RequireAuthorization().WithTags("Corrections");
@@ -43,12 +45,20 @@ public static class ChangeRequestEndpoints
             return ApiResults.NotFound("Parcel");
         }
 
+        // Only people with a current stake: who listed it, a lister with an active offer, or a recorded party.
         var involved = parcel.CreatedBy == userId
-            || await db.Offers.AnyAsync(o => o.ParcelId == parcelId && o.ListerUserId == userId, ct)
+            || await db.Offers.AnyAsync(o => o.ParcelId == parcelId && o.ListerUserId == userId && o.Status == "active", ct)
             || await db.ParcelParties.AnyAsync(p => p.ParcelId == parcelId && p.UserId == userId, ct);
         if (!involved)
         {
             return ApiResults.Forbidden("change.not_involved", "Only people who listed, offered or own this land can ask for a correction.");
+        }
+
+        // Keeps the review queue usable: nobody needs more than this many corrections a day.
+        var dayAgo = clock.UtcNow - TimeSpan.FromDays(1);
+        if (await db.ChangeRequests.CountAsync(r => r.RequestedBy == userId && r.CreatedAt >= dayAgo, ct) >= MaxRequestsPerUserPerDay)
+        {
+            return ApiResults.Problem(StatusCodes.Status429TooManyRequests, "change.too_many", "You have sent many corrections today. Please try again tomorrow.");
         }
 
         if (request.Field is null || !ParcelFacts.Fields.Contains(request.Field))

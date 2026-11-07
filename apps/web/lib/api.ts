@@ -100,19 +100,20 @@ function baseUrl(): string {
 }
 
 /**
- * The visitor's IP as seen by this web server, forwarded so the API's per-IP limits apply to each visitor and
- * not to the web server as a whole. Behind a load balancer the last X-Forwarded-For entry is the one the
- * balancer added (earlier entries can be typed by anyone). The API trusts this header only from the web
- * server's address (ForwardedHeaders settings).
+ * The visitor's IP, forwarded so the API's per-IP limits apply to each visitor rather than to the web server.
+ *
+ * Only trustworthy when this server is reachable solely through a load balancer that appends the real client
+ * address as the last X-Forwarded-For entry (earlier entries can be typed by anyone). That must be declared
+ * with BHOOMISETU_BEHIND_LOAD_BALANCER=true; otherwise nothing is forwarded and the API limits the web server
+ * as one client. See docs/ARCHITECTURE.md, "Security model".
  */
 async function visitorIp(): Promise<string | null> {
+  if (process.env.BHOOMISETU_BEHIND_LOAD_BALANCER !== "true") return null;
   try {
     const { headers } = await import("next/headers");
-    const h = await headers();
-    const forwarded = h.get("x-forwarded-for");
+    const forwarded = (await headers()).get("x-forwarded-for");
     const last = forwarded?.split(",").map((part: string) => part.trim()).filter(Boolean).at(-1);
-    const candidate = last ?? h.get("x-real-ip") ?? null;
-    return candidate && /^[0-9a-fA-F:.]{2,45}$/.test(candidate) ? candidate : null;
+    return last && /^[0-9a-fA-F:.]{2,45}$/.test(last) ? last : null;
   } catch {
     // Outside a request (for example at build time) there is no visitor.
     return null;
@@ -260,4 +261,13 @@ export function requestChange(parcelId: string, body: { field: string; proposedV
 
 export function getMyChangeRequests(token: string): Promise<ApiResult<ChangeRequest[]>> {
   return get<ChangeRequest[]>("/api/v1/me/change-requests", token);
+}
+
+/** Ends every session of the signed-in user on the server. */
+export function signOut(token: string): Promise<ApiResult<void>> {
+  return request<void>("POST", "/api/v1/auth/sign-out", undefined, token);
+}
+
+export function getMyParcelsWithoutPrice(token: string): Promise<ApiResult<ParcelSummary[]>> {
+  return get<ParcelSummary[]>("/api/v1/me/parcels-without-price", token);
 }

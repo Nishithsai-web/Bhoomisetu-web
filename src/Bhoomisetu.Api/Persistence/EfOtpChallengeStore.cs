@@ -27,8 +27,10 @@ public sealed class EfOtpChallengeStore(BhoomisetuDbContext db) : IOtpChallengeS
             };
     }
 
-    public Task<int> CountCreatedSinceAsync(string phoneE164, DateTimeOffset since, CancellationToken cancellationToken) =>
-        db.OtpChallenges.CountAsync(c => c.PhoneE164 == phoneE164 && c.CreatedAt >= since, cancellationToken);
+    public Task<int> CountCreatedSinceAsync(string phoneE164, DateTimeOffset since, string? requesterKey, CancellationToken cancellationToken) =>
+        requesterKey is null
+            ? db.OtpChallenges.CountAsync(c => c.PhoneE164 == phoneE164 && c.CreatedAt >= since, cancellationToken)
+            : db.OtpChallenges.CountAsync(c => c.PhoneE164 == phoneE164 && c.CreatedAt >= since && c.RequesterKey == requesterKey, cancellationToken);
 
     public Task<int> CountAllCreatedSinceAsync(DateTimeOffset since, CancellationToken cancellationToken) =>
         db.OtpChallenges.CountAsync(c => c.CreatedAt >= since, cancellationToken);
@@ -59,6 +61,7 @@ public sealed class EfOtpChallengeStore(BhoomisetuDbContext db) : IOtpChallengeS
             ExpiresAt = challenge.ExpiresAt,
             Attempts = challenge.Attempts,
             ConsumedAt = challenge.ConsumedAt,
+            RequesterKey = challenge.RequesterKey,
         });
         await db.SaveChangesAsync(cancellationToken);
     }
