@@ -11,7 +11,7 @@ CREATE TABLE development_projects (
                                                        'airport', 'industrial_corridor', 'it_corridor', 'other')),
     status        text        NOT NULL CHECK (status IN ('proposed_unverified', 'approved', 'under_construction', 'completed', 'cancelled')),
     authority     text        NOT NULL CHECK (char_length(authority) BETWEEN 2 AND 200),
-    source_url    text        CHECK (source_url ~ '^https://[^\s]{4,500}$'),
+    source_url    text        CHECK (source_url ~ '^https://[^[:space:]]+$' AND char_length(source_url) BETWEEN 12 AND 508),
     source_date   date        NOT NULL,
     created_by    uuid        NOT NULL REFERENCES users (id),
     created_at    timestamptz NOT NULL DEFAULT now(),
