@@ -81,11 +81,13 @@ jobs:
       # No lockfile is committed yet (the first install could not run in the authoring environment).
       # Commit apps/web/package-lock.json after the first green run and switch this to `npm ci`.
       - run: npm install --no-audit --no-fund
-      # Temporary: publish the lockfile npm just wrote so it can be committed, then switch to `npm ci`.
-      - uses: actions/upload-artifact@v5
-        with:
-          name: web-package-lock
-          path: apps/web/package-lock.json
+      # Temporary: print the lockfile npm just wrote (gzip + base64) so it can be committed, then use `npm ci`.
+      - name: Show generated lockfile
+        run: |
+          echo "LOCKFILE-BEGIN"
+          gzip -9c package-lock.json | base64 -w 0
+          echo
+          echo "LOCKFILE-END"
       - run: npm test
       - run: npm run check:i18n
       - run: npm run build
