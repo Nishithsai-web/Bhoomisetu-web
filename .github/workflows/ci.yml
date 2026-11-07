@@ -81,6 +81,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm test
       - run: npm run check:i18n
+      - run: npm run check:errors
       - run: npm run build
         env:
           BHOOMISETU_API_URL: http://localhost:5080

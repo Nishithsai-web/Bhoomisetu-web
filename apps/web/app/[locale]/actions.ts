@@ -1,7 +1,22 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createOffer, createParcel, isUuid, requestChange, requestOtp, signOut, updateMyOffer, verifyOtp, type MyOfferAction } from "@/lib/api";
+import {
+  createOffer,
+  createParcel,
+  decideChangeRequest,
+  findUserByPhone,
+  isUuid,
+  mergeDuplicate,
+  requestChange,
+  requestOtp,
+  setListerConfirmation,
+  setOwnerOfRecord,
+  signOut,
+  updateMyOffer,
+  verifyOtp,
+  type MyOfferAction,
+} from "@/lib/api";
 import { CHANGE_FIELDS, parseOfferForm, parseParcelForm, safeNextPath, toMetres, type FieldError } from "@/lib/forms";
 import { parseAreaValue } from "@/lib/units";
 import { isLocale } from "@/lib/i18n";
@@ -44,7 +59,8 @@ export async function signInAction(previous: FormState, form: FormData): Promise
   const phone = value(form, "phone");
 
   if (value(form, "intent") !== "verify") {
-    const sent = await requestOtp(phone);
+    // Cloudflare Turnstile puts its token in this field when the widget is shown (BHOOMISETU_TURNSTILE_SITE_KEY).
+    const sent = await requestOtp(phone, value(form, "cf-turnstile-response"));
     if (sent.ok) return { step: "code", phone };
     // "Send a new code" pressed too early: stay on the code step, the earlier code still works.
     const stay = previous.step === "code" && sent.code === "otp.too_soon";
@@ -165,4 +181,66 @@ export async function changeRequestAction(_previous: FormState, form: FormData):
     return { error: result.code, values: echo(form) };
   }
   redirect(`/${locale}/mine?done=change-requested`);
+}
+
+/** Sends people whose session ended back to sign in, then to the page they were on. */
+async function requireToken(locale: string, back: string): Promise<string> {
+  const token = await getSessionToken();
+  if (!token) redirect(`/${locale}/signin?next=${encodeURIComponent(back)}`);
+  return token;
+}
+
+/** The owner of record confirms, or removes confirmation from, whoever made an offer. */
+export async function ownerConfirmAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  const offerId = value(form, "offerId");
+  if (!isUuid(parcelId) || !isUuid(offerId)) redirect(`/${locale}`);
+  const back = `/${locale}/parcels/${parcelId}/compare`;
+  const token = await requireToken(locale, back);
+  const result = await setListerConfirmation(parcelId, offerId, value(form, "intent") === "confirm", token);
+  redirect(result.ok ? `${back}?done=owner` : `${back}?error=${encodeURIComponent(result.code)}`);
+}
+
+// ---------------------------------------------------------------- reviewer console
+
+const REVIEW = (locale: string) => `/${locale}/review`;
+
+export async function decideChangeAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const requestId = value(form, "requestId");
+  const decision = value(form, "decision");
+  if (!isUuid(requestId) || (decision !== "approve" && decision !== "reject")) redirect(REVIEW(locale));
+  const token = await requireToken(locale, REVIEW(locale));
+  const result = await decideChangeRequest(requestId, decision, value(form, "note").slice(0, 1000), token);
+  redirect(result.ok ? `${REVIEW(locale)}?done=decided` : `${REVIEW(locale)}?error=${encodeURIComponent(result.code)}`);
+}
+
+export async function mergeDuplicateAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  if (!isUuid(parcelId)) redirect(REVIEW(locale));
+  const token = await requireToken(locale, REVIEW(locale));
+  const result = await mergeDuplicate(parcelId, token);
+  redirect(result.ok ? `${REVIEW(locale)}?done=merged` : `${REVIEW(locale)}?error=${encodeURIComponent(result.code)}`);
+}
+
+/** Finds the account by mobile number, then records it as owner of record, in one step for the reviewer. */
+export async function setOwnerAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  const phone = value(form, "phone");
+  const evidence = value(form, "evidence");
+  const errors: FieldError[] = [];
+  if (!isUuid(parcelId)) errors.push({ field: "parcelId", code: "review.parcel_id_invalid" });
+  if (phone === "") errors.push({ field: "phone", code: "phone.empty" });
+  if (evidence.length < 3) errors.push({ field: "evidence", code: "admin.evidence_required" });
+  if (errors.length > 0) return { errors, values: echo(form) };
+
+  const token = await requireToken(locale, REVIEW(locale));
+  const user = await findUserByPhone(phone, token);
+  if (!user.ok) return { error: user.status === 404 ? "review.no_account" : user.code, values: echo(form) };
+  const result = await setOwnerOfRecord(parcelId, user.data.id, evidence, token);
+  if (!result.ok) return { error: result.code, values: echo(form) };
+  redirect(`${REVIEW(locale)}?done=owner_set`);
 }

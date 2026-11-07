@@ -175,8 +175,8 @@ export function searchParcels(query: string, page: number): Promise<ApiResult<Pa
 
 export type SignIn = { accessToken: string; expiresAt: string; userId: string };
 
-export function requestOtp(phone: string): Promise<ApiResult<void>> {
-  return request<void>("POST", "/api/v1/auth/otp/request", { phone });
+export function requestOtp(phone: string, captchaToken?: string): Promise<ApiResult<void>> {
+  return request<void>("POST", "/api/v1/auth/otp/request", { phone, captchaToken: captchaToken || undefined });
 }
 
 export function verifyOtp(phone: string, code: string): Promise<ApiResult<SignIn>> {
@@ -270,4 +270,53 @@ export function signOut(token: string): Promise<ApiResult<void>> {
 
 export function getMyParcelsWithoutPrice(token: string): Promise<ApiResult<ParcelSummary[]>> {
   return get<ParcelSummary[]>("/api/v1/me/parcels-without-price", token);
+}
+
+// ---------------------------------------------------------------- owner and reviewer workflows
+
+export type ParcelViewer = { isOwnerOfRecord: boolean; myOfferId: string | null; confirmedOfferIds: string[] };
+
+export function getViewer(parcelId: string, token: string): Promise<ApiResult<ParcelViewer>> {
+  return get<ParcelViewer>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/viewer`, token);
+}
+
+export function setListerConfirmation(parcelId: string, offerId: string, confirm: boolean, token: string): Promise<ApiResult<void>> {
+  return request<void>(confirm ? "POST" : "DELETE", `/api/v1/parcels/${encodeURIComponent(parcelId)}/offers/${encodeURIComponent(offerId)}/confirm-lister`, undefined, token);
+}
+
+export function getChangeRequestQueue(token: string): Promise<ApiResult<ChangeRequest[]>> {
+  return get<ChangeRequest[]>("/api/v1/admin/change-requests?status=pending", token);
+}
+
+export function decideChangeRequest(requestId: string, decision: "approve" | "reject", note: string, token: string): Promise<ApiResult<ChangeRequest>> {
+  return request<ChangeRequest>("POST", `/api/v1/admin/change-requests/${encodeURIComponent(requestId)}/decision`, { decision, note: note || null }, token);
+}
+
+export type DuplicateCandidate = {
+  parcelId: string;
+  keptParcelId: string;
+  village: string;
+  mandal: string;
+  district: string;
+  surveyNumber: string;
+  activeOffers: number;
+  foundAt: string;
+};
+
+export function getDuplicateQueue(token: string): Promise<ApiResult<DuplicateCandidate[]>> {
+  return get<DuplicateCandidate[]>("/api/v1/admin/duplicates", token);
+}
+
+export function mergeDuplicate(parcelId: string, token: string): Promise<ApiResult<unknown>> {
+  return request<unknown>("POST", `/api/v1/admin/duplicates/${encodeURIComponent(parcelId)}/merge`, undefined, token);
+}
+
+export type AdminUser = { id: string; phoneMasked: string; displayName: string | null; checks: string[]; createdAt: string };
+
+export function findUserByPhone(phone: string, token: string): Promise<ApiResult<AdminUser>> {
+  return get<AdminUser>(`/api/v1/admin/users/by-phone?phone=${encodeURIComponent(phone)}`, token);
+}
+
+export function setOwnerOfRecord(parcelId: string, userId: string, evidenceNote: string, token: string): Promise<ApiResult<void>> {
+  return request<void>("POST", `/api/v1/admin/parcels/${encodeURIComponent(parcelId)}/owner-of-record`, { userId, evidenceNote }, token);
 }

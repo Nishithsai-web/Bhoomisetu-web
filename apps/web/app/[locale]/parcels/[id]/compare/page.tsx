@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { SORTS, getComparison, isSort, isUuid, type Sort } from "@/lib/api";
+import { ownerConfirmAction } from "../../../actions";
+import { SORTS, getComparison, getViewer, isSort, isUuid, type ParcelViewer, type Sort } from "@/lib/api";
+import { errorText } from "@/lib/errors";
+import { getSessionToken } from "@/lib/session";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
 import { formatNumber, formatRupees, formatRupeesShort } from "@/lib/money";
 
 type Props = {
   params: Promise<{ locale: string; id: string }>;
-  searchParams: Promise<{ sort?: string | string[] }>;
+  searchParams: Promise<{ sort?: string | string[]; done?: string; error?: string }>;
 };
 
 const percent = (weight: number) => Math.round(weight * 100);
@@ -40,6 +43,12 @@ export default async function ComparePage({ params, searchParams }: Props) {
   }
 
   const data = result.data;
+  const query = await searchParams;
+
+  // Signed-in owners of record get confirm / remove buttons on each agent's row.
+  const token = await getSessionToken();
+  const viewerResult = token ? await getViewer(id, token) : null;
+  const viewer: ParcelViewer | null = viewerResult?.ok ? viewerResult.data : null;
   const dateFormat = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
   const words = t.amounts;
   // Farmland is priced per acre, house plots per gajam: show whichever buyers of this land use.
@@ -62,6 +71,18 @@ export default async function ComparePage({ params, searchParams }: Props) {
           {c.invalidSort}
         </p>
       )}
+
+      {query.done === "owner" && (
+        <p className="notice" role="status">
+          {c.ownerSaved}
+        </p>
+      )}
+      {query.error && (
+        <p className="notice error" role="alert">
+          {errorText(t, query.error)}
+        </p>
+      )}
+      {viewer?.isOwnerOfRecord && <p className="notice">{c.ownerHelp}</p>}
 
       <nav aria-label={c.sortLabel} className="sort-tabs">
         <span>{c.sortLabel}</span>
@@ -105,6 +126,22 @@ export default async function ComparePage({ params, searchParams }: Props) {
                         </li>
                       ))}
                     </ul>
+                    {viewer?.isOwnerOfRecord && offer.offerId !== viewer.myOfferId && (
+                      <form action={ownerConfirmAction} className="form-inline">
+                        <input type="hidden" name="locale" value={locale} />
+                        <input type="hidden" name="parcelId" value={id} />
+                        <input type="hidden" name="offerId" value={offer.offerId} />
+                        {viewer.confirmedOfferIds.includes(offer.offerId) ? (
+                          <button type="submit" name="intent" value="remove" className="secondary">
+                            {c.removeConfirmation}
+                          </button>
+                        ) : (
+                          <button type="submit" name="intent" value="confirm">
+                            {c.confirmAgent}
+                          </button>
+                        )}
+                      </form>
+                    )}
                   </th>
                   <td>{formatRupees(offer.effectivePriceRupees, intl)}</td>
                   <td>{formatRupees(perAcre ? offer.effectivePricePerAcreRupees : offer.effectivePricePerSquareYardRupees, intl)}</td>

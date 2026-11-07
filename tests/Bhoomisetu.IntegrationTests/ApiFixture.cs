@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using Bhoomisetu.Api.Auth;
 using Bhoomisetu.Modules.Identity;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -73,6 +74,9 @@ public sealed class ApiFixture : IAsyncLifetime
             {
                 services.RemoveAll<IOtpSender>();
                 services.AddSingleton<IOtpSender>(Sms);
+                // A human check that is switched on, so every test exercises the CAPTCHA path; "pass" passes.
+                services.RemoveAll<ICaptchaVerifier>();
+                services.AddSingleton<ICaptchaVerifier, FakeCaptcha>();
             });
         });
 
@@ -104,7 +108,7 @@ public sealed class ApiFixture : IAsyncLifetime
     public async Task<(HttpClient Client, Guid UserId)> SignInAsync(string phone)
     {
         var client = CreateClient();
-        var request = await client.PostAsJsonAsync("/api/v1/auth/otp/request", new { phone }, Ct);
+        var request = await client.PostAsJsonAsync("/api/v1/auth/otp/request", new { phone, captchaToken = FakeCaptcha.PassToken }, Ct);
         Assert.Equal(System.Net.HttpStatusCode.Accepted, request.StatusCode);
 
         var e164 = IndianMobileNumber.Parse(phone).Value.E164;
@@ -129,6 +133,15 @@ public sealed class ApiFixture : IAsyncLifetime
     }
 
     public sealed record SignIn(string AccessToken, DateTimeOffset ExpiresAt, Guid UserId);
+}
+
+public sealed class FakeCaptcha : ICaptchaVerifier
+{
+    public const string PassToken = "pass";
+
+    public bool Enabled => true;
+
+    public Task<bool> VerifyAsync(string? token, string? remoteIp, CancellationToken cancellationToken) => Task.FromResult(token == PassToken);
 }
 
 public sealed class CapturingOtpSender : IOtpSender

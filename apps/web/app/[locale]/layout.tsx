@@ -56,6 +56,9 @@ export default async function LocaleLayout({ children, params }: Props) {
         <main id="main">{children}</main>
         <footer className="site-footer">
           <p>{t.footer.disclaimer}</p>
+          <p>
+            <Link href={`/${locale}/review`}>{t.nav.review}</Link>
+          </p>
         </footer>
       </body>
     </html>

@@ -55,7 +55,7 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 
 | Method and path | Purpose | Sign-in |
 | --- | --- | --- |
-| `POST /api/v1/auth/otp/request` | Send a one-time code to a mobile number | No |
+| `POST /api/v1/auth/otp/request` | Send a one-time code to a mobile number (from the second code in an hour, a human check when `Captcha:Provider` is `turnstile`) | No |
 | `POST /api/v1/auth/otp/verify` | Exchange the code for a session token | No |
 | `GET /api/v1/me` | Current user and checks passed | Yes |
 | `GET /api/v1/units/area?value=200&unit=square_yard` | Area in every unit | No |
@@ -78,6 +78,10 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `GET /api/v1/admin/change-requests?status=pending` | Correction queue, oldest first | Trust reviewer |
 | `POST /api/v1/admin/change-requests/{id}/decision` | Approve or reject (not your own, not land you are involved with) | Trust reviewer |
 | `POST /api/v1/admin/duplicates/{parcelId}/merge` | Merge a record set aside as a duplicate into the kept one | Trust reviewer |
+| `GET /api/v1/parcels/{id}/viewer` | Am I the owner of record, which offer is mine, which agents are confirmed | Yes |
+| `DELETE /api/v1/parcels/{id}/offers/{offerId}/confirm-lister` | Owner removes a confirmation made from an offer | Owner of record |
+| `GET /api/v1/admin/duplicates` | Records set aside as possible duplicates, with the kept record | Trust reviewer |
+| `GET /api/v1/admin/users/by-phone?phone=` | Find an account by mobile number (audited) | Trust reviewer |
 | `GET /health/live`, `/health/ready` | Health checks | No |
 
 Errors use RFC 9457 problem responses with a stable `code` (for example `parcel.already_exists`) that the

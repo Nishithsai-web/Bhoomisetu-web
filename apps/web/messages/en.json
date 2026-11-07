@@ -12,7 +12,8 @@
     "sell": "List your land",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "mine": "My listings"
+    "mine": "My listings",
+    "review": "Review"
   },
   "amounts": {
     "lakh": "lakh",
@@ -128,7 +129,11 @@
     "apiDown": "We could not load this page right now. Please try again in a minute.",
     "invalidSort": "Unknown sort order; showing best value.",
     "listerNumber": "Lister {number}",
-    "ownerUnverified": "Says owner (not yet verified)"
+    "ownerUnverified": "Says owner (not yet verified)",
+    "ownerSaved": "Saved. Buyers now see which agents you have confirmed.",
+    "ownerHelp": "You are the owner of record. Confirm the agents you have allowed to sell this land; buyers see \"Confirmed by owner\" on their offers.",
+    "confirmAgent": "Confirm this agent",
+    "removeConfirmation": "Remove confirmation"
   },
   "footer": {
     "disclaimer": "Bhoomisetu shows what was checked and when. A check is not a legal title opinion; consult a lawyer before paying."
@@ -295,7 +300,35 @@
     "change.value_invalid": "Please check the new value.",
     "change.value_required": "Please give the correct value.",
     "change.field_invalid": "Please choose which detail is wrong.",
-    "change.reviewer_involved": "You are involved with this land, so another reviewer must decide."
+    "change.reviewer_involved": "You are involved with this land, so another reviewer must decide.",
+    "admin.evidence_required": "Describe the documents you checked.",
+    "admin.not_reviewer": "You are not a trust reviewer.",
+    "admin.self_review": "You cannot record yourself as the owner.",
+    "area.value_required": "Please type the area.",
+    "captcha.invalid": "The check did not pass. Please try again.",
+    "captcha.required": "Please complete the check below to get another code.",
+    "change.already_decided": "Another reviewer already decided this.",
+    "change.decision_invalid": "Choose approve or reject.",
+    "change.note_too_long": "Please keep the note shorter.",
+    "change.self_review": "You cannot decide your own request.",
+    "change.stale": "This detail changed after the request. Reject it and ask for a new one.",
+    "change.status_invalid": "Unknown list.",
+    "change.too_many": "You have sent many corrections today. Please try again tomorrow.",
+    "comparison.sort_invalid": "Unknown sort order.",
+    "location.state_invalid": "Please choose the state.",
+    "offer.lister_kind_invalid": "Please say if you are the owner or an agent.",
+    "parcel.agent_is_owner": "You are the owner; there is nothing to confirm.",
+    "parcel.area_source_invalid": "Please say where the area comes from.",
+    "parcel.duplicate": "This land is listed under another record.",
+    "parcel.facing_invalid": "Please choose a direction.",
+    "parcel.land_class_invalid": "Please choose the type of land.",
+    "parcel.not_owner_of_record": "Only the owner of record can do this.",
+    "road.access_right_invalid": "Please choose how you reach the land.",
+    "road.type_invalid": "Please choose the type of road.",
+    "road.width_source_invalid": "Please say how you know the road width.",
+    "review.parcel_id_invalid": "Paste the parcel id from the land page address.",
+    "review.no_account": "Nobody has signed in with this number yet. Ask the owner to sign in once first.",
+    "parcel.already_exists": "This land is already listed. Search for it and add your price there instead."
   },
   "mine": {
     "title": "My listings",
@@ -360,5 +393,31 @@
     "fixBelow": "Please check the {count} highlighted fields below.",
     "fixOne": "Please check the highlighted field below.",
     "sending": "Sending…"
+  },
+  "review": {
+    "title": "Review",
+    "intro": "Decide corrections, merge duplicate records and record owners. Every decision is saved with your name in the audit log.",
+    "notReviewer": "This page is for trust reviewers.",
+    "corrections": "Corrections waiting",
+    "duplicates": "Possible duplicate records",
+    "setOwner": "Record the owner of a piece of land",
+    "nothingWaiting": "Nothing waiting.",
+    "note": "Note (optional)",
+    "approve": "Approve",
+    "reject": "Reject",
+    "merge": "Merge into the kept record",
+    "keptRecord": "Open the kept record",
+    "duplicateOffers": "{count} active offers on this record",
+    "parcelId": "Parcel id",
+    "parcelIdHint": "From the address of the land page, for example …/parcels/<id>/compare",
+    "ownerPhone": "Owner's mobile number",
+    "evidence": "Documents checked",
+    "evidenceHint": "For example: 1-B and sale deed match the survey number and the owner name",
+    "recordOwner": "Record as owner",
+    "done": {
+      "decided": "Decision saved.",
+      "merged": "Records merged.",
+      "owner_set": "Owner recorded."
+    }
   }
 }

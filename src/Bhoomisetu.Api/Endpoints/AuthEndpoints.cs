@@ -9,7 +9,7 @@ using Npgsql;
 
 namespace Bhoomisetu.Api.Endpoints;
 
-public sealed record OtpRequestBody(string? Phone);
+public sealed record OtpRequestBody(string? Phone, string? CaptchaToken = null);
 
 public sealed record OtpVerifyBody(string? Phone, string? Code);
 
@@ -23,12 +23,32 @@ public static class AuthEndpoints
     {
         var group = app.MapGroup("/api/v1/auth").WithTags("Auth");
 
-        group.MapPost("/otp/request", async (OtpRequestBody body, OtpService otp, HttpContext http, CancellationToken ct) =>
+        group.MapPost("/otp/request", async (OtpRequestBody body, OtpService otp, ICaptchaVerifier captcha, CaptchaOptions captchaOptions, BhoomisetuDbContext db, IClock clock, HttpContext http, CancellationToken ct) =>
         {
             var phone = IndianMobileNumber.Parse(body.Phone);
             if (!phone.IsSuccess)
             {
                 return ApiResults.Invalid(phone.Error!);
+            }
+
+            // A first code is free; asking again for the same number within the hour needs a human check.
+            if (captcha.Enabled)
+            {
+                var e164 = phone.Value.E164;
+                var hourAgo = clock.UtcNow - TimeSpan.FromHours(1);
+                var recent = await db.OtpChallenges.CountAsync(c => c.PhoneE164 == e164 && c.CreatedAt >= hourAgo, ct);
+                if (recent >= captchaOptions.FreeRequestsPerHour)
+                {
+                    if (string.IsNullOrWhiteSpace(body.CaptchaToken))
+                    {
+                        return ApiResults.Problem(StatusCodes.Status400BadRequest, "captcha.required", "Please complete the check to get another code.");
+                    }
+
+                    if (!await captcha.VerifyAsync(body.CaptchaToken, http.Connection.RemoteIpAddress?.ToString(), ct))
+                    {
+                        return ApiResults.Problem(StatusCodes.Status400BadRequest, "captcha.invalid", "The check did not pass. Please try again.");
+                    }
+                }
             }
 
             var outcome = await otp.RequestAsync(phone.Value, RateLimitPolicies.ClientKey(http), ct);

@@ -90,6 +90,25 @@ builder.Services.AddSingleton(rankingOptions);
 builder.Services.AddSingleton<BestValueRanker>();
 builder.Services.AddSingleton<IOtpSender, DevelopmentOtpSender>();
 
+var captchaOptions = config.GetSection(CaptchaOptions.SectionName).Get<CaptchaOptions>() ?? new CaptchaOptions();
+builder.Services.AddSingleton(captchaOptions);
+switch (captchaOptions.Provider.ToLowerInvariant())
+{
+    case "none":
+        builder.Services.AddSingleton<ICaptchaVerifier, NoCaptchaVerifier>();
+        break;
+    case "turnstile":
+        if (string.IsNullOrWhiteSpace(captchaOptions.SecretKey))
+        {
+            throw new InvalidOperationException("Captcha:SecretKey is required when Captcha:Provider is turnstile.");
+        }
+
+        builder.Services.AddHttpClient<ICaptchaVerifier, TurnstileVerifier>(client => client.Timeout = TimeSpan.FromSeconds(5));
+        break;
+    default:
+        throw new InvalidOperationException($"Unknown Captcha:Provider '{captchaOptions.Provider}'. Use none or turnstile.");
+}
+
 builder.Services.AddDbContext<BhoomisetuDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddScoped<IOtpChallengeStore, EfOtpChallengeStore>();
 builder.Services.AddScoped<OtpService>();
@@ -211,6 +230,7 @@ app.MapOfferEndpoints();
 app.MapAdminEndpoints();
 app.MapMyOffersEndpoints();
 app.MapChangeRequestEndpoints();
+app.MapTrustEndpoints();
 
 await app.RunAsync();
 

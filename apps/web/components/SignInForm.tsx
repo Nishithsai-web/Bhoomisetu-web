@@ -1,5 +1,6 @@
 "use client";
 
+import Script from "next/script";
 import { useActionState } from "react";
 import { signInAction, type FormState } from "@/app/[locale]/actions";
 import { Field } from "./Field";
@@ -18,7 +19,7 @@ type Labels = {
 };
 
 /** Phone number, then code, driven by one server action so the step always matches the server's answer. */
-export function SignInForm({ locale, next, labels, errors }: { locale: string; next: string; labels: Labels; errors: Record<string, string> }) {
+export function SignInForm({ locale, next, labels, errors, turnstileSiteKey }: { locale: string; next: string; labels: Labels; errors: Record<string, string>; turnstileSiteKey?: string }) {
   const [state, action, pending] = useActionState<FormState, FormData>(signInAction, { step: "phone" });
   const phone = state.phone ?? "";
   const error = state.error ? (Object.hasOwn(errors, state.error) ? errors[state.error] : errors.generic) : undefined;
@@ -58,6 +59,13 @@ export function SignInForm({ locale, next, labels, errors }: { locale: string; n
             />
           )}
         </Field>
+        {/* Human check, shown only when a site key is configured; the API asks for it from the second code. */}
+        {turnstileSiteKey && (
+          <>
+            <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
+            <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-language={locale} />
+          </>
+        )}
         <button type="submit" disabled={pending}>
           {pending ? labels.sending : labels.sendCode}
         </button>

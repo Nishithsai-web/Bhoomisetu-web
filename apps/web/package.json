@@ -12,7 +12,8 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"lib/**/*.test.ts\" \"scripts/**/*.test.mjs\"",
-    "check:i18n": "node scripts/check-translations.mjs"
+    "check:i18n": "node scripts/check-translations.mjs",
+    "check:errors": "node scripts/check-error-codes.mjs"
   },
   "dependencies": {
     "next": "16.4.5",

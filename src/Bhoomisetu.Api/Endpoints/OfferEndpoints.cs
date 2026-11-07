@@ -261,7 +261,7 @@ public static class OfferEndpoints
             : Authority.NotConfirmed;
     }
 
-    private static async Task<IResult> ConfirmAgentAsync(Guid parcelId, Guid agentUserId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
+    internal static async Task<IResult> ConfirmAgentAsync(Guid parcelId, Guid agentUserId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
     {
         var userId = http.User.UserId();
         var isOwner = await db.ParcelParties.AnyAsync(p => p.ParcelId == parcelId && p.UserId == userId && p.Role == Vocabulary.OwnerOfRecord, ct);
@@ -318,7 +318,7 @@ public static class OfferEndpoints
             : ApiResults.NotFound("Offer");
     }
 
-    private static async Task<IResult> RevokeAgentAsync(Guid parcelId, Guid agentUserId, HttpContext http, BhoomisetuDbContext db, AuditWriter audit, CancellationToken ct)
+    internal static async Task<IResult> RevokeAgentAsync(Guid parcelId, Guid agentUserId, HttpContext http, BhoomisetuDbContext db, AuditWriter audit, CancellationToken ct)
     {
         var userId = http.User.UserId();
         var isOwner = await db.ParcelParties.AnyAsync(p => p.ParcelId == parcelId && p.UserId == userId && p.Role == Vocabulary.OwnerOfRecord, ct);

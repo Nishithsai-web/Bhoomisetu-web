@@ -81,6 +81,62 @@ public sealed class ApiFlowTests(ApiFixture fixture)
     }
 
     [Fact]
+    public async Task A_second_code_within_the_hour_needs_the_human_check()
+    {
+        RequireDatabase();
+        var client = fixture.CreateClient();
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/v1/auth/otp/request", new { phone = "9848055551" }, Ct)).StatusCode);
+
+        var missing = await client.PostAsJsonAsync("/api/v1/auth/otp/request", new { phone = "9848055551" }, Ct);
+        Assert.Equal("captcha.required", (await missing.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("code").GetString());
+        var wrong = await client.PostAsJsonAsync("/api/v1/auth/otp/request", new { phone = "9848055551", captchaToken = "nope" }, Ct);
+        Assert.Equal("captcha.invalid", (await wrong.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("code").GetString());
+        var passed = await client.PostAsJsonAsync("/api/v1/auth/otp/request", new { phone = "9848055551", captchaToken = FakeCaptcha.PassToken }, Ct);
+        Assert.Equal(HttpStatusCode.Accepted, passed.StatusCode);
+    }
+
+    [Fact]
+    public async Task Owner_sees_their_role_and_confirms_or_removes_agents_by_offer()
+    {
+        RequireDatabase();
+        var (owner, ownerId) = await fixture.SignInAsync("9848055552");
+        var (agent, _) = await fixture.SignInAsync("9848055553");
+        var created = await agent.PostAsJsonAsync("/api/v1/parcels", NewParcel("914"), Ct);
+        var parcelId = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        var offer = await agent.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/offers", new { listerKind = "agent", askingPriceRupees = 3_000_000m, buyerBrokeragePercent = 1m }, Ct);
+        var offerId = (await offer.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+
+        var before = await owner.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/viewer", Ct);
+        Assert.False(before.GetProperty("isOwnerOfRecord").GetBoolean());
+
+        var (reviewer, reviewerId) = await fixture.SignInAsync("9848055554");
+        await fixture.ExecuteSqlAsync("UPDATE users SET is_trust_reviewer = true WHERE id = @id", ("id", reviewerId));
+        (reviewer, _) = await fixture.SignInAsync("9848055554");
+
+        // The reviewer finds the owner by mobile number, then records them.
+        var found = await reviewer.GetFromJsonAsync<JsonElement>("/api/v1/admin/users/by-phone?phone=98480%2055552", Ct);
+        Assert.Equal(ownerId, found.GetProperty("id").GetGuid());
+        Assert.Equal("+91******5552", found.GetProperty("phoneMasked").GetString());
+        Assert.Equal(HttpStatusCode.NotFound, (await reviewer.GetAsync("/api/v1/admin/users/by-phone?phone=9000000999", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await owner.GetAsync("/api/v1/admin/users/by-phone?phone=9848055552", Ct)).StatusCode);
+        await reviewer.PostAsJsonAsync($"/api/v1/admin/parcels/{parcelId}/owner-of-record", new { userId = ownerId, evidenceNote = "1-B checked" }, Ct);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.PostAsync($"/api/v1/parcels/{parcelId}/offers/{offerId}/confirm-lister", null, Ct)).StatusCode);
+        var after = await owner.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/viewer", Ct);
+        Assert.True(after.GetProperty("isOwnerOfRecord").GetBoolean());
+        Assert.Equal(offerId, Assert.Single(after.GetProperty("confirmedOfferIds").EnumerateArray()).GetGuid());
+
+        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/v1/parcels/{parcelId}/offers/{offerId}/confirm-lister", Ct)).StatusCode);
+        var removed = await owner.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/viewer", Ct);
+        Assert.Empty(removed.GetProperty("confirmedOfferIds").EnumerateArray());
+
+        // The agent is not the owner and sees no confirmations.
+        var agentView = await agent.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/viewer", Ct);
+        Assert.False(agentView.GetProperty("isOwnerOfRecord").GetBoolean());
+        Assert.Equal(offerId, agentView.GetProperty("myOfferId").GetGuid());
+    }
+
+    [Fact]
     public async Task Signing_out_ends_the_session_on_the_server()
     {
         RequireDatabase();
@@ -441,6 +497,8 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         var (reviewer, reviewerId) = await fixture.SignInAsync("9848044442");
         await fixture.ExecuteSqlAsync("UPDATE users SET is_trust_reviewer = true WHERE id = @id", ("id", reviewerId));
         (reviewer, _) = await fixture.SignInAsync("9848044442");
+        var queue = await reviewer.GetFromJsonAsync<JsonElement>("/api/v1/admin/duplicates", Ct);
+        Assert.Contains(queue.EnumerateArray(), d => d.GetProperty("parcelId").GetGuid() == duplicateId && d.GetProperty("activeOffers").GetInt32() == 1);
         var merged = await reviewer.PostAsync($"/api/v1/admin/duplicates/{duplicateId}/merge", null, Ct);
         Assert.Equal(HttpStatusCode.OK, merged.StatusCode);
         Assert.Single((await GetComparison(keptId)).GetProperty("offers").EnumerateArray());
