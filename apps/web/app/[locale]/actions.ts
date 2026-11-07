@@ -125,6 +125,10 @@ export async function createOfferAction(_previous: FormState, form: FormData): P
       await clearSession();
       redirect(`/${locale}/signin?next=/${locale}/parcels/${parcelId}/offer`);
     }
+    // An old link to a record set aside as a duplicate: send the person to the record everyone sees.
+    if (result.code === "parcel.duplicate" && result.existingParcelId && isUuid(result.existingParcelId)) {
+      redirect(`/${locale}/parcels/${result.existingParcelId}/offer?existing=1`);
+    }
     return { error: result.code, values: echo(form) };
   }
   redirect(`/${locale}/parcels/${parcelId}/compare`);
@@ -177,6 +181,9 @@ export async function changeRequestAction(_previous: FormState, form: FormData):
     if (result.status === 401) {
       await clearSession();
       redirect(`/${locale}/signin?next=/${locale}/parcels/${parcelId}/correct`);
+    }
+    if (result.code === "parcel.duplicate" && result.existingParcelId && isUuid(result.existingParcelId)) {
+      redirect(`/${locale}/parcels/${result.existingParcelId}/correct`);
     }
     return { error: result.code, values: echo(form) };
   }

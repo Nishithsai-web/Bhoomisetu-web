@@ -472,6 +472,7 @@ public sealed class ApiFlowTests(ApiFixture fixture)
     {
         RequireDatabase();
         var (lister, listerId) = await fixture.SignInAsync("9848044441");
+        var (owner, ownerId) = await fixture.SignInAsync("9848044443");
         var created = await lister.PostAsJsonAsync("/api/v1/parcels", NewParcel("913", village: "Janwada"), Ct);
         var keptId = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
 
@@ -486,8 +487,18 @@ public sealed class ApiFlowTests(ApiFixture fixture)
             FROM parcels WHERE id = @kept;
             INSERT INTO parcel_duplicate_candidates (parcel_id, kept_parcel_id, name_key) SELECT @dup, @kept, name_key FROM parcels WHERE id = @kept;
             INSERT INTO offers (parcel_id, lister_user_id, lister_kind, asking_price_paise) VALUES (@dup, @lister, 'agent', 100000000);
+            INSERT INTO offers (parcel_id, lister_user_id, lister_kind, asking_price_paise, created_at)
+                VALUES (@kept, @lister, 'agent', 90000000, now() - interval '2 days');
+            INSERT INTO parcel_parties (parcel_id, user_id, role, confirmed_by) VALUES (@dup, @owner, 'owner_of_record', @lister);
             """,
-            ("dup", duplicateId), ("kept", keptId), ("lister", listerId));
+            ("dup", duplicateId), ("kept", keptId), ("lister", listerId), ("owner", ownerId));
+
+        // Writes to a hidden duplicate are sent to the kept record instead of being stranded.
+        var stranded = await lister.PostAsJsonAsync($"/api/v1/parcels/{duplicateId}/offers", new { listerKind = "agent", askingPriceRupees = 1_100_000m, buyerBrokeragePercent = 1m }, Ct);
+        Assert.Equal(HttpStatusCode.Conflict, stranded.StatusCode);
+        var strandedProblem = await stranded.Content.ReadFromJsonAsync<JsonElement>(Ct);
+        Assert.Equal("parcel.duplicate", strandedProblem.GetProperty("code").GetString());
+        Assert.Equal(keptId, strandedProblem.GetProperty("existingParcelId").GetGuid());
 
         var search = await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/parcels?q=janwada", Ct);
         Assert.Equal(1, search.GetProperty("total").GetInt32());
@@ -501,8 +512,49 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Contains(queue.EnumerateArray(), d => d.GetProperty("parcelId").GetGuid() == duplicateId && d.GetProperty("activeOffers").GetInt32() == 1);
         var merged = await reviewer.PostAsync($"/api/v1/admin/duplicates/{duplicateId}/merge", null, Ct);
         Assert.Equal(HttpStatusCode.OK, merged.StatusCode);
-        Assert.Single((await GetComparison(keptId)).GetProperty("offers").EnumerateArray());
+
+        // The lister's newer price (on the duplicate) wins over the older one on the kept record; the owner moves across.
+        var offers = (await GetComparison(keptId)).GetProperty("offers").EnumerateArray().ToList();
+        Assert.Single(offers);
+        Assert.Equal(1_000_000m, offers[0].GetProperty("askingPriceRupees").GetDecimal());
+        var viewer = await owner.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{keptId}/viewer", Ct);
+        Assert.True(viewer.GetProperty("isOwnerOfRecord").GetBoolean());
         Assert.Equal(HttpStatusCode.NotFound, (await reviewer.PostAsync($"/api/v1/admin/duplicates/{duplicateId}/merge", null, Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_reviewer_with_a_stake_cannot_merge_and_account_lookups_are_limited()
+    {
+        RequireDatabase();
+        var (reviewer, reviewerId) = await fixture.SignInAsync("9848066661");
+        await fixture.ExecuteSqlAsync("UPDATE users SET is_trust_reviewer = true WHERE id = @id", ("id", reviewerId));
+        (reviewer, _) = await fixture.SignInAsync("9848066661");
+
+        // The reviewer listed the kept land, so the merge is left to someone else.
+        var created = await reviewer.PostAsJsonAsync("/api/v1/parcels", NewParcel("917", village: "Kollur"), Ct);
+        var keptId = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        var duplicateId = Guid.NewGuid();
+        await fixture.ExecuteSqlAsync(
+            """
+            INSERT INTO parcels (id, parcel_key, name_key, state_code, district, mandal, village, survey_number_raw, survey_number,
+                                 land_class, recorded_area_sqm, entered_area_value, entered_area_unit, area_source, created_by)
+            SELECT @dup, 'TG|lgd:998|917', name_key || '|duplicate-of:' || id, state_code, district, mandal, village, survey_number_raw,
+                   survey_number, land_class, recorded_area_sqm, entered_area_value, entered_area_unit, area_source, created_by
+            FROM parcels WHERE id = @kept;
+            INSERT INTO parcel_duplicate_candidates (parcel_id, kept_parcel_id, name_key) SELECT @dup, @kept, name_key FROM parcels WHERE id = @kept;
+            """,
+            ("dup", duplicateId), ("kept", keptId));
+        var merge = await reviewer.PostAsync($"/api/v1/admin/duplicates/{duplicateId}/merge", null, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, merge.StatusCode);
+        Assert.Equal("merge.reviewer_involved", (await merge.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("code").GetString());
+
+        // After the hourly allowance of lookups, the next one is refused.
+        await fixture.ExecuteSqlAsync(
+            "INSERT INTO audit_log (actor_user_id, action, entity_type, entity_id) SELECT @id, 'admin.user_lookup', 'user', 'none' FROM generate_series(1, 30)",
+            ("id", reviewerId));
+        var lookup = await reviewer.GetAsync("/api/v1/admin/users/by-phone?phone=9848066662", Ct);
+        Assert.Equal((HttpStatusCode)429, lookup.StatusCode);
+        Assert.Equal("admin.lookup_limit", (await lookup.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("code").GetString());
     }
 
     private async Task<JsonElement> GetComparison(Guid parcelId, string sort = "best_value") =>

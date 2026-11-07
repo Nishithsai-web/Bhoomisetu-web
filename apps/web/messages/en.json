@@ -136,7 +136,8 @@
     "removeConfirmation": "Remove confirmation"
   },
   "footer": {
-    "disclaimer": "Bhoomisetu shows what was checked and when. A check is not a legal title opinion; consult a lawyer before paying."
+    "disclaimer": "Bhoomisetu shows what was checked and when. A check is not a legal title opinion; consult a lawyer before paying.",
+    "forReviewers": "For Bhoomisetu staff reviewers"
   },
   "signin": {
     "title": "Sign in with your mobile number",
@@ -319,7 +320,7 @@
     "offer.lister_kind_invalid": "Please say if you are the owner or an agent.",
     "parcel.agent_is_owner": "You are the owner; there is nothing to confirm.",
     "parcel.area_source_invalid": "Please say where the area comes from.",
-    "parcel.duplicate": "This land is listed under another record.",
+    "parcel.duplicate": "This land is listed under another record. We have taken you there.",
     "parcel.facing_invalid": "Please choose a direction.",
     "parcel.land_class_invalid": "Please choose the type of land.",
     "parcel.not_owner_of_record": "Only the owner of record can do this.",
@@ -328,7 +329,10 @@
     "road.width_source_invalid": "Please say how you know the road width.",
     "review.parcel_id_invalid": "Paste the parcel id from the land page address.",
     "review.no_account": "Nobody has signed in with this number yet. Ask the owner to sign in once first.",
-    "parcel.already_exists": "This land is already listed. Search for it and add your price there instead."
+    "parcel.already_exists": "This land is already listed. Search for it and add your price there instead.",
+    "merge.reviewer_involved": "You are involved with this land, so another reviewer must merge it.",
+    "merge.owner_conflict": "The two records have different owners. Check the documents and record the right owner on the kept record first.",
+    "admin.lookup_limit": "Too many account lookups in the last hour. Please try again later."
   },
   "mine": {
     "title": "My listings",
@@ -418,6 +422,9 @@
       "decided": "Decision saved.",
       "merged": "Records merged.",
       "owner_set": "Owner recorded."
-    }
+    },
+    "mergeConfirm": "Merge this record into the kept one? Prices, the owner and confirmed agents move across. This cannot be undone.",
+    "mergeYes": "Yes, merge",
+    "mergeNo": "Cancel"
   }
 }

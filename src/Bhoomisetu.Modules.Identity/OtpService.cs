@@ -27,7 +27,12 @@ public sealed class OtpService
     }
 
     /// <param name="requesterKey">Who is asking (IP or IPv6 /64), so one person's requests cannot use up another's quota.</param>
-    public async Task<OtpRequestOutcome> RequestAsync(IndianMobileNumber phone, string requesterKey, CancellationToken cancellationToken)
+    /// <param name="humanVerified">
+    /// True when the caller passed a human check for this request. Then the per-number limit is skipped (the
+    /// per-requester limit, cooldown and platform budget still apply), so strangers using up a number's limit
+    /// cannot lock its owner out.
+    /// </param>
+    public async Task<OtpRequestOutcome> RequestAsync(IndianMobileNumber phone, string requesterKey, CancellationToken cancellationToken, bool humanVerified = false)
     {
         ArgumentNullException.ThrowIfNull(phone);
         ArgumentException.ThrowIfNullOrWhiteSpace(requesterKey);
@@ -45,7 +50,7 @@ public sealed class OtpService
 
             var hourAgo = now - TimeSpan.FromHours(1);
             if (await _store.CountCreatedSinceAsync(phone.E164, hourAgo, requesterKey, cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerHour
-                || await _store.CountCreatedSinceAsync(phone.E164, hourAgo, null, cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerHourPerNumber)
+                || (!humanVerified && await _store.CountCreatedSinceAsync(phone.E164, hourAgo, null, cancellationToken).ConfigureAwait(false) >= _options.MaxRequestsPerHourPerNumber))
             {
                 return new OtpRequestOutcome(OtpRequestStatus.RateLimited, TimeSpan.FromHours(1));
             }

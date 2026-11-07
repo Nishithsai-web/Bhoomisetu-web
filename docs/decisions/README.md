@@ -80,3 +80,11 @@ Change a decision by adding a dated entry here and updating the register; never 
 19. **Set-aside duplicates are hidden** from search and comparison until a reviewer merges them.
 20. **The web server forwards visitor IPs only when declared to sit behind a load balancer**
     (`BHOOMISETU_BEHIND_LOAD_BALANCER=true`); otherwise the header could be forged.
+21. **Human check (Cloudflare Turnstile) from the second code per number per hour.** Chosen over hCaptcha and
+    reCAPTCHA for no image puzzles on low-end phones and no ad tracking. A request that passes the check skips
+    the per-number limit, so strangers cannot lock an owner out; the per-requester limit and SMS budget still
+    apply. Production refuses to start with `Captcha:Provider=none` unless `AllowDisabledInProduction` is set.
+22. **Merging a duplicate moves everything a buyer relies on**: the owner of record and agent confirmations move
+    across, each lister keeps their most recent price, different owners block the merge for document review,
+    and a reviewer involved with either record cannot merge. Writes to a hidden duplicate get 409 with the kept id.
+23. **Reviewers may look up at most 30 accounts by phone per hour**; more is treated as misuse and logged.

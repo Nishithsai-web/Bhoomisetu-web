@@ -1,6 +1,7 @@
 using Bhoomisetu.Api.Auth;
 using Bhoomisetu.Api.Persistence;
 using Bhoomisetu.Modules.Identity;
+using Bhoomisetu.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bhoomisetu.Api.Endpoints;
@@ -18,6 +19,8 @@ public sealed record DuplicateCandidateResponse(Guid ParcelId, Guid KeptParcelId
 /// </summary>
 public static class TrustEndpoints
 {
+    internal const int MaxLookupsPerReviewerPerHour = 30;
+
     public static void MapTrustEndpoints(this IEndpointRouteBuilder app)
     {
         var parcel = app.MapGroup("/api/v1/parcels/{parcelId:guid}").WithTags("Owner").RequireAuthorization();
@@ -77,8 +80,18 @@ public static class TrustEndpoints
     /// Lets a reviewer find the account behind a mobile number, to record them as owner after checking
     /// documents. Every lookup is audited because it links a phone number to an account.
     /// </summary>
-    private static async Task<IResult> FindUserByPhoneAsync(string? phone, HttpContext http, BhoomisetuDbContext db, AuditWriter audit, CancellationToken ct)
+    private static async Task<IResult> FindUserByPhoneAsync(string? phone, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
     {
+        // A reviewer records a handful of owners a day; a burst of lookups means a stolen session or misuse.
+        var reviewerId = http.User.UserId();
+        var hourAgo = clock.UtcNow - TimeSpan.FromHours(1);
+        if (await db.AuditLog.CountAsync(a => a.ActorUserId == reviewerId && a.Action == "admin.user_lookup" && a.OccurredAt >= hourAgo, ct) >= MaxLookupsPerReviewerPerHour)
+        {
+            http.RequestServices.GetRequiredService<ILogger<AdminUserResponse>>()
+                .LogWarning("Reviewer {ReviewerId} reached the account lookup limit; check for misuse.", reviewerId);
+            return ApiResults.Problem(StatusCodes.Status429TooManyRequests, "admin.lookup_limit", "Too many account lookups in the last hour. Please try again later.");
+        }
+
         var parsed = IndianMobileNumber.Parse(phone);
         if (!parsed.IsSuccess)
         {
@@ -87,7 +100,7 @@ public static class TrustEndpoints
 
         var e164 = parsed.Value.E164;
         var user = await db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.PhoneE164 == e164, ct);
-        audit.Add(http.User.UserId(), "admin.user_lookup", "user", user?.Id.ToString() ?? "none", new { phone = parsed.Value.Masked, found = user is not null });
+        audit.Add(reviewerId, "admin.user_lookup", "user", user?.Id.ToString() ?? "none", new { phone = parsed.Value.Masked, found = user is not null });
         await db.SaveChangesAsync(ct);
         if (user is null)
         {

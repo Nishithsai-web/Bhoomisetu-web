@@ -45,6 +45,11 @@ public static class ChangeRequestEndpoints
             return ApiResults.NotFound("Parcel");
         }
 
+        if (ParcelEndpoints.RejectIfDuplicate(parcel) is { } duplicate)
+        {
+            return duplicate;
+        }
+
         // Only people with a current stake: who listed it, a lister with an active offer, or a recorded party.
         var involved = parcel.CreatedBy == userId
             || await db.Offers.AnyAsync(o => o.ParcelId == parcelId && o.ListerUserId == userId && o.Status == "active", ct)

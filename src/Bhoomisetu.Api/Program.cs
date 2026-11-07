@@ -95,6 +95,12 @@ builder.Services.AddSingleton(captchaOptions);
 switch (captchaOptions.Provider.ToLowerInvariant())
 {
     case "none":
+        if (builder.Environment.IsProduction() && !captchaOptions.AllowDisabledInProduction)
+        {
+            throw new InvalidOperationException(
+                "Captcha:Provider is none in Production. Configure turnstile, or set Captcha:AllowDisabledInProduction=true to accept the lock-out risk.");
+        }
+
         builder.Services.AddSingleton<ICaptchaVerifier, NoCaptchaVerifier>();
         break;
     case "turnstile":

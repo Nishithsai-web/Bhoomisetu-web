@@ -222,6 +222,15 @@ public static class ParcelEndpoints
         return at >= 0 && Guid.TryParse(parcel.NameKey.AsSpan(at + DuplicateMarker.Length), out var kept) ? kept : null;
     }
 
+    /// <summary>
+    /// A 409 pointing to the kept record when <paramref name="parcel"/> was set aside as a duplicate; otherwise null.
+    /// Offers or corrections saved on a hidden duplicate would never be seen, so writes are sent to the kept record.
+    /// </summary>
+    internal static IResult? RejectIfDuplicate(ParcelRecord parcel) => DuplicateOf(parcel) is { } kept
+        ? ApiResults.Problem(StatusCodes.Status409Conflict, "parcel.duplicate", "This land is listed under another record.",
+            new Dictionary<string, object?> { ["existingParcelId"] = kept })
+        : null;
+
     private static decimal? Round2(decimal? value) => value is { } v ? Math.Round(v, 2, MidpointRounding.AwayFromZero) : null;
 
     private static IResult DuplicateParcel(Guid existingId) => ApiResults.Problem(

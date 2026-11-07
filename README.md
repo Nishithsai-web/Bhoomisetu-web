@@ -81,7 +81,7 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `GET /api/v1/parcels/{id}/viewer` | Am I the owner of record, which offer is mine, which agents are confirmed | Yes |
 | `DELETE /api/v1/parcels/{id}/offers/{offerId}/confirm-lister` | Owner removes a confirmation made from an offer | Owner of record |
 | `GET /api/v1/admin/duplicates` | Records set aside as possible duplicates, with the kept record | Trust reviewer |
-| `GET /api/v1/admin/users/by-phone?phone=` | Find an account by mobile number (audited) | Trust reviewer |
+| `GET /api/v1/admin/users/by-phone?phone=` | Find an account by mobile number (audited, 30 per reviewer per hour) | Trust reviewer |
 | `GET /health/live`, `/health/ready` | Health checks | No |
 
 Errors use RFC 9457 problem responses with a stable `code` (for example `parcel.already_exists`) that the

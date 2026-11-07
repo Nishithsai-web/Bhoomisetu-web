@@ -1,9 +1,9 @@
 "use client";
 
-import Script from "next/script";
 import { useActionState } from "react";
 import { signInAction, type FormState } from "@/app/[locale]/actions";
 import { Field } from "./Field";
+import { HumanCheck } from "./HumanCheck";
 
 type Labels = {
   phone: string;
@@ -60,12 +60,7 @@ export function SignInForm({ locale, next, labels, errors, turnstileSiteKey }: {
           )}
         </Field>
         {/* Human check, shown only when a site key is configured; the API asks for it from the second code. */}
-        {turnstileSiteKey && (
-          <>
-            <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
-            <div className="cf-turnstile" data-sitekey={turnstileSiteKey} data-language={locale} />
-          </>
-        )}
+        {turnstileSiteKey && <HumanCheck siteKey={turnstileSiteKey} resetKey={state} />}
         <button type="submit" disabled={pending}>
           {pending ? labels.sending : labels.sendCode}
         </button>
@@ -103,6 +98,8 @@ export function SignInForm({ locale, next, labels, errors, turnstileSiteKey }: {
         {hidden}
         <input type="hidden" name="intent" value="request" />
         <input type="hidden" name="phone" value={phone} />
+        {/* A new code is always a repeat request, so it needs the human check too. */}
+        {turnstileSiteKey && <HumanCheck siteKey={turnstileSiteKey} resetKey={state} />}
         <button type="submit" className="secondary" disabled={pending}>
           {labels.resend}
         </button>

@@ -32,6 +32,7 @@ public static class AuthEndpoints
             }
 
             // A first code is free; asking again for the same number within the hour needs a human check.
+            var humanVerified = false;
             if (captcha.Enabled)
             {
                 var e164 = phone.Value.E164;
@@ -48,10 +49,12 @@ public static class AuthEndpoints
                     {
                         return ApiResults.Problem(StatusCodes.Status400BadRequest, "captcha.invalid", "The check did not pass. Please try again.");
                     }
+
+                    humanVerified = true;
                 }
             }
 
-            var outcome = await otp.RequestAsync(phone.Value, RateLimitPolicies.ClientKey(http), ct);
+            var outcome = await otp.RequestAsync(phone.Value, RateLimitPolicies.ClientKey(http), ct, humanVerified);
             if (outcome.Status == OtpRequestStatus.Sent)
             {
                 return Results.Accepted();

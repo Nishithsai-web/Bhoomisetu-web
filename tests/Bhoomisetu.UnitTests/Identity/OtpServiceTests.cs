@@ -180,6 +180,19 @@ public sealed class OtpServiceTests
     }
 
     [Fact]
+    public async Task A_human_checked_request_gets_through_a_number_limit_used_up_by_strangers()
+    {
+        for (var i = 0; i < 10; i++)
+        {
+            await _service.RequestAsync(_phone, $"stranger-{i}", CancellationToken.None);
+            _clock.Advance(TimeSpan.FromMinutes(2));
+        }
+
+        // The owner passed the human check, so the strangers' requests cannot lock them out.
+        Assert.Equal(OtpRequestStatus.Sent, (await _service.RequestAsync(_phone, "owner", CancellationToken.None, humanVerified: true)).Status);
+    }
+
+    [Fact]
     public void Short_pepper_is_rejected()
     {
         Assert.Throws<InvalidOperationException>(() => new OtpService(_store, _sender, _clock, new OtpOptions { Pepper = new byte[16] }));

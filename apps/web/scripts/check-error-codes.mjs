@@ -1,19 +1,35 @@
 #!/usr/bin/env node
 // Fails when the API can return an error code that has no plain-language message in the web app.
-// Codes are found in the C# sources: ApiResults.Invalid/Forbidden/Problem(...) and Result.Failure(...).
+// Codes are found in the C# sources: any call to Invalid/Forbidden/Failure/Problem/Conflict whose arguments
+// contain a dotted code literal, plus the codes listed below that are built at run time.
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../../src", import.meta.url));
-const pattern = /(?:Invalid|Forbidden|Failure)\(\s*"([a-z_]+\.[a-z_]+)"|Problem\(\s*StatusCodes\.\w+,\s*"([a-z_]+\.[a-z_]+)"/g;
+
+/** Codes the scan cannot see: built by string interpolation or by helpers without a literal. */
+export const RUNTIME_CODES = [
+  "not_found", // ApiResults.NotFound
+  "location.district_invalid", // ParcelLocation: $"location.{field}_invalid"
+  "location.mandal_invalid",
+  "location.village_invalid",
+];
+
+const call = /\b(?:Invalid|Forbidden|Failure|Problem|Conflict)\s*\(([^;]*?)\)\s*[;,:)]/gs;
+const literal = /@?"([a-z0-9_]+(?:\.[a-z0-9_]+)+)"/;
 
 export function findCodes(source) {
-  return [...source.matchAll(pattern)].map((m) => m[1] ?? m[2]);
+  const codes = [];
+  for (const m of source.matchAll(call)) {
+    const code = literal.exec(m[1]);
+    if (code) codes.push(code[1]);
+  }
+  return codes;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const codes = new Set();
+  const codes = new Set(RUNTIME_CODES);
   for (const file of readdirSync(root, { recursive: true })) {
     if (String(file).endsWith(".cs")) for (const code of findCodes(readFileSync(join(root, String(file)), "utf8"))) codes.add(code);
   }

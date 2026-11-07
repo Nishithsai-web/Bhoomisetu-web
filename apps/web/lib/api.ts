@@ -73,7 +73,7 @@ export type ApiProblem = {
   ok: false;
   status: number;
   code: string;
-  /** Present on 409 parcel.already_exists. */
+  /** Present on 409 parcel.already_exists and parcel.duplicate: the record to use instead. */
   existingParcelId?: string;
   /** Present on 429 OTP responses. */
   retryAfterSeconds?: number;

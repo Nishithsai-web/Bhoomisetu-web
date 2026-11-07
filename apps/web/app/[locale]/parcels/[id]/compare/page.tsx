@@ -126,17 +126,20 @@ export default async function ComparePage({ params, searchParams }: Props) {
                         </li>
                       ))}
                     </ul>
-                    {viewer?.isOwnerOfRecord && offer.offerId !== viewer.myOfferId && (
+                    {/* An "owner (not verified)" claim is not an agent, so there is nothing to confirm; removing an old confirmation stays possible. */}
+                    {viewer?.isOwnerOfRecord && offer.offerId !== viewer.myOfferId && (!offer.ownerClaimUnverified || viewer.confirmedOfferIds.includes(offer.offerId)) && (
                       <form action={ownerConfirmAction} className="form-inline">
                         <input type="hidden" name="locale" value={locale} />
                         <input type="hidden" name="parcelId" value={id} />
                         <input type="hidden" name="offerId" value={offer.offerId} />
                         {viewer.confirmedOfferIds.includes(offer.offerId) ? (
-                          <button type="submit" name="intent" value="remove" className="secondary">
+                          <button type="submit" name="intent" value="remove" className="secondary"
+                            aria-label={`${c.removeConfirmation}: ${offer.listerName ?? format(c.listerNumber, { number: offer.listerNumber })}`}>
                             {c.removeConfirmation}
                           </button>
                         ) : (
-                          <button type="submit" name="intent" value="confirm">
+                          <button type="submit" name="intent" value="confirm"
+                            aria-label={`${c.confirmAgent}: ${offer.listerName ?? format(c.listerNumber, { number: offer.listerNumber })}`}>
                             {c.confirmAgent}
                           </button>
                         )}

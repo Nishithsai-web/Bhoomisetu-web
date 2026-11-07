@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Bhoomisetu.Api.Auth;
@@ -26,6 +27,12 @@ public sealed class CaptchaOptions
 
     /// <summary>Codes a number may get in an hour before a human check is required.</summary>
     public int FreeRequestsPerHour { get; set; } = 1;
+
+    /// <summary>
+    /// Production refuses to start with Provider "none" unless this is true, because without a human check a
+    /// number's hourly code limit can be used up by strangers and the real owner locked out.
+    /// </summary>
+    public bool AllowDisabledInProduction { get; set; }
 }
 
 public sealed class NoCaptchaVerifier : ICaptchaVerifier
@@ -67,10 +74,11 @@ public sealed class TurnstileVerifier(HttpClient http, CaptchaOptions options, I
             var result = await response.Content.ReadFromJsonAsync<TurnstileResult>(cancellationToken);
             return result?.Success == true;
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException
+            || (ex is TaskCanceledException && !cancellationToken.IsCancellationRequested))
         {
-            // Fail closed: if the check cannot run, the repeated request is refused, not let through.
-            logger.LogWarning(ex, "Turnstile could not be reached");
+            // Fail closed: if the check cannot run (unreachable, timed out, odd reply), the request is refused, not let through.
+            logger.LogWarning(ex, "Turnstile check could not be completed");
             return false;
         }
     }

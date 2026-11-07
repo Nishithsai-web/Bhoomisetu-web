@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { decideChangeAction, mergeDuplicateAction } from "../actions";
+import { ConfirmBox } from "@/components/ConfirmBox";
 import { SetOwnerForm } from "@/components/SetOwnerForm";
 import { getChangeRequestQueue, getDuplicateQueue, getMe } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { getDictionary, isLocale } from "@/lib/i18n";
 import { clearSession, getSessionToken } from "@/lib/session";
 
-type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ done?: string; error?: string }> };
+type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ done?: string; error?: string; merge?: string }> };
 
 /** The trust reviewer's console: correction requests, set-aside duplicates, and recording an owner. */
 export default async function ReviewPage({ params, searchParams }: Props) {
@@ -103,11 +104,23 @@ export default async function ReviewPage({ params, searchParams }: Props) {
               <p>
                 <Link href={`/${locale}/parcels/${d.keptParcelId}/compare`}>{r.keptRecord}</Link>
               </p>
-              <form action={mergeDuplicateAction}>
-                <input type="hidden" name="locale" value={locale} />
-                <input type="hidden" name="parcelId" value={d.parcelId} />
-                <button type="submit">{r.merge}</button>
-              </form>
+              {/* Merging cannot be undone, so it takes a second, explicit step. */}
+              {query.merge === d.parcelId ? (
+                <ConfirmBox id={`merge-${d.parcelId}`} question={r.mergeConfirm}>
+                  <form action={mergeDuplicateAction} className="form-inline">
+                    <input type="hidden" name="locale" value={locale} />
+                    <input type="hidden" name="parcelId" value={d.parcelId} />
+                    <button type="submit">{r.mergeYes}</button>{" "}
+                    <Link href={`/${locale}/review`}>{r.mergeNo}</Link>
+                  </form>
+                </ConfirmBox>
+              ) : (
+                <p>
+                  <Link className="button-link" href={`/${locale}/review?merge=${d.parcelId}`}>
+                    {r.merge}
+                  </Link>
+                </p>
+              )}
             </li>
           ))}
         </ul>
