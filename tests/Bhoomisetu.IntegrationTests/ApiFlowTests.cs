@@ -593,6 +593,10 @@ public sealed class ApiFlowTests(ApiFixture fixture)
             new { phone = "9848077772", audience = "viewer", months = 1, amountRupees = 99m, paymentReference = "someone@ybl" }, Ct)));
         Assert.Equal("subscription.reference_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
             new { phone = "9848077772", audience = "viewer", months = 1, amountRupees = 99m, paymentReference = "+91 9848012345" }, Ct)));
+        Assert.Equal("subscription.reference_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
+            new { phone = "9848077772", audience = "viewer", months = 1, amountRupees = 99m, paymentReference = "98480 12345" }, Ct)));
+        Assert.Equal("subscription.reference_used", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
+            new { phone = "9848077772", audience = "viewer", months = 1, amountRupees = 0m, paymentReference = "UPI 123456" }, Ct)));
 
         // A renewal follows on from the current period, and "active until" shows the later date (30-day months).
         var firstEnd = status.GetProperty("listerUntil").GetDateTimeOffset();
@@ -638,6 +642,19 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Equal(brochure, await file.Content.ReadAsByteArrayAsync(Ct));
         var counts = (await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/documents", Ct)).GetProperty("available");
         Assert.Equal(1, counts[0].GetProperty("count").GetInt32());
+
+        // Search results carry the lowest asking price and the reviewed-document count, and filter by land type.
+        var found = (await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/parcels?q=gopanpally", Ct)).GetProperty("items")[0];
+        Assert.Equal(4_000_000m, found.GetProperty("lowestAskingPriceRupees").GetDecimal());
+        Assert.Equal(1, found.GetProperty("reviewedDocuments").GetInt32());
+        Assert.False(found.GetProperty("ownerOfRecordRecorded").GetBoolean());
+        var detail = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}", Ct);
+        Assert.False(detail.GetProperty("ownerOfRecordRecorded").GetBoolean());
+        var landClass = found.GetProperty("landClass").GetString();
+        var other = landClass == "agricultural" ? "converted" : "agricultural";
+        Assert.Single((await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels?q=gopanpally&landClass={landClass}", Ct)).GetProperty("items").EnumerateArray());
+        Assert.Empty((await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels?q=gopanpally&landClass={other}", Ct)).GetProperty("items").EnumerateArray());
+        Assert.Equal(HttpStatusCode.BadRequest, (await fixture.CreateClient().GetAsync("/api/v1/parcels?landClass=moon", Ct)).StatusCode);
 
         // WhatsApp: the sign-in number by default, or the number the lister chose.
         var contact = await buyer.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/offers/{offerId}/contact", Ct);

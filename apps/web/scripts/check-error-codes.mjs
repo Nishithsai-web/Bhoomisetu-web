@@ -14,6 +14,7 @@ export const RUNTIME_CODES = [
   "location.district_invalid", // ParcelLocation: $"location.{field}_invalid"
   "location.mandal_invalid",
   "location.village_invalid",
+  "rate_limited", // Program.cs rate limiter OnRejected
 ];
 
 const callStart = /\b(?:Invalid|Forbidden|Failure|Problem|Conflict)\s*\(/g;

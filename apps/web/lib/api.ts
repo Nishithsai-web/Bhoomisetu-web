@@ -67,6 +67,10 @@ export type ParcelSummary = {
   landClass: string;
   areaSquareYards: number;
   activeOffers: number;
+  /** Lowest active asking price; null when nobody has priced this land yet. */
+  lowestAskingPriceRupees: number | null;
+  reviewedDocuments: number;
+  ownerOfRecordRecorded: boolean;
 };
 
 export type Paged<T> = { items: T[]; page: number; pageSize: number; total: number };
@@ -171,9 +175,14 @@ export function getComparison(parcelId: string, sort: Sort): Promise<ApiResult<C
 }
 
 /** Free-text search over village, mandal and district names. */
-export function searchParcels(query: string, page: number): Promise<ApiResult<Paged<ParcelSummary>>> {
+export const LAND_CLASSES = ["agricultural", "non_agricultural", "converted", "unknown"] as const;
+export type LandClass = (typeof LAND_CLASSES)[number];
+export const isLandClass = (value: string): value is LandClass => (LAND_CLASSES as readonly string[]).includes(value);
+
+export function searchParcels(query: string, page: number, landClass?: LandClass): Promise<ApiResult<Paged<ParcelSummary>>> {
   const params = new URLSearchParams({ page: String(page), pageSize: "20" });
   if (query) params.set("q", query);
+  if (landClass) params.set("landClass", landClass);
   return get<Paged<ParcelSummary>>(`/api/v1/parcels?${params.toString()}`);
 }
 
@@ -448,4 +457,29 @@ export type ParcelPlace = { id: string; location: { district: string; mandal: st
 
 export function getParcelPlace(parcelId: string): Promise<ApiResult<ParcelPlace>> {
   return get<ParcelPlace>(`/api/v1/parcels/${encodeURIComponent(parcelId)}`);
+}
+
+/** Everything recorded about one piece of land (GET /api/v1/parcels/{id}). Lengths are given in metres and feet. */
+export type ParcelDetail = {
+  id: string;
+  location: { stateCode: string; district: string; mandal: string; village: string; lgdVillageCode: string | null; surveyNumber: string; surveyNumberAsEntered: string };
+  landClass: string;
+  area: { enteredValue: number; enteredUnit: string; source: string; conversions: { value: number; unit: string; squareMetres: number; units: Record<string, number> } };
+  dimensions: {
+    frontageM: number | null;
+    depthM: number | null;
+    frontageFeet: number | null;
+    depthFeet: number | null;
+    facing: string | null;
+    areaFromDimensionsSqm: number | null;
+    dimensionsMatchArea: boolean | null;
+  };
+  road: { widthM: number | null; widthFeet: number | null; widthSource: string | null; type: string | null; accessRight: string | null; distanceToMainRoadM: number | null };
+  activeOffers: number;
+  createdAt: string;
+  ownerOfRecordRecorded: boolean;
+};
+
+export function getParcel(parcelId: string): Promise<ApiResult<ParcelDetail>> {
+  return get<ParcelDetail>(`/api/v1/parcels/${encodeURIComponent(parcelId)}`);
 }

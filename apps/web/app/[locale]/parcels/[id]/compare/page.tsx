@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { contactAction, ownerConfirmAction } from "../../../actions";
-import { SORTS, getComparison, getParcelDocuments, getViewer, isSort, isUuid, type ParcelViewer, type Sort } from "@/lib/api";
+import { SORTS, getComparison, getParcel, getParcelDocuments, getViewer, isSort, isUuid, type ParcelViewer, type Sort } from "@/lib/api";
 import { errorText } from "@/lib/errors";
 import { getSessionToken } from "@/lib/session";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
@@ -47,7 +47,15 @@ export default async function ComparePage({ params, searchParams }: Props) {
 
   // Signed-in owners of record get confirm / remove buttons on each agent's row.
   const token = await getSessionToken();
-  const [viewerResult, documentsResult] = await Promise.all([token ? getViewer(id, token) : Promise.resolve(null), getParcelDocuments(id)]);
+  const [viewerResult, documentsResult, parcelResult] = await Promise.all([
+    token ? getViewer(id, token) : Promise.resolve(null),
+    getParcelDocuments(id),
+    getParcel(id),
+  ]);
+  const land = parcelResult.ok ? parcelResult.data : null;
+  const x = t.compareExtra;
+  const agents = data.offers.filter((o) => o.authority !== "owner_of_record");
+  const confirmedAgents = agents.filter((o) => o.authority === "owner_confirmed_agent").length;
   const checkedDocuments = documentsResult.ok ? documentsResult.data.available.reduce((sum, a) => sum + a.count, 0) : 0;
   const viewer: ParcelViewer | null = viewerResult?.ok ? viewerResult.data : null;
   const dateFormat = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
@@ -57,7 +65,15 @@ export default async function ComparePage({ params, searchParams }: Props) {
 
   return (
     <section className="page">
-      <h1>{c.title}</h1>
+      <p>
+        <Link href={`/${locale}/parcels/${id}`}>{t.land.backToLand}</Link>
+      </p>
+      <h1>{data.offers.length === 1 ? x.headingOne : format(x.heading, { count: data.offers.length })}</h1>
+      {land && (
+        <p className="muted">
+          {format(x.landLine, { survey: land.location.surveyNumber, village: land.location.village, mandal: land.location.mandal, district: land.location.district })}
+        </p>
+      )}
       <p className="lead">
         {format(c.summary, {
           offers: data.offers.length === 1 ? t.parcels.offersOne : format(t.parcels.offers, { count: data.offers.length }),
@@ -85,12 +101,24 @@ export default async function ComparePage({ params, searchParams }: Props) {
       )}
       {viewer?.isOwnerOfRecord && <p className="notice">{c.ownerHelp}</p>}
 
+      <section className="panel-dark">
+        <h2>{x.checksPanel}</h2>
+        <ul>
+          <li>{land?.ownerOfRecordRecorded ? t.land.ownerYes : t.land.ownerNo}</li>
+          <li>{checkedDocuments > 0 ? format(t.land.docsLine, { count: checkedDocuments }) : t.land.docsNone}</li>
+          {agents.length > 0 && (
+            <li>{land?.ownerOfRecordRecorded ? format(x.confirmedCount, { n: confirmedAgents, total: agents.length }) : x.noOwnerYet}</li>
+          )}
+        </ul>
+        <p className="small">{t.land.titleNote}</p>
+      </section>
+
       <p>
         <Link href={`/${locale}/parcels/${id}/documents`}>{t.documents.linkFromCompare}</Link>
         {checkedDocuments > 0 && <span className="muted"> · {format(t.documents.countChecked, { count: checkedDocuments })}</span>}
       </p>
 
-      <nav aria-label={c.sortLabel} className="sort-tabs">
+      <nav aria-label={c.sortLabel} className="sort-tabs pills">
         <span>{c.sortLabel}</span>
         {SORTS.map((s) => (
           <Link key={s} href={`/${locale}/parcels/${id}/compare?sort=${s}`} aria-current={s === sort ? "page" : undefined} className={s === sort ? "active" : undefined}>

@@ -6,7 +6,7 @@ import { getMyChangeRequests, getMyOffers, getMyParcelsWithoutPrice, getSubscrip
 import { formatIndianMobile, whatsappLink } from "@/lib/contact";
 import { errorText } from "@/lib/errors";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
-import { formatRupees, formatRupeesShort } from "@/lib/money";
+import { formatNumber, formatRupees, formatRupeesShort } from "@/lib/money";
 import { clearSession, getSessionToken } from "@/lib/session";
 
 type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ done?: string; error?: string; confirm?: string; parcel?: string }> };
@@ -44,10 +44,48 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
     </form>
   );
 
+  const dash = t.dashboard;
+  const activeOffers = offers.ok ? offers.data.filter((o) => o.status === "active") : [];
+  const needsConfirmation = activeOffers.filter((o) => o.needsConfirmation).length;
+  const unpricedCount = unpriced.ok ? unpriced.data.length : 0;
+  const pendingRequests = requests.ok ? requests.data.filter((r) => r.status === "pending").length : 0;
+  const listerActive = subscription.ok && subscription.data.listerActive;
+
   return (
-    <section className="page">
-      <h1>{m.title}</h1>
+    <section className="page dashboard">
+      <nav aria-label={dash.nav} className="dash-nav">
+        <a href="#overview">{dash.overview}</a>
+        <a href="#prices">{dash.prices}</a>
+        {unpricedCount > 0 && <a href="#unpriced">{dash.unpriced}</a>}
+        {requests.ok && requests.data.length > 0 && <a href="#corrections">{dash.corrections}</a>}
+        {subscription.ok && <a href="#subscription">{dash.subscription}</a>}
+        {subscription.ok && <a href="#whatsapp">{dash.whatsapp}</a>}
+      </nav>
+      <div>
+      <h1 id="overview">{m.title}</h1>
       <p className="lead">{m.intro}</p>
+      <div className="stats">
+        <div className="stat">
+          <div className="label">{dash.statActive}</div>
+          <div className="value">{formatNumber(activeOffers.length, intl, 0)}</div>
+        </div>
+        <div className={needsConfirmation > 0 ? "stat attention" : "stat"}>
+          <div className="label">{dash.statNeedsConfirm}</div>
+          <div className="value">{formatNumber(needsConfirmation, intl, 0)}</div>
+        </div>
+        <div className={unpricedCount > 0 ? "stat attention" : "stat"}>
+          <div className="label">{dash.statUnpriced}</div>
+          <div className="value">{formatNumber(unpricedCount, intl, 0)}</div>
+        </div>
+        <div className="stat">
+          <div className="label">{dash.statCorrections}</div>
+          <div className="value">{formatNumber(pendingRequests, intl, 0)}</div>
+        </div>
+        <div className="stat">
+          <div className="label">{dash.statSubscription}</div>
+          <div className="value">{listerActive ? dash.active : dash.inactive}</div>
+        </div>
+      </div>
       {done && (
         <p className="notice" role="status">
           {done}
@@ -59,6 +97,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
         </p>
       )}
 
+      <h2 id="prices">{dash.prices}</h2>
       {!offers.ok ? (
         <p className="notice" role="alert">
           {errorText(t, offers.code)}
@@ -116,7 +155,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
 
       {unpriced.ok && unpriced.data.length > 0 && (
         <>
-          <h2>{m.unpriced}</h2>
+          <h2 id="unpriced">{m.unpriced}</h2>
           <ul className="parcel-list">
             {unpriced.data.map((p) => (
               <li key={p.id} className="card">
@@ -134,7 +173,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
 
       {requests.ok && requests.data.length > 0 && (
         <>
-          <h2>{m.requests}</h2>
+          <h2 id="corrections">{m.requests}</h2>
           <ul className="parcel-list">
             {requests.data.map((r) => (
               <li key={r.id} className="card">
@@ -152,7 +191,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
       )}
       {subscription.ok && (
         <>
-          <h2>{t.subscription.title}</h2>
+          <h2 id="subscription">{t.subscription.title}</h2>
           <div className="card">
             <p>
               {subscription.data.listerActive && subscription.data.listerUntil
@@ -184,7 +223,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
             </p>
           </div>
 
-          <h2>{t.subscription.whatsappTitle}</h2>
+          <h2 id="whatsapp">{t.subscription.whatsappTitle}</h2>
           <form action={setWhatsappAction} className="card form">
             <input type="hidden" name="locale" value={locale} />
             <div className="field">
@@ -205,6 +244,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
           {t.nav.signOut}
         </button>
       </form>
+      </div>
     </section>
   );
 }

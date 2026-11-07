@@ -441,7 +441,8 @@ public static partial class DocumentEndpoints
         }
 
         // The audit log is permanent, so no UPI IDs (name@bank) or mobile numbers go into it.
-        if (reference.Contains('@') || MobileLike().IsMatch(reference))
+        // Spaces and dashes are ignored, so "98480 12345" is caught as well as "9848012345".
+        if (reference.Contains('@') || MobileLike().IsMatch(reference.Replace(" ", "", StringComparison.Ordinal).Replace("-", "", StringComparison.Ordinal)))
         {
             return ApiResults.Invalid("subscription.reference_invalid", "Enter the transaction ID (UTR) or receipt number, not a UPI ID or phone number.");
         }
@@ -517,6 +518,6 @@ public static partial class DocumentEndpoints
     /// A standalone 10-digit Indian mobile (optionally "+91 " in front). Digits inside a longer number, such as a
     /// 12-digit UPI transaction ID (UTR), do not match.
     /// </summary>
-    [System.Text.RegularExpressions.GeneratedRegex(@"(?<!\d)(?:\+91[\s-]?|91[\s-])?[6-9]\d{9}(?!\d)")]
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?<!\d)(?:\+91)?[6-9]\d{9}(?!\d)")]
     private static partial System.Text.RegularExpressions.Regex MobileLike();
 }

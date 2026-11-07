@@ -4,7 +4,7 @@ import { removeDocumentAction } from "../../../actions";
 import { ConfirmBox } from "@/components/ConfirmBox";
 import { UploadDocumentForm } from "@/components/UploadDocumentForm";
 import { getDocumentTypes, getParcelDocuments, getParcelPlace, getSubscription, isUuid, type ParcelDocument } from "@/lib/api";
-import { formatFileSize } from "@/lib/contact";
+import { formatFileSize, whatsappLink } from "@/lib/contact";
 import { errorText } from "@/lib/errors";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
 import { formatRupees } from "@/lib/money";
@@ -52,7 +52,7 @@ export default async function DocumentsPage({ params, searchParams }: Props) {
   const [place, types, subscription] = await Promise.all([
     getParcelPlace(id),
     data.canUpload ? getDocumentTypes() : Promise.resolve(null),
-    data.uploadBlockedReason === "subscribe" && token ? getSubscription(token) : Promise.resolve(null),
+    (data.uploadBlockedReason === "subscribe" || data.access === "subscribe") && token ? getSubscription(token) : Promise.resolve(null),
   ]);
   const labels = d.types as Record<string, string>;
   const never = d.never as Record<string, string>;
@@ -60,6 +60,8 @@ export default async function DocumentsPage({ params, searchParams }: Props) {
   const mine = data.documents.filter((x) => x.uploadedByMe);
   const others = data.documents.filter((x) => !x.uploadedByMe);
   const back = `/${locale}/parcels/${id}/documents`;
+  const supportLink =
+    subscription?.ok && subscription.data.supportWhatsappE164 ? whatsappLink(subscription.data.supportWhatsappE164, t.subscription.supportMessage) : null;
 
   const row = (doc: ParcelDocument) => (
     <li key={doc.id} className="card">
@@ -155,7 +157,8 @@ export default async function DocumentsPage({ params, searchParams }: Props) {
       )}
       {data.access === "subscribe" && data.available.length > 0 && (
         <p className="notice">
-          {d.subscribeToView} {d.buyerHowTo}
+          {d.subscribeToView} {d.buyerHowTo}{" "}
+          {supportLink && <a href={supportLink}>{t.subscription.support}</a>}
         </p>
       )}
 

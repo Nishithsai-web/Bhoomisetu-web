@@ -547,3 +547,487 @@ button.whatsapp {
   background: var(--danger-bg);
   color: var(--danger);
 }
+
+/* ======================================================================
+   Design layer: "Bhoomisetu website screens" (Home, Results, Land detail,
+   Compare, Dashboard). Same palette as above; Space Grotesk for headings,
+   16px cards, full-width dark bands, pill filters.
+   ====================================================================== */
+
+:root {
+  --radius-lg: 16px;
+  --heading: var(--font-heading), var(--font);
+  --band-text: #bfd3d1;
+  --band-soft: #dcebe9;
+  --pill-border: #bfb8a4;
+}
+
+html:lang(te),
+html:lang(hi) {
+  /* Telugu and Hindi headings stay in their own script's font. */
+  --heading: var(--font);
+}
+
+body {
+  overflow-x: clip;
+}
+
+h1,
+h2,
+.brand {
+  font-family: var(--heading);
+}
+
+h1 {
+  font-weight: 600;
+}
+
+h2 {
+  font-weight: 600;
+  font-size: 1.4rem;
+}
+
+.card {
+  border-radius: var(--radius-lg);
+}
+
+.site-header {
+  padding: 16px max(16px, calc(50vw - 640px));
+}
+
+.site-header .brand {
+  font-size: 1.6rem;
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.language-switcher a {
+  border: 1px solid #7fa6a3;
+  padding: 0 16px;
+}
+
+.language-switcher a.active {
+  background: #f4c27a;
+  border-color: #f4c27a;
+  color: var(--ink);
+}
+
+.header-cta {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 20px;
+  border-radius: 8px;
+  background: var(--saffron);
+  color: var(--ink) !important;
+  font-weight: 600;
+}
+
+/* A dark band that runs edge to edge even though <main> is centred. */
+.band {
+  margin-inline: calc(50% - 50vw);
+  padding: 64px max(16px, calc(50vw - 560px)) 72px;
+  background: var(--teal-dark);
+  color: var(--paper);
+}
+
+main > .band:first-child {
+  margin-top: -24px;
+}
+
+.band h1 {
+  font-size: clamp(2rem, 5vw, 3.6rem);
+  line-height: 1.1;
+  max-width: 900px;
+  margin-bottom: 16px;
+}
+
+.band .lead {
+  color: var(--band-text);
+  font-size: 1.2rem;
+  max-width: 760px;
+}
+
+.search-card {
+  margin-top: 32px;
+  background: var(--card);
+  color: var(--ink);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  max-width: 1100px;
+  display: grid;
+  gap: 12px;
+}
+
+.search-card .search-row input {
+  min-height: 56px;
+  font-size: 1.1rem;
+  flex: 1 1 320px;
+}
+
+.search-card .search-row button {
+  min-height: 56px;
+  font-size: 1.1rem;
+}
+
+.search-card .examples {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.section {
+  padding: 48px 0 8px;
+}
+
+.section > h2 {
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  margin-bottom: 20px;
+}
+
+.type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.type-card {
+  display: grid;
+  gap: 6px;
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  color: var(--ink);
+  min-height: 44px;
+}
+
+.type-card strong {
+  font-size: 1.25rem;
+}
+
+.type-card span {
+  color: var(--muted);
+}
+
+.type-card:hover {
+  border-color: var(--saffron);
+  color: var(--ink);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+}
+
+.panel-dark {
+  background: var(--teal-dark);
+  color: var(--paper);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+}
+
+.panel-dark h2 {
+  color: var(--paper);
+}
+
+.panel-dark ul,
+.panel-dark p {
+  color: var(--band-soft);
+}
+
+.panel-dark .small {
+  color: var(--band-text);
+  font-size: 0.9rem;
+}
+
+.panel-dark a {
+  color: #f4c27a;
+}
+
+.big-link {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--saffron-text);
+}
+
+/* Filter and sort pills */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 16px 0;
+}
+
+.pills a {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 16px;
+  border-radius: 22px;
+  border: 1px solid var(--pill-border);
+  background: #fff;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.pills a.active {
+  background: var(--teal-dark);
+  border-color: var(--teal-dark);
+  color: var(--paper);
+}
+
+/* Result cards */
+.result {
+  display: grid;
+  gap: 8px;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+
+.result h2 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+
+.result h2 a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.result h2 a:hover {
+  color: var(--saffron-text);
+}
+
+.result .price {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tag {
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: var(--ok-bg);
+  color: var(--teal-dark);
+}
+
+.tag-class {
+  background: #fdebd2;
+  color: #6b3f06;
+}
+
+.tag-plain {
+  background: #e8e4d8;
+  color: var(--ink);
+}
+
+/* Land detail: main column + side column */
+.detail {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .detail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.detail > div {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.detail .card h2 {
+  font-size: 1.4rem;
+  margin-bottom: 12px;
+}
+
+.unit-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.unit-tiles div {
+  background: var(--paper);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.unit-tiles dt {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.unit-tiles dd {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.facts {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.facts th,
+.facts td {
+  text-align: left;
+  vertical-align: top;
+  padding: 10px 8px 10px 0;
+  border-bottom: 1px solid #efe9da;
+}
+
+.facts th {
+  width: 40%;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.facts tr:last-child th,
+.facts tr:last-child td {
+  border-bottom: 0;
+}
+
+.stack {
+  display: grid;
+  gap: 12px;
+}
+
+.stack .button-link,
+.stack button {
+  width: 100%;
+  justify-content: center;
+}
+
+.button-link.primary {
+  background: var(--saffron);
+  border-color: var(--saffron);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Owner dashboard */
+.dashboard {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.dash-nav {
+  position: sticky;
+  top: 16px;
+  display: grid;
+  gap: 4px;
+  background: var(--teal-dark);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+}
+
+@media (max-width: 860px) {
+  .dash-nav {
+    position: static;
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+.dash-nav a {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--band-soft);
+  text-decoration: none;
+}
+
+.dash-nav a:hover {
+  background: var(--teal);
+  color: var(--paper);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 16px 0 8px;
+}
+
+.stat {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+}
+
+.stat .label {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.stat .value {
+  font-size: 1.9rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.stat.attention {
+  background: #fdebd2;
+  border-color: var(--saffron);
+}
+
+.stat.attention .label {
+  color: #6b3f06;
+}
+
+.site-footer {
+  max-width: none;
+  margin: 48px 0 0;
+  border-top: 0;
+  font-size: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  justify-content: space-between;
+  padding: 32px max(16px, calc(50vw - 560px));
+  background: var(--teal-dark);
+  color: var(--band-text);
+}
+
+.site-footer a {
+  color: var(--band-soft);
+}

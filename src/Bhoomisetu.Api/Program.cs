@@ -183,9 +183,21 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy(RateLimitPolicies.Otp, http => RateLimitPartition.GetFixedWindowLimiter(
         RateLimitPolicies.ClientKey(http),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = otpRequestsPerIpPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
-    options.AddPolicy(RateLimitPolicies.Contact, http => RateLimitPartition.GetFixedWindowLimiter(
-        RateLimitPolicies.ClientKey(http),
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = config.GetValue("RateLimits:ContactsPerIpPerDay", 100), Window = TimeSpan.FromDays(1), QueueLimit = 0 }));
+    // Per visitor IP. Off (0) by default: unless the web server passes visitors' IPs (BHOOMISETU_BEHIND_LOAD_BALANCER),
+    // every request arrives from the web server's own address and one shared limit would block everyone.
+    var contactsPerIpPerDay = config.GetValue("RateLimits:ContactsPerIpPerDay", 0);
+    options.AddPolicy(RateLimitPolicies.Contact, http => contactsPerIpPerDay > 0
+        ? RateLimitPartition.GetFixedWindowLimiter(RateLimitPolicies.ClientKey(http),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = contactsPerIpPerDay, Window = TimeSpan.FromDays(1), QueueLimit = 0 })
+        : RateLimitPartition.GetNoLimiter("off"));
+
+    // A 429 explains itself like every other error, so the web app can show a plain message.
+    options.OnRejected = async (context, token) =>
+    {
+        context.HttpContext.Response.ContentType = "application/problem+json";
+        await context.HttpContext.Response.WriteAsJsonAsync(
+            new { status = 429, code = "rate_limited", title = "Too many requests. Please wait a little and try again." }, token);
+    };
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(http => RateLimitPartition.GetFixedWindowLimiter(
         RateLimitPolicies.ClientKey(http),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = requestsPerIpPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));

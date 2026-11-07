@@ -42,9 +42,12 @@ public sealed record ParcelResponse(
     ParcelDimensionsResponse Dimensions,
     ParcelRoadResponse Road,
     int ActiveOffers,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    bool OwnerOfRecordRecorded = false);
 
-public sealed record ParcelSummary(Guid Id, string StateCode, string District, string Mandal, string Village, string SurveyNumber, string LandClass, decimal AreaSquareYards, int ActiveOffers);
+/// <summary>One search result. LowestAskingPriceRupees is the lowest active asking price (null without offers).</summary>
+public sealed record ParcelSummary(Guid Id, string StateCode, string District, string Mandal, string Village, string SurveyNumber, string LandClass, decimal AreaSquareYards, int ActiveOffers,
+    decimal? LowestAskingPriceRupees, int ReviewedDocuments, bool OwnerOfRecordRecorded);
 
 public sealed record PagedResponse<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
 
@@ -248,11 +251,12 @@ public static class ParcelEndpoints
         }
 
         var offers = await db.Offers.CountAsync(o => o.ParcelId == id && o.Status == "active", ct);
-        return Results.Ok(ToResponse(record, offers));
+        var owner = await db.ParcelParties.AnyAsync(p => p.ParcelId == id && p.Role == Vocabulary.OwnerOfRecord, ct);
+        return Results.Ok(ToResponse(record, offers) with { OwnerOfRecordRecorded = owner });
     }
 
     private static async Task<IResult> SearchAsync(
-        string? q, string? state, string? district, string? mandal, string? village, int? page, int? pageSize, BhoomisetuDbContext db, CancellationToken ct)
+        string? q, string? state, string? district, string? mandal, string? village, string? landClass, int? page, int? pageSize, BhoomisetuDbContext db, CancellationToken ct)
     {
         // Capped so (page - 1) * size can never overflow into a negative OFFSET.
         var p = Math.Clamp(page ?? 1, 1, 10_000);
@@ -281,6 +285,16 @@ public static class ParcelEndpoints
             query = query.Where(x => EF.Functions.ILike(x.Village, ContainsPattern(village)));
         }
 
+        if (!string.IsNullOrWhiteSpace(landClass))
+        {
+            if (!Vocabulary.LandClasses.Contains(landClass))
+            {
+                return ApiResults.Invalid("parcel.land_class_invalid", "Land class must be agricultural, non_agricultural, converted or unknown.");
+            }
+
+            query = query.Where(x => x.LandClass == landClass);
+        }
+
         // One free-text box: a village, mandal or district name.
         if (!string.IsNullOrWhiteSpace(q))
         {
@@ -297,12 +311,16 @@ public static class ParcelEndpoints
             {
                 x.Id, x.StateCode, x.District, x.Mandal, x.Village, x.SurveyNumber, x.LandClass, x.RecordedAreaSqm,
                 Offers = db.Offers.Count(o => o.ParcelId == x.Id && o.Status == "active"),
+                Lowest = db.Offers.Where(o => o.ParcelId == x.Id && o.Status == "active").Min(o => (long?)o.AskingPricePaise),
+                Documents = db.ParcelDocuments.Count(d => d.ParcelId == x.Id && d.Status == "approved"),
+                Owner = db.ParcelParties.Any(pp => pp.ParcelId == x.Id && pp.Role == Vocabulary.OwnerOfRecord),
             })
             .ToListAsync(ct);
 
         var summaries = items
             .Select(x => new ParcelSummary(x.Id, x.StateCode, x.District, x.Mandal, x.Village, x.SurveyNumber, x.LandClass,
-                Math.Round(x.RecordedAreaSqm / squareYard, 2, MidpointRounding.AwayFromZero), x.Offers))
+                Math.Round(x.RecordedAreaSqm / squareYard, 2, MidpointRounding.AwayFromZero), x.Offers,
+                x.Lowest is { } paise ? paise / 100m : null, x.Documents, x.Owner))
             .ToList();
         return Results.Ok(new PagedResponse<ParcelSummary>(summaries, p, size, total));
     }

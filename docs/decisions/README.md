@@ -109,3 +109,8 @@ Change a decision by adding a dated entry here and updating the register; never 
     UPI IDs and phone numbers are refused as references because the audit log is permanent.
 31. **WhatsApp contact is limited per account (50/day) and per IP (100/day)**, and the button shows only for
     listers with an active subscription. The sign-in privacy text says plainly when a number is shared.
+32. **Website screens follow the "Bhoomisetu website screens" design** (Home, Results, Land detail, Compare,
+    Dashboard) for everything the platform does today: land search with land-type filters, a land page with area
+    in every unit and road access, the agent price comparison and the owner dashboard. Parts of the design that
+    need features not built yet (homes and rentals, AI and voice search, maps, price estimates, nearby
+    developments, rent and tenant tracking) are left out rather than shown with invented data.

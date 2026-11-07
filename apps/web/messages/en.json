@@ -22,8 +22,8 @@
     "crores": "crore"
   },
   "home": {
-    "heroTitle": "Trusted land, clear prices",
-    "heroSubtitle": "Compare every agent's price for the same land in one place, see exactly what was checked, and read the area in gajams, guntas or acres.",
+    "heroTitle": "Find land you can trust, compare every price, in your language.",
+    "heroSubtitle": "Farm land and house plots to buy and sell. Every agent's price for the same land side by side, with what was checked.",
     "searchLabel": "Village or area",
     "searchPlaceholder": "e.g. Mokila, Shankarpalle",
     "searchButton": "Search",
@@ -31,11 +31,46 @@
     "verifiedBody": "Every badge names the check that was done: phone code, identity, owner confirmation. Nothing more is claimed.",
     "compareTitle": "One land, many agents",
     "compareBody": "All agents' prices, brokerage and authority for the same land, side by side, ranked by a rule you can read.",
-    "unitsTitle": "Area in your units",
-    "unitsBody": "Gajams, guntas, acres, cents and square feet, all at once.",
+    "unitsTitle": "Units you actually use",
+    "unitsBody": "Every area in acres, guntas, cents, gajams (square yards), square feet and square metres.",
     "languageTitle": "Telugu, Hindi and English",
     "languageBody": "Search and read in the language you are most comfortable with.",
-    "safety": "Never pay a token advance before visiting the site and checking the documents."
+    "safety": "Never pay a token advance before visiting the site and checking the documents.",
+    "examples": "Try a village, mandal or district: Mokila · మోకిల · मोकिला",
+    "exploreTitle": "Explore by land type",
+    "types": {
+      "agricultural": {
+        "title": "Farm land",
+        "body": "Acres and guntas, survey number, road access"
+      },
+      "non_agricultural": {
+        "title": "House plots",
+        "body": "Gajams, layout approval, road width"
+      },
+      "converted": {
+        "title": "Converted land",
+        "body": "Farm land converted for building"
+      },
+      "all": {
+        "title": "All land",
+        "body": "Every listing, newest first"
+      }
+    },
+    "checksTitle": "A badge says exactly what was checked",
+    "checksList": {
+      "c1": "Phone number confirmed with a one-time code",
+      "c2": "Owner of record recorded by a Bhoomisetu reviewer",
+      "c3": "Agent confirmed by the owner",
+      "c4": "Documents reviewed as allowed public papers",
+      "c5": "Availability confirmed in the last 14 days"
+    },
+    "checksNote": "No badge means the land title is clear. Ask a lawyer before paying.",
+    "unitsLink": "Open the area converter",
+    "contactTitle": "Contact without spam",
+    "contactBody": "Buyers sign in before they can message an owner or agent on WhatsApp, and each person can contact only a few listers a day.",
+    "sellTitle": "Selling land?",
+    "sellBody": "List it once. Every agent's price for it appears on one page, so buyers compare fairly.",
+    "sellLink": "List your land"
   },
   "parcels": {
     "title": "Land listings",
@@ -50,7 +85,15 @@
     "next": "Next",
     "page": "Page {page}",
     "offersOne": "1 offer",
-    "areaAcres": "{value} acres"
+    "areaAcres": "{value} acres",
+    "filterLabel": "Land type",
+    "filterAll": "All land",
+    "fromPrice": "From {price}",
+    "noPrice": "No price yet",
+    "reviewedDocs": "{count} documents reviewed",
+    "ownerRecorded": "Owner recorded",
+    "viewLand": "See this land",
+    "resultsCount": "{count} results"
   },
   "units": {
     "title": "Area converter",
@@ -137,7 +180,9 @@
   },
   "footer": {
     "disclaimer": "Bhoomisetu shows what was checked and when. A check is not a legal title opinion; consult a lawyer before paying.",
-    "forReviewers": "For Bhoomisetu staff reviewers"
+    "forReviewers": "For Bhoomisetu staff reviewers",
+    "tagline": "One land, every price, in your language.",
+    "links": "Footer"
   },
   "signin": {
     "title": "Sign in with your mobile number",
@@ -360,7 +405,8 @@
     "subscription.reference_required": "Enter the UPI transaction ID (UTR) or receipt number.",
     "subscription.self": "A reviewer cannot start their own subscription.",
     "subscription.reference_invalid": "Enter the transaction ID (UTR) or receipt number, not a UPI ID or phone number.",
-    "subscription.reference_used": "This payment reference is already recorded."
+    "subscription.reference_used": "This payment reference is already recorded.",
+    "rate_limited": "Too many requests. Please wait a little and try again."
   },
   "mine": {
     "title": "My listings",
@@ -556,5 +602,70 @@
     "paymentReference": "UPI transaction ID (UTR) or receipt number",
     "activate": "Start subscription",
     "subscriptionDone": "Subscription recorded."
+  },
+  "land": {
+    "survey": "Survey number {number}",
+    "priceFrom": "Lowest asking price {price}",
+    "pricesLink": "Compare all {count} prices",
+    "pricesLinkOne": "See the price",
+    "noOffers": "No prices yet. Owners and agents can add one.",
+    "addPrice": "Add your price",
+    "areaTitle": "Area in the units you use",
+    "areaNote": "Entered as {value} {unit} ({source}). Converted for you. Official revenue records take precedence.",
+    "sizeTitle": "Size, shape and road access",
+    "dimensions": "Width and length",
+    "dimensionsValue": "{width} ft × {length} ft",
+    "facing": "Facing",
+    "areaCheck": "Area from width × length",
+    "areaMatch": "Matches the recorded area",
+    "areaMismatch": "Differs from the recorded area: check with a surveyor",
+    "roadWidth": "Road in front",
+    "roadWidthValue": "{feet} ft ({metres} m)",
+    "roadType": "Road type",
+    "accessRight": "Access to the land",
+    "mainRoad": "Distance to the main road",
+    "mainRoadValue": "{metres} m",
+    "notGiven": "Not given",
+    "sizeNote": "Measurements come from the lister. A licensed surveyor's report settles width, area and boundary.",
+    "factsTitle": "Land facts",
+    "landClass": "Land type",
+    "location": "Village, mandal, district",
+    "stateCode": "State",
+    "checkedTitle": "What was checked",
+    "ownerYes": "Owner of record: recorded by a reviewer",
+    "ownerNo": "Owner of record: not recorded yet",
+    "docsLine": "Documents: {count} reviewed as allowed public papers",
+    "docsNone": "Documents: none reviewed yet",
+    "titleNot": "Legal title: not reviewed",
+    "titleNote": "Checks do not prove the title is clear. Ask a lawyer to review the ownership history before paying.",
+    "nextTitle": "Next steps",
+    "documents": "Documents",
+    "correct": "Suggest a correction",
+    "backToResults": "Back to results",
+    "backToLand": "Back to the land"
+  },
+  "compareExtra": {
+    "heading": "{count} prices for this land",
+    "headingOne": "1 price for this land",
+    "landLine": "Survey number {survey}, {village}, {mandal}, {district}",
+    "checksPanel": "Land checks",
+    "confirmedCount": "The owner has confirmed {n} of {total} agents. The rest show “authority not confirmed”.",
+    "noOwnerYet": "No owner of record yet, so no agent can be confirmed."
+  },
+  "dashboard": {
+    "nav": "Dashboard",
+    "overview": "Overview",
+    "prices": "My prices",
+    "unpriced": "Land without a price",
+    "corrections": "Corrections",
+    "subscription": "Subscription",
+    "whatsapp": "WhatsApp number",
+    "statActive": "Active prices",
+    "statUnpriced": "Land without a price",
+    "statCorrections": "Corrections waiting",
+    "statSubscription": "Owner/agent subscription",
+    "statNeedsConfirm": "Need availability confirmed",
+    "active": "Active",
+    "inactive": "Not active"
   }
 }
