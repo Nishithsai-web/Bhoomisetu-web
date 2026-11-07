@@ -120,11 +120,13 @@ async function visitorIp(): Promise<string | null> {
   }
 }
 
-async function request<T>(method: "GET" | "POST" | "DELETE", path: string, body?: unknown, token?: string): Promise<ApiResult<T>> {
+async function request<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown, token?: string): Promise<ApiResult<T>> {
   const headers: Record<string, string> = { accept: "application/json" };
   const ip = await visitorIp();
   if (ip) headers["x-forwarded-for"] = ip;
-  if (body !== undefined) headers["content-type"] = "application/json";
+  // FormData (file uploads) sets its own multipart content type; everything else is JSON.
+  const isForm = body instanceof FormData;
+  if (body !== undefined && !isForm) headers["content-type"] = "application/json";
   if (token) headers.authorization = `Bearer ${token}`;
 
   let response: Response;
@@ -133,8 +135,8 @@ async function request<T>(method: "GET" | "POST" | "DELETE", path: string, body?
       method,
       cache: "no-store",
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
-      signal: AbortSignal.timeout(8000),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
+      signal: AbortSignal.timeout(isForm ? 60000 : 8000),
     });
   } catch (error) {
     console.error(`API request failed: ${method} ${path}`, error);
@@ -319,4 +321,129 @@ export function findUserByPhone(phone: string, token: string): Promise<ApiResult
 
 export function setOwnerOfRecord(parcelId: string, userId: string, evidenceNote: string, token: string): Promise<ApiResult<void>> {
   return request<void>("POST", `/api/v1/admin/parcels/${encodeURIComponent(parcelId)}/owner-of-record`, { userId, evidenceNote }, token);
+}
+
+// ---------------------------------------------------------------- documents, subscriptions, contact
+
+export type DocumentType = { code: string; referenceRequired: boolean; imagesOnly: boolean };
+export type DocumentTypes = { allowed: DocumentType[]; neverUpload: string[]; maxBytes: number };
+
+export function getDocumentTypes(): Promise<ApiResult<DocumentTypes>> {
+  return get<DocumentTypes>("/api/v1/document-types");
+}
+
+export type ParcelDocument = {
+  id: string;
+  type: string;
+  referenceNumber: string | null;
+  contentType: string;
+  sizeBytes: number;
+  status: "pending" | "approved" | "rejected";
+  reviewNote: string | null;
+  uploadedByMe: boolean;
+  createdAt: string;
+};
+
+export type ParcelDocuments = {
+  /** sign_in: not signed in; subscribe: signed in without a viewer subscription; full: may open checked documents. */
+  access: "sign_in" | "subscribe" | "full";
+  canUpload: boolean;
+  uploadBlockedReason: "sign_in" | "not_involved" | "subscribe" | null;
+  available: { type: string; count: number }[];
+  documents: ParcelDocument[];
+};
+
+export function getParcelDocuments(parcelId: string, token?: string): Promise<ApiResult<ParcelDocuments>> {
+  return get<ParcelDocuments>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/documents`, token);
+}
+
+export function uploadDocument(parcelId: string, form: FormData, token: string): Promise<ApiResult<ParcelDocument>> {
+  return request<ParcelDocument>("POST", `/api/v1/parcels/${encodeURIComponent(parcelId)}/documents`, form, token);
+}
+
+export function removeDocument(parcelId: string, documentId: string, token: string): Promise<ApiResult<void>> {
+  return request<void>("DELETE", `/api/v1/parcels/${encodeURIComponent(parcelId)}/documents/${encodeURIComponent(documentId)}`, undefined, token);
+}
+
+/** The raw file response, streamed to the browser by the /files route. */
+export async function fetchDocumentFile(parcelId: string, documentId: string, token: string): Promise<Response | ApiProblem> {
+  const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+  const ip = await visitorIp();
+  if (ip) headers["x-forwarded-for"] = ip;
+  try {
+    const response = await fetch(`${baseUrl()}/api/v1/parcels/${encodeURIComponent(parcelId)}/documents/${encodeURIComponent(documentId)}/file`, {
+      cache: "no-store",
+      headers,
+      signal: AbortSignal.timeout(30000),
+    });
+    if (response.ok) return response;
+    let code = response.status === 401 ? "auth.required" : "api.error";
+    try {
+      const json = (await response.json()) as { code?: unknown };
+      if (typeof json.code === "string") code = json.code;
+    } catch {
+      // not JSON
+    }
+    return { ok: false, status: response.status, code };
+  } catch (error) {
+    console.error("Document download failed", error);
+    return { ok: false, status: 503, code: "api.unreachable" };
+  }
+}
+
+export function getContact(parcelId: string, offerId: string, token: string): Promise<ApiResult<{ whatsappE164: string }>> {
+  return get<{ whatsappE164: string }>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/offers/${encodeURIComponent(offerId)}/contact`, token);
+}
+
+export type SubscriptionStatus = {
+  listerActive: boolean;
+  listerUntil: string | null;
+  viewerActive: boolean;
+  viewerUntil: string | null;
+  viewerPlanIsFree: boolean;
+  listerMonthlyPriceRupees: number;
+  supportWhatsappE164: string | null;
+  whatsappE164: string;
+};
+
+export function getSubscription(token: string): Promise<ApiResult<SubscriptionStatus>> {
+  return get<SubscriptionStatus>("/api/v1/me/subscription", token);
+}
+
+export function setWhatsapp(phone: string, token: string): Promise<ApiResult<void>> {
+  return request<void>("PUT", "/api/v1/me/whatsapp", { phone }, token);
+}
+
+export type AdminDocument = {
+  id: string;
+  parcelId: string;
+  village: string;
+  mandal: string;
+  district: string;
+  surveyNumber: string;
+  type: string;
+  referenceNumber: string | null;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
+export function getDocumentQueue(token: string): Promise<ApiResult<AdminDocument[]>> {
+  return get<AdminDocument[]>("/api/v1/admin/documents", token);
+}
+
+export function decideDocument(documentId: string, decision: "approve" | "reject", note: string, token: string): Promise<ApiResult<void>> {
+  return request<void>("POST", `/api/v1/admin/documents/${encodeURIComponent(documentId)}/decision`, { decision, note }, token);
+}
+
+export type ActivateSubscription = { phone: string; audience: "lister" | "viewer"; months: number; amountRupees: number; paymentReference: string };
+
+export function activateSubscription(body: ActivateSubscription, token: string): Promise<ApiResult<{ id: string; startsAt: string; endsAt: string }>> {
+  return request<{ id: string; startsAt: string; endsAt: string }>("POST", "/api/v1/admin/subscriptions", body, token);
+}
+
+export type ParcelPlace = { id: string; location: { district: string; mandal: string; village: string; surveyNumber: string } };
+
+export function getParcelPlace(parcelId: string): Promise<ApiResult<ParcelPlace>> {
+  return get<ParcelPlace>(`/api/v1/parcels/${encodeURIComponent(parcelId)}`);
 }

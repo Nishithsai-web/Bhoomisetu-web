@@ -12,6 +12,7 @@ public sealed class UserRecord
     public string PreferredLocale { get; set; } = "en";
     public bool IsTrustReviewer { get; set; }
     public int TokenVersion { get; set; }
+    public string? WhatsappE164 { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
@@ -123,4 +124,37 @@ public sealed class ParcelChangeRequestRecord
     public DateTimeOffset? DecidedAt { get; set; }
     public string? DecisionNote { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class SubscriptionRecord
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public string Audience { get; set; } = string.Empty;
+    public DateTimeOffset StartsAt { get; set; }
+    public DateTimeOffset EndsAt { get; set; }
+    public long AmountPaise { get; set; }
+    public string PaymentReference { get; set; } = string.Empty;
+    public Guid ActivatedBy { get; set; }
+    public DateTimeOffset? CancelledAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class ParcelDocumentRecord
+{
+    public Guid Id { get; set; }
+    public Guid ParcelId { get; set; }
+    public Guid UploadedBy { get; set; }
+    public string DocType { get; set; } = string.Empty;
+    public string? ReferenceNumber { get; set; }
+    public string ContentType { get; set; } = string.Empty;
+    public int SizeBytes { get; set; }
+    public string Sha256 { get; set; } = string.Empty;
+    public string StorageKey { get; set; } = string.Empty;
+    public string Status { get; set; } = "pending";
+    public string? ReviewNote { get; set; }
+    public Guid? ReviewedBy { get; set; }
+    public DateTimeOffset? ReviewedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
 }

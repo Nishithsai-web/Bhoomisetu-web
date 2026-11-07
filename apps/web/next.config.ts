@@ -9,6 +9,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Document uploads pass through a server action: allow a 10 MB file plus form fields.
+  experimental: { serverActions: { bodySizeLimit: "11mb" } },
   async redirects() {
     // Language is part of every URL (/en, /te, /hi) so pages can be shared and indexed per language.
     return [{ source: "/", destination: "/en", permanent: false }];

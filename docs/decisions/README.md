@@ -90,3 +90,16 @@ Change a decision by adding a dated entry here and updating the register; never 
 23. **Reviewers may look up at most 30 accounts by phone per hour**; more is treated as misuse and logged.
 24. **Human-checked code requests keep a hard cap of 20 per number per hour** (normal cap 10), so an owner can
     always get past strangers using up the normal cap, while solved checks still cannot flood one phone.
+25. **Free, subscribed and paid levels.** Free visitors see land facts, the survey number and price comparison;
+    signing in (free) opens WhatsApp contact. Owners and agents pay a lister subscription, which turns on WhatsApp
+    contact and document uploads. Buyers open checked documents with a viewer subscription whose price is a setting
+    (`Subscriptions:ViewerPriceRupees`, default 0 = free sign-up). Payments are taken outside the app (UPI) and
+    recorded by a reviewer with the payment reference; a payment gateway (Razorpay or Cashfree) is proposed.
+26. **Only public papers are uploaded**, chosen from a fixed dropdown: brochure, site plan, location map,
+    HMDA/DTCP layout approval, RERA certificate, building permission, photos. Sale deed, link documents, EC,
+    pattadar passbook, pahani/ROR-1B and ID cards are never accepted; the uploader confirms this with a tick box.
+    The file type is read from the file's own bytes; PDF, JPEG, PNG and WebP up to 10 MB.
+27. **Documents appear to buyers only after a trust reviewer checks them.** Rejected files are deleted and the
+    reason kept. The site tells buyers to see original ownership papers in person and pay token money only after that.
+28. **Files live outside the database** behind `IDocumentStorage` (local folder now; S3-compatible storage and a
+    virus scan such as ClamAV are proposed before launch). Storage keys are generated, never taken from the uploader.

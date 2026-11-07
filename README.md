@@ -82,6 +82,15 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `DELETE /api/v1/parcels/{id}/offers/{offerId}/confirm-lister` | Owner removes a confirmation made from an offer | Owner of record |
 | `GET /api/v1/admin/duplicates` | Records set aside as possible duplicates, with the kept record | Trust reviewer |
 | `GET /api/v1/admin/users/by-phone?phone=` | Find an account by mobile number (audited, 30 per reviewer per hour) | Trust reviewer |
+| `GET /api/v1/document-types` | Allowed document types (brochure, site plan, maps, HMDA/DTCP approval, RERA, building permission, photos) and the never-upload list | No |
+| `GET /api/v1/parcels/{id}/documents` | Checked-document counts for everyone; documents for subscribed buyers; your own uploads | No |
+| `POST /api/v1/parcels/{id}/documents` | Add a public document (multipart: `type`, `file`, `referenceNumber`, `declaration=true`) | Owner/agent with a subscription |
+| `GET /api/v1/parcels/{id}/documents/{docId}/file` | Open a document (checked ones for subscribed buyers; uploader and reviewers always) | Yes |
+| `DELETE /api/v1/parcels/{id}/documents/{docId}` | Remove your document | Uploader |
+| `GET /api/v1/parcels/{id}/offers/{offerId}/contact` | Lister's WhatsApp number (lister must be subscribed; 50 per day per person, audited) | Yes |
+| `GET /api/v1/me/subscription`, `PUT /api/v1/me/whatsapp` | My subscription status; set my WhatsApp number | Yes |
+| `GET /api/v1/admin/documents`, `POST /api/v1/admin/documents/{id}/decision` | Document check queue; approve or reject with a reason | Trust reviewer |
+| `POST /api/v1/admin/subscriptions` | Record a subscription payment (UPI or receipt reference) | Trust reviewer |
 | `GET /health/live`, `/health/ready` | Health checks | No |
 
 Errors use RFC 9457 problem responses with a stable `code` (for example `parcel.already_exists`) that the

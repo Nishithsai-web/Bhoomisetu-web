@@ -557,6 +557,102 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Equal("admin.lookup_limit", (await lookup.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("code").GetString());
     }
 
+    [Fact]
+    public async Task Subscribed_listers_add_public_documents_that_buyers_open_after_review_and_contact_them_on_whatsapp()
+    {
+        RequireDatabase();
+        var (lister, listerId) = await fixture.SignInAsync("9848077771");
+        var (buyer, _) = await fixture.SignInAsync("9848077772");
+        var (reviewer, reviewerId) = await fixture.SignInAsync("9848077773");
+        await fixture.ExecuteSqlAsync("UPDATE users SET is_trust_reviewer = true WHERE id = @id", ("id", reviewerId));
+        (reviewer, _) = await fixture.SignInAsync("9848077773");
+
+        var created = await lister.PostAsJsonAsync("/api/v1/parcels", NewParcel("931", village: "Gopanpally"), Ct);
+        var parcelId = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        var offer = await lister.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/offers", new { listerKind = "agent", askingPriceRupees = 4_000_000m, buyerBrokeragePercent = 1m }, Ct);
+        var offerId = (await offer.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        var brochure = "%PDF-1.7\nBhoomisetu test brochure"u8.ToArray();
+
+        // Without a subscription: no uploads and no WhatsApp contact.
+        Assert.Equal("subscription.lister_required", await CodeOf(await Upload(lister, parcelId, "brochure", brochure)));
+        Assert.Equal("contact.lister_not_subscribed", await CodeOf(await buyer.GetAsync($"/api/v1/parcels/{parcelId}/offers/{offerId}/contact", Ct)));
+
+        // A reviewer records the payment; a reviewer cannot activate their own.
+        var activate = await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
+            new { phone = "98480 77771", audience = "lister", months = 1, amountRupees = 499m, paymentReference = "UPI-123456" }, Ct);
+        Assert.Equal(HttpStatusCode.OK, activate.StatusCode);
+        Assert.Equal("subscription.self", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/subscriptions",
+            new { phone = "9848077773", audience = "lister", months = 1, amountRupees = 0m, paymentReference = "x" }, Ct)));
+        var status = await lister.GetFromJsonAsync<JsonElement>("/api/v1/me/subscription", Ct);
+        Assert.True(status.GetProperty("listerActive").GetBoolean());
+
+        // Only allowed types, a real file, the number for approvals, and the declaration.
+        Assert.Equal("document.type_invalid", await CodeOf(await Upload(lister, parcelId, "sale_deed", brochure)));
+        Assert.Equal("document.format", await CodeOf(await Upload(lister, parcelId, "brochure", "MZ fake exe"u8.ToArray())));
+        Assert.Equal("document.reference_required", await CodeOf(await Upload(lister, parcelId, "rera_certificate", brochure)));
+        Assert.Equal("document.declaration_required", await CodeOf(await Upload(lister, parcelId, "brochure", brochure, declaration: false)));
+        var uploaded = await Upload(lister, parcelId, "brochure", brochure);
+        Assert.Equal(HttpStatusCode.Created, uploaded.StatusCode);
+        var documentId = (await uploaded.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        Assert.Equal("document.already_added", await CodeOf(await Upload(lister, parcelId, "brochure", brochure)));
+        Assert.Equal("document.not_involved", await CodeOf(await Upload(buyer, parcelId, "brochure", "%PDF-other"u8.ToArray())));
+
+        // Before review: visitors see nothing, buyers cannot open it, the lister sees it as pending.
+        var visitor = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/documents", Ct);
+        Assert.Equal("sign_in", visitor.GetProperty("access").GetString());
+        Assert.Empty(visitor.GetProperty("documents").EnumerateArray());
+        Assert.Equal(HttpStatusCode.NotFound, (await buyer.GetAsync($"/api/v1/parcels/{parcelId}/documents/{documentId}/file", Ct)).StatusCode);
+        var own = await lister.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/documents", Ct);
+        Assert.Equal("pending", own.GetProperty("documents")[0].GetProperty("status").GetString());
+        Assert.True(own.GetProperty("canUpload").GetBoolean());
+
+        // Review: a rejection needs a reason; approval makes it visible to signed-in buyers (viewer plan is free).
+        Assert.Contains((await reviewer.GetFromJsonAsync<JsonElement>("/api/v1/admin/documents", Ct)).EnumerateArray(), d => d.GetProperty("id").GetGuid() == documentId);
+        Assert.Equal("document.note_required", await CodeOf(await reviewer.PostAsJsonAsync($"/api/v1/admin/documents/{documentId}/decision", new { decision = "reject" }, Ct)));
+        Assert.Equal(HttpStatusCode.NoContent, (await reviewer.PostAsJsonAsync($"/api/v1/admin/documents/{documentId}/decision", new { decision = "approve" }, Ct)).StatusCode);
+
+        var forBuyer = await buyer.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/documents", Ct);
+        Assert.Equal("full", forBuyer.GetProperty("access").GetString());
+        Assert.Single(forBuyer.GetProperty("documents").EnumerateArray());
+        var file = await buyer.GetAsync($"/api/v1/parcels/{parcelId}/documents/{documentId}/file", Ct);
+        Assert.Equal(HttpStatusCode.OK, file.StatusCode);
+        Assert.Equal("application/pdf", file.Content.Headers.ContentType!.MediaType);
+        Assert.Equal(brochure, await file.Content.ReadAsByteArrayAsync(Ct));
+        var counts = (await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/documents", Ct)).GetProperty("available");
+        Assert.Equal(1, counts[0].GetProperty("count").GetInt32());
+
+        // WhatsApp: the sign-in number by default, or the number the lister chose.
+        var contact = await buyer.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/offers/{offerId}/contact", Ct);
+        Assert.Equal("+919848077771", contact.GetProperty("whatsappE164").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, (await lister.PutAsJsonAsync("/api/v1/me/whatsapp", new { phone = "9000077771" }, Ct)).StatusCode);
+        contact = await buyer.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/offers/{offerId}/contact", Ct);
+        Assert.Equal("+919000077771", contact.GetProperty("whatsappE164").GetString());
+        Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.CreateClient().GetAsync($"/api/v1/parcels/{parcelId}/offers/{offerId}/contact", Ct)).StatusCode);
+
+        // The lister removes the document; it disappears for everyone.
+        Assert.Equal(HttpStatusCode.NoContent, (await lister.DeleteAsync($"/api/v1/parcels/{parcelId}/documents/{documentId}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await buyer.GetAsync($"/api/v1/parcels/{parcelId}/documents/{documentId}/file", Ct)).StatusCode);
+    }
+
+    private async Task<HttpResponseMessage> Upload(HttpClient client, Guid parcelId, string type, byte[] bytes, bool declaration = true, string? reference = null)
+    {
+        using var form = new MultipartFormDataContent
+        {
+            { new StringContent(type), "type" },
+            { new StringContent(declaration ? "true" : "false"), "declaration" },
+            { new ByteArrayContent(bytes), "file", "upload.bin" },
+        };
+        if (reference is not null)
+        {
+            form.Add(new StringContent(reference), "referenceNumber");
+        }
+
+        return await client.PostAsync($"/api/v1/parcels/{parcelId}/documents", form, Ct);
+    }
+
+    private async Task<string?> CodeOf(HttpResponseMessage response) =>
+        (await response.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("code").GetString();
+
     private async Task<JsonElement> GetComparison(Guid parcelId, string sort = "best_value") =>
         await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/comparison?sort={sort}", Ct);
 

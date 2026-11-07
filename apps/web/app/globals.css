@@ -522,3 +522,28 @@ button[disabled] {
   text-decoration: none;
   font-weight: 600;
 }
+
+/* WhatsApp contact: WhatsApp's own dark green, white text (contrast 5.6:1). */
+button.whatsapp {
+  background: #1a7f45;
+  color: #fff;
+  min-height: 44px;
+  padding: 0 16px;
+  margin-top: 6px;
+}
+
+/* Document review status: never colour alone; the words carry the meaning. */
+.badge-doc-pending {
+  background: #fdf1dd;
+  color: var(--saffron-text);
+}
+
+.badge-doc-approved {
+  background: var(--ok-bg);
+  color: var(--teal-dark);
+}
+
+.badge-doc-rejected {
+  background: var(--danger-bg);
+  color: var(--danger);
+}

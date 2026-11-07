@@ -18,6 +18,8 @@ public sealed class BhoomisetuDbContext(DbContextOptions<BhoomisetuDbContext> op
     public DbSet<ListerStatsRecord> ListerStats => Set<ListerStatsRecord>();
     public DbSet<AuditRecord> AuditLog => Set<AuditRecord>();
     public DbSet<ParcelChangeRequestRecord> ChangeRequests => Set<ParcelChangeRequestRecord>();
+    public DbSet<SubscriptionRecord> Subscriptions => Set<SubscriptionRecord>();
+    public DbSet<ParcelDocumentRecord> ParcelDocuments => Set<ParcelDocumentRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -80,6 +82,18 @@ public sealed class BhoomisetuDbContext(DbContextOptions<BhoomisetuDbContext> op
         modelBuilder.Entity<ParcelChangeRequestRecord>(e =>
         {
             e.ToTable("parcel_change_requests");
+            e.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<SubscriptionRecord>(e =>
+        {
+            e.ToTable("subscriptions");
+            e.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<ParcelDocumentRecord>(e =>
+        {
+            e.ToTable("parcel_documents");
             e.HasKey(x => x.Id);
         });
 

@@ -24,7 +24,15 @@ export async function setSession(token: string, expiresAt: string): Promise<void
   });
 }
 
+/**
+ * Forgets an ended session. Cookies can only change in server actions and route handlers; when called while
+ * a page renders, the delete is skipped and the next sign-in simply replaces the cookie.
+ */
 export async function clearSession(): Promise<void> {
   const store = await cookies();
-  store.delete(COOKIE);
+  try {
+    store.delete(COOKIE);
+  } catch {
+    // Rendering a page: cookies are read-only here.
+  }
 }

@@ -23,3 +23,6 @@ next-env.d.ts
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Uploaded document files in local development (never commit them)
+src/Bhoomisetu.Api/data/

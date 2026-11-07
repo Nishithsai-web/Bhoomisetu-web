@@ -2,22 +2,30 @@
 
 import { redirect } from "next/navigation";
 import {
+  activateSubscription,
   createOffer,
   createParcel,
   decideChangeRequest,
+  decideDocument,
   findUserByPhone,
+  getContact,
   isUuid,
   mergeDuplicate,
+  removeDocument,
   requestChange,
   requestOtp,
   setListerConfirmation,
   setOwnerOfRecord,
+  setWhatsapp,
   signOut,
   updateMyOffer,
+  uploadDocument,
   verifyOtp,
   type MyOfferAction,
 } from "@/lib/api";
 import { CHANGE_FIELDS, parseOfferForm, parseParcelForm, safeNextPath, toMetres, type FieldError } from "@/lib/forms";
+import { whatsappLink } from "@/lib/contact";
+import { getDictionary, type Locale } from "@/lib/i18n";
 import { parseAreaValue } from "@/lib/units";
 import { isLocale } from "@/lib/i18n";
 import { clearSession, getSessionToken, setSession } from "@/lib/session";
@@ -250,4 +258,125 @@ export async function setOwnerAction(_previous: FormState, form: FormData): Prom
   const result = await setOwnerOfRecord(parcelId, user.data.id, evidence, token);
   if (!result.ok) return { error: result.code, values: echo(form) };
   redirect(`${REVIEW(locale)}?done=owner_set`);
+}
+
+// ---------------------------------------------------------------- documents, contact, subscriptions
+
+const DOCS = (locale: string, parcelId: string) => `/${locale}/parcels/${parcelId}/documents`;
+
+/** Lister adds one public document. The file goes to the API as it is; the API checks type, size and content. */
+export async function uploadDocumentAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  if (!isUuid(parcelId)) return { error: "not_found" };
+  const token = await requireToken(locale, DOCS(locale, parcelId));
+
+  const type = value(form, "type");
+  const file = form.get("file");
+  const errors: FieldError[] = [];
+  if (type === "") errors.push({ field: "type", code: "document.type_invalid" });
+  if (!(file instanceof File) || file.size === 0) errors.push({ field: "file", code: "document.file_required" });
+  else if (file.size > 10 * 1024 * 1024) errors.push({ field: "file", code: "document.too_large" });
+  if (form.get("declaration") !== "on") errors.push({ field: "declaration", code: "document.declaration_required" });
+  if (errors.length > 0) return { errors, values: echo(form) };
+
+  const body = new FormData();
+  body.set("type", type);
+  body.set("referenceNumber", value(form, "referenceNumber"));
+  body.set("declaration", "true");
+  body.set("file", file as File);
+  const result = await uploadDocument(parcelId, body, token);
+  if (!result.ok) {
+    if (result.status === 401) {
+      await clearSession();
+      redirect(`/${locale}/signin?next=${encodeURIComponent(DOCS(locale, parcelId))}`);
+    }
+    if (result.code === "parcel.duplicate" && result.existingParcelId && isUuid(result.existingParcelId)) {
+      redirect(DOCS(locale, result.existingParcelId));
+    }
+    const field = result.code.startsWith("document.reference") ? "referenceNumber" : result.code === "document.type_invalid" ? "type" : null;
+    return field ? { errors: [{ field, code: result.code }], values: echo(form) } : { error: result.code, values: echo(form) };
+  }
+  redirect(`${DOCS(locale, parcelId)}?done=uploaded`);
+}
+
+export async function removeDocumentAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  const documentId = value(form, "documentId");
+  if (!isUuid(parcelId) || !isUuid(documentId)) redirect(`/${locale}/parcels`);
+  const token = await requireToken(locale, DOCS(locale, parcelId));
+  const result = await removeDocument(parcelId, documentId, token);
+  redirect(result.ok ? `${DOCS(locale, parcelId)}?done=removed` : `${DOCS(locale, parcelId)}?error=${encodeURIComponent(result.code)}`);
+}
+
+/** "Chat on WhatsApp": asks the API for the lister's number (signed in only), then opens WhatsApp with a first message. */
+export async function contactAction(form: FormData): Promise<void> {
+  const locale = localeOf(form) as Locale;
+  const parcelId = value(form, "parcelId");
+  const offerId = value(form, "offerId");
+  if (!isUuid(parcelId) || !isUuid(offerId)) redirect(`/${locale}/parcels`);
+  const back = `/${locale}/parcels/${parcelId}/compare`;
+  const token = await requireToken(locale, back);
+  const result = await getContact(parcelId, offerId, token);
+  if (!result.ok) {
+    if (result.status === 401) {
+      await clearSession();
+      redirect(`/${locale}/signin?next=${encodeURIComponent(back)}`);
+    }
+    redirect(`${back}?error=${encodeURIComponent(result.code)}`);
+  }
+  const t = getDictionary(locale);
+  const message = t.contact.firstMessage.replace("{place}", value(form, "place").slice(0, 200));
+  const link = whatsappLink(result.data.whatsappE164, message);
+  redirect(link ?? `${back}?error=api.error`);
+}
+
+export async function setWhatsappAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const token = await requireToken(locale, `/${locale}/mine`);
+  const result = await setWhatsapp(value(form, "whatsapp"), token);
+  redirect(result.ok ? `/${locale}/mine?done=whatsapp` : `/${locale}/mine?error=${encodeURIComponent(result.code)}`);
+}
+
+export async function decideDocumentAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const documentId = value(form, "documentId");
+  const decision = value(form, "decision");
+  if (!isUuid(documentId) || (decision !== "approve" && decision !== "reject")) redirect(REVIEW(locale));
+  const token = await requireToken(locale, REVIEW(locale));
+  const result = await decideDocument(documentId, decision, value(form, "note"), token);
+  redirect(result.ok ? `${REVIEW(locale)}?done=document` : `${REVIEW(locale)}?error=${encodeURIComponent(result.code)}`);
+}
+
+/** Reviewer records a subscription after the payment has been received outside the app. */
+export async function activateSubscriptionAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const locale = localeOf(form);
+  const phone = value(form, "phone");
+  const audience = value(form, "audience");
+  const months = Number(value(form, "months"));
+  const amount = parseRupeesLoose(value(form, "amount"));
+  const reference = value(form, "paymentReference");
+  const errors: FieldError[] = [];
+  if (phone === "") errors.push({ field: "phone", code: "phone.empty" });
+  if (audience !== "lister" && audience !== "viewer") errors.push({ field: "audience", code: "subscription.audience_invalid" });
+  if (!Number.isInteger(months) || months < 1 || months > 24) errors.push({ field: "months", code: "subscription.months_invalid" });
+  if (amount === null) errors.push({ field: "amount", code: "subscription.amount_invalid" });
+  if (reference === "") errors.push({ field: "paymentReference", code: "subscription.reference_required" });
+  if (errors.length > 0) return { errors, values: echo(form) };
+
+  const token = await requireToken(locale, REVIEW(locale));
+  const result = await activateSubscription(
+    { phone, audience: audience as "lister" | "viewer", months, amountRupees: amount as number, paymentReference: reference },
+    token,
+  );
+  if (!result.ok) return { error: result.status === 404 ? "review.no_account" : result.code, values: echo(form) };
+  redirect(`${REVIEW(locale)}?done=subscription`);
+}
+
+/** Amount paid in rupees: digits with optional commas and up to two decimals; 0 is allowed (free plans). */
+function parseRupeesLoose(raw: string): number | null {
+  const cleaned = raw.replace(/[,\s₹]/g, "");
+  if (!/^\d{1,8}(\.\d{1,2})?$/.test(cleaned)) return null;
+  return Number(cleaned);
 }

@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { myOfferAction, signOutAction } from "../actions";
+import { myOfferAction, setWhatsappAction, signOutAction } from "../actions";
 import { ConfirmBox } from "@/components/ConfirmBox";
-import { getMyChangeRequests, getMyOffers, getMyParcelsWithoutPrice, type MyOfferAction } from "@/lib/api";
+import { getMyChangeRequests, getMyOffers, getMyParcelsWithoutPrice, getSubscription, type MyOfferAction } from "@/lib/api";
+import { formatIndianMobile, whatsappLink } from "@/lib/contact";
 import { errorText } from "@/lib/errors";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
-import { formatRupeesShort } from "@/lib/money";
+import { formatRupees, formatRupeesShort } from "@/lib/money";
 import { clearSession, getSessionToken } from "@/lib/session";
 
 type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ done?: string; error?: string; confirm?: string; parcel?: string }> };
@@ -19,8 +20,9 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
   const t = getDictionary(locale);
   const m = t.mine;
   const intl = INTL_LOCALE[locale];
+  const dateFormat = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
   const query = await searchParams;
-  const [offers, requests, unpriced] = await Promise.all([getMyOffers(token), getMyChangeRequests(token), getMyParcelsWithoutPrice(token)]);
+  const [offers, requests, unpriced, subscription] = await Promise.all([getMyOffers(token), getMyChangeRequests(token), getMyParcelsWithoutPrice(token), getSubscription(token)]);
   if (!offers.ok && offers.status === 401) {
     await clearSession();
     redirect(`/${locale}/signin?next=/${locale}/mine`);
@@ -148,6 +150,52 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
           </ul>
         </>
       )}
+      {subscription.ok && (
+        <>
+          <h2>{t.subscription.title}</h2>
+          <div className="card">
+            <p>
+              {subscription.data.listerActive && subscription.data.listerUntil
+                ? format(t.subscription.listerActive, { date: dateFormat.format(new Date(subscription.data.listerUntil)) })
+                : t.subscription.listerInactive}
+            </p>
+            {!subscription.data.listerActive && (
+              <>
+                <p>{format(t.subscription.price, { price: formatRupees(subscription.data.listerMonthlyPriceRupees, intl) })}</p>
+                <p className="hint">{t.subscription.howToPay}</p>
+                {subscription.data.supportWhatsappE164 && whatsappLink(subscription.data.supportWhatsappE164, t.subscription.supportMessage) && (
+                  <p>
+                    <a className="button-link" href={whatsappLink(subscription.data.supportWhatsappE164, t.subscription.supportMessage) as string}>
+                      {t.subscription.support}
+                    </a>
+                  </p>
+                )}
+              </>
+            )}
+            <p>
+              {subscription.data.viewerPlanIsFree
+                ? t.subscription.viewerFree
+                : subscription.data.viewerActive && subscription.data.viewerUntil
+                  ? format(t.subscription.viewerActive, { date: dateFormat.format(new Date(subscription.data.viewerUntil)) })
+                  : t.subscription.viewerInactive}
+            </p>
+          </div>
+
+          <h2>{t.subscription.whatsappTitle}</h2>
+          <form action={setWhatsappAction} className="card form">
+            <input type="hidden" name="locale" value={locale} />
+            <div className="field">
+              <label htmlFor="whatsapp">{t.subscription.whatsappLabel}</label>
+              <p id="whatsapp-hint" className="hint">
+                {format(t.subscription.whatsappHint, { number: formatIndianMobile(subscription.data.whatsappE164) })}
+              </p>
+              <input id="whatsapp" name="whatsapp" type="tel" inputMode="tel" autoComplete="tel-national" aria-describedby="whatsapp-hint" />
+            </div>
+            <button type="submit">{t.subscription.save}</button>
+          </form>
+        </>
+      )}
+
       <form action={signOutAction} className="form-inline">
         <input type="hidden" name="locale" value={locale} />
         <button type="submit" className="secondary">

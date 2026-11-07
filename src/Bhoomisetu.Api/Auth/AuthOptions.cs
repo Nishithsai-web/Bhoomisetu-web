@@ -87,4 +87,8 @@ public static class ClaimsPrincipalExtensions
             ? id
             : throw new InvalidOperationException("Authenticated request has no valid subject claim.");
     }
+
+    /// <summary>The signed-in user's id on endpoints that also serve visitors who are not signed in.</summary>
+    public static Guid? OptionalUserId(this ClaimsPrincipal user) =>
+        user.Identity?.IsAuthenticated == true && Guid.TryParse(user.FindFirstValue(JwtRegisteredClaimNames.Sub), out var id) ? id : null;
 }

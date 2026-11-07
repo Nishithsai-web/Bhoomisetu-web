@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { decideChangeAction, mergeDuplicateAction } from "../actions";
+import { decideChangeAction, decideDocumentAction, mergeDuplicateAction } from "../actions";
+import { ActivateSubscriptionForm } from "@/components/ActivateSubscriptionForm";
 import { ConfirmBox } from "@/components/ConfirmBox";
 import { SetOwnerForm } from "@/components/SetOwnerForm";
-import { getChangeRequestQueue, getDuplicateQueue, getMe } from "@/lib/api";
+import { getChangeRequestQueue, getDocumentQueue, getDuplicateQueue, getMe } from "@/lib/api";
+import { formatFileSize } from "@/lib/contact";
 import { errorText } from "@/lib/errors";
-import { getDictionary, isLocale } from "@/lib/i18n";
+import { INTL_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
 import { clearSession, getSessionToken } from "@/lib/session";
 
 type Props = { params: Promise<{ locale: string }>; searchParams: Promise<{ done?: string; error?: string; merge?: string }> };
@@ -34,7 +36,10 @@ export default async function ReviewPage({ params, searchParams }: Props) {
     );
   }
 
-  const [changes, duplicates] = await Promise.all([getChangeRequestQueue(token), getDuplicateQueue(token)]);
+  const [changes, duplicates, documents] = await Promise.all([getChangeRequestQueue(token), getDuplicateQueue(token), getDocumentQueue(token)]);
+  const x = t.reviewExtra;
+  const docTypes = t.documents.types as Record<string, string>;
+  const intl = INTL_LOCALE[locale];
   const done = query.done && Object.hasOwn(r.done, query.done) ? r.done[query.done as keyof typeof r.done] : null;
   const fieldName = (field: string) => (Object.hasOwn(t.correct.fields, field) ? t.correct.fields[field as keyof typeof t.correct.fields] : field);
 
@@ -74,6 +79,47 @@ export default async function ReviewPage({ params, searchParams }: Props) {
                 <input type="hidden" name="requestId" value={c.id} />
                 <label htmlFor={`note-${c.id}`}>{r.note}</label>
                 <input id={`note-${c.id}`} name="note" maxLength={1000} />
+                <div className="actions">
+                  <button type="submit" name="decision" value="approve">
+                    {r.approve}
+                  </button>
+                  <button type="submit" name="decision" value="reject" className="secondary">
+                    {r.reject}
+                  </button>
+                </div>
+              </form>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <h2>{x.documentsTitle}</h2>
+      <p className="hint">{x.documentRule}</p>
+      {!documents.ok ? (
+        <p className="notice">{errorText(t, documents.code)}</p>
+      ) : documents.data.length === 0 ? (
+        <p className="notice">{r.nothingWaiting}</p>
+      ) : (
+        <ul className="parcel-list">
+          {documents.data.map((doc) => (
+            <li key={doc.id} className="card">
+              <p>
+                <strong>{docTypes[doc.type] ?? doc.type}</strong>
+                {doc.referenceNumber && <span className="muted"> · {t.documents.referencePrefix} {doc.referenceNumber}</span>}
+              </p>
+              <p className="hint">
+                {doc.village}, {doc.mandal}, {doc.district} · {doc.surveyNumber} · {formatFileSize(doc.sizeBytes, intl)}
+              </p>
+              <p>
+                <a href={`/files/${doc.parcelId}/${doc.id}?l=${locale}`} target="_blank" rel="noopener">
+                  {x.openFile}
+                </a>
+              </p>
+              <form action={decideDocumentAction} className="form">
+                <input type="hidden" name="locale" value={locale} />
+                <input type="hidden" name="documentId" value={doc.id} />
+                <label htmlFor={`doc-note-${doc.id}`}>{r.note}</label>
+                <input id={`doc-note-${doc.id}`} name="note" maxLength={1000} />
                 <div className="actions">
                   <button type="submit" name="decision" value="approve">
                     {r.approve}
@@ -128,6 +174,9 @@ export default async function ReviewPage({ params, searchParams }: Props) {
 
       <h2>{r.setOwner}</h2>
       <SetOwnerForm locale={locale} t={t} />
+
+      <h2>{x.subscriptionTitle}</h2>
+      <ActivateSubscriptionForm locale={locale} t={t} />
     </section>
   );
 }
