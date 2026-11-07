@@ -408,6 +408,9 @@ export async function reportListingAction(_previous: FormState, form: FormData):
       await clearSession();
       redirect(`/${locale}/signin?next=${encodeURIComponent(here)}`);
     }
+    if (result.code === "parcel.duplicate" && result.existingParcelId && isUuid(result.existingParcelId)) {
+      redirect(`/${locale}/parcels/${result.existingParcelId}/report`);
+    }
     return { error: result.code, values: echo(form) };
   }
   redirect(`/${locale}/parcels/${parcelId}?done=reported`);

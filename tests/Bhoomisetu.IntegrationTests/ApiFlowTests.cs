@@ -726,6 +726,20 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Equal(HttpStatusCode.NoContent, (await reviewer.PostAsJsonAsync($"/api/v1/admin/reports/{reportId}/decision", new { decision = "resolve", note = "Lister marked it sold" }, Ct)).StatusCode);
         Assert.Equal("report.already_decided", await CodeOf(await reviewer.PostAsJsonAsync($"/api/v1/admin/reports/{reportId}/decision", new { decision = "dismiss", note = "x" }, Ct)));
 
+        // A reviewer who listed the land cannot decide reports about it.
+        var (listerReviewer, listerReviewerId) = await fixture.SignInAsync("9848088884");
+        await fixture.ExecuteSqlAsync("UPDATE users SET is_trust_reviewer = true WHERE id = @id", ("id", listerReviewerId));
+        (listerReviewer, _) = await fixture.SignInAsync("9848088884");
+        var own = await listerReviewer.PostAsJsonAsync("/api/v1/parcels", NewParcel("942", village: "Kandi"), Ct);
+        var ownId = (await own.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        Assert.Equal(HttpStatusCode.Created, (await buyer.PostAsJsonAsync($"/api/v1/parcels/{ownId}/reports", new { reason = "fraud_suspected" }, Ct)).StatusCode);
+        var ownReport = (await listerReviewer.GetFromJsonAsync<JsonElement>("/api/v1/admin/reports", Ct)).EnumerateArray().Single(r => r.GetProperty("parcelId").GetGuid() == ownId);
+        Assert.Equal("report.reviewer_involved", await CodeOf(await listerReviewer.PostAsJsonAsync($"/api/v1/admin/reports/{ownReport.GetProperty("id").GetGuid()}/decision", new { decision = "dismiss", note = "Not fraud" }, Ct)));
+
+        // A too-short https link is refused by the API, not by the database.
+        Assert.Equal("development.source_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
+            new { name = "Short link", kind = "metro", status = "approved", authority = "HMRL", sourceUrl = "https://a.b", sourceDate = "2026-01-10" }, Ct)));
+
         // After it is handled, the same person may report again.
         Assert.Equal(HttpStatusCode.Created, (await buyer.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/reports", new { reason = "wrong_details" }, Ct)).StatusCode);
     }

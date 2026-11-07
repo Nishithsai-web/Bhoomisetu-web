@@ -507,7 +507,7 @@ public static partial class DocumentEndpoints
         || await db.Offers.AnyAsync(o => o.ParcelId == parcel.Id && o.ListerUserId == userId && o.Status == "active", ct)
         || await db.ParcelParties.AnyAsync(p => p.ParcelId == parcel.Id && p.UserId == userId, ct);
 
-    private static async Task<bool> IsReviewerInvolvedAsync(BhoomisetuDbContext db, Guid parcelId, Guid reviewerId, CancellationToken ct) =>
+    internal static async Task<bool> IsReviewerInvolvedAsync(BhoomisetuDbContext db, Guid parcelId, Guid reviewerId, CancellationToken ct) =>
         await db.Parcels.AnyAsync(p => p.Id == parcelId && p.CreatedBy == reviewerId, ct)
         || await db.Offers.AnyAsync(o => o.ParcelId == parcelId && o.ListerUserId == reviewerId, ct)
         || await db.ParcelParties.AnyAsync(p => p.ParcelId == parcelId && p.UserId == reviewerId, ct);

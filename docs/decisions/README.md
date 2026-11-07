@@ -121,3 +121,7 @@ Change a decision by adding a dated entry here and updating the register; never 
     low offers left out, so search results never advertise a bait price the comparison warns about.
 35. **Search accepts English letters only for now.** Matching Telugu and Hindi spellings of village names
     (transliteration or the LGD village code) is proposed; the home page no longer suggests native-script searches.
+36. **Migrations 0009 and 0010 were edited after commit but before any shared database applied them** (no
+    environment is deployed yet; CI databases are rebuilt each run). Local databases created from an earlier
+    commit must be recreated. From the first shared deployment on, applied migrations are never edited: fixes go
+    in a new numbered migration, and the checksum check in MigrationRunner enforces this.

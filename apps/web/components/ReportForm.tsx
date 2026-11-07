@@ -27,7 +27,7 @@ export function ReportForm({ locale, parcelId, reasons, t }: { locale: string; p
       <ErrorSummary state={state} text={t.form} errors={errors} summaryRef={summaryRef} />
       <fieldset aria-describedby={reasonError ? "reason-error" : undefined}>
         <legend>
-          {r.reason} <span aria-hidden="true">{t.form.requiredMark}</span>
+          {r.reason} <span className="required">{t.form.requiredMark}</span>
         </legend>
         {reasonError && (
           <p id="reason-error" className="error">
@@ -36,7 +36,7 @@ export function ReportForm({ locale, parcelId, reasons, t }: { locale: string; p
         )}
         {reasons.map((code) => (
           <label key={code} className="choice">
-            <input type="radio" name="reason" value={code} defaultChecked={v.reason === code} /> {labels[code] ?? code}
+            <input type="radio" name="reason" value={code} required defaultChecked={v.reason === code} /> {labels[code] ?? code}
           </label>
         ))}
       </fieldset>

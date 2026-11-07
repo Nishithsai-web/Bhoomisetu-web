@@ -179,6 +179,7 @@ export default async function LandPage({ params, searchParams }: Props) {
                           {d.sourceUrl ? (
                             <a href={d.sourceUrl} rel="noopener noreferrer nofollow" target="_blank">
                               {d.authority}
+                              <span className="visually-hidden"> {t.nearby.opensNewTab}</span>
                             </a>
                           ) : (
                             d.authority

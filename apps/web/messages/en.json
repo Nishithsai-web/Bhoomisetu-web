@@ -719,7 +719,8 @@
       "under_construction": "Under construction",
       "completed": "Completed",
       "cancelled": "Cancelled"
-    }
+    },
+    "opensNewTab": "(opens the official site in a new tab)"
   },
   "report": {
     "link": "Report this listing",

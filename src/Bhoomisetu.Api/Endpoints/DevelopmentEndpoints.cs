@@ -203,9 +203,15 @@ public static class DevelopmentEndpoints
             return ApiResults.Invalid("report.details_required", "Say in a few words what is wrong.");
         }
 
-        if (!await db.Parcels.AnyAsync(p => p.Id == parcelId, ct))
+        var parcel = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == parcelId, ct);
+        if (parcel is null)
         {
             return ApiResults.NotFound("Parcel");
+        }
+
+        if (ParcelEndpoints.RejectIfDuplicate(parcel) is { } duplicate)
+        {
+            return duplicate;
         }
 
         var userId = http.User.UserId();
@@ -282,9 +288,9 @@ public static class DevelopmentEndpoints
             return ApiResults.Problem(StatusCodes.Status409Conflict, "report.already_decided", "This report was already handled.");
         }
 
-        if (report.ReporterId == reviewerId)
+        if (report.ReporterId == reviewerId || await DocumentEndpoints.IsReviewerInvolvedAsync(db, report.ParcelId, reviewerId, ct))
         {
-            return ApiResults.Forbidden("report.reviewer_involved", "You sent this report, so another reviewer must handle it.");
+            return ApiResults.Forbidden("report.reviewer_involved", "You sent this report or are involved with this land, so another reviewer must handle it.");
         }
 
         report.Status = request.Decision == "resolve" ? "resolved" : "dismissed";
@@ -321,7 +327,7 @@ public static class DevelopmentEndpoints
 
         // Anything other than "proposed, unverified" needs an official link a buyer can open.
         var url = r.SourceUrl?.Trim();
-        if (!string.IsNullOrEmpty(url) && (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || url.Length > 500 || url.Any(char.IsWhiteSpace)))
+        if (!string.IsNullOrEmpty(url) && (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || url.Length is < 12 or > 500 || url.Any(char.IsWhiteSpace)))
         {
             return ApiResults.Invalid("development.source_invalid", "The source must be an https:// link.");
         }
