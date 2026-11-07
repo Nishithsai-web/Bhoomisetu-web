@@ -83,9 +83,9 @@ export default async function ParcelsPage({ params, searchParams }: Props) {
                   </Link>
                 </h2>
                 <p className="price">
-                  {parcel.lowestAskingPriceRupees === null
+                  {parcel.lowestPriceRupees === null
                     ? p.noPrice
-                    : format(p.fromPrice, { price: formatRupeesShort(parcel.lowestAskingPriceRupees, intl, t.amounts) })}{" "}
+                    : format(p.fromPrice, { price: formatRupeesShort(parcel.lowestPriceRupees, intl, t.amounts) })}{" "}
                   <span className="muted">· {parcel.activeOffers === 1 ? p.offersOne : format(p.offers, { count: parcel.activeOffers })}</span>
                 </p>
                 <p className="muted">
@@ -95,7 +95,8 @@ export default async function ParcelsPage({ params, searchParams }: Props) {
                     : format(p.area, { value: formatNumber(parcel.areaSquareYards, intl) })}
                 </p>
                 <p className="form-inline">
-                  <Link href={`/${locale}/parcels/${parcel.id}`} className="button-link">
+                  <Link href={`/${locale}/parcels/${parcel.id}`} className="button-link"
+                    aria-label={`${p.viewLand}: ${parcel.village}, ${format(p.survey, { number: parcel.surveyNumber })}`}>
                     {p.viewLand}
                   </Link>
                   {parcel.activeOffers > 0 && <Link href={`/${locale}/parcels/${parcel.id}/compare`}>{p.compare}</Link>}

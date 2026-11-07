@@ -91,6 +91,11 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `GET /api/v1/me/subscription`, `PUT /api/v1/me/whatsapp` | My subscription status; set my WhatsApp number | Yes |
 | `GET /api/v1/admin/documents`, `POST /api/v1/admin/documents/{id}/decision` | Document check queue; approve or reject with a reason | Trust reviewer |
 | `POST /api/v1/admin/subscriptions` | Record a subscription payment (UPI or receipt reference) | Trust reviewer |
+| `GET /api/v1/parcels/{id}/developments` | Nearby developments and road widening, with distance, status, official source and date | No |
+| `POST /api/v1/parcels/{id}/reports` | Report a listing (wrong details, sold, fraud, duplicate, dispute, other) | Yes |
+| `GET/POST /api/v1/admin/developments`, `PUT /api/v1/admin/developments/{id}` | List, add and update developments (https source required unless "proposed, unverified") | Trust reviewer |
+| `PUT/DELETE /api/v1/admin/parcels/{id}/developments` | Link a development to land with distance and "may affect this land" | Trust reviewer |
+| `GET /api/v1/admin/reports`, `POST /api/v1/admin/reports/{id}/decision` | Report queue; resolve or dismiss with a note | Trust reviewer |
 | `GET /health/live`, `/health/ready` | Health checks | No |
 
 Errors use RFC 9457 problem responses with a stable `code` (for example `parcel.already_exists`) that the

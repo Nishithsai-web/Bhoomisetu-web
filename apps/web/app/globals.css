@@ -773,7 +773,7 @@ main > .band:first-child {
   align-items: center;
   padding: 0 16px;
   border-radius: 22px;
-  border: 1px solid var(--pill-border);
+  border: 1px solid var(--control-border);
   background: #fff;
   color: var(--ink);
   text-decoration: none;
@@ -1030,4 +1030,38 @@ main > .band:first-child {
 
 .site-footer a {
   color: var(--band-soft);
+}
+
+.warning-text {
+  margin: 6px 0 0;
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.facts.nearby th {
+  width: auto;
+}
+
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0 0 16px;
+}
+
+legend {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.choice {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+}
+
+.choice input {
+  min-height: 0;
+  width: 20px;
+  height: 20px;
 }

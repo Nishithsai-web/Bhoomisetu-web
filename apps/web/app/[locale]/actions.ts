@@ -3,6 +3,10 @@
 import { redirect } from "next/navigation";
 import {
   activateSubscription,
+  createDevelopmentProject,
+  decideReport,
+  linkDevelopment,
+  reportListing,
   createOffer,
   createParcel,
   decideChangeRequest,
@@ -383,4 +387,63 @@ function parseRupeesLoose(raw: string): number | null {
   const cleaned = raw.replace(/[,\s₹]/g, "");
   if (!/^\d{1,8}(\.\d{1,2})?$/.test(cleaned)) return null;
   return Number(cleaned);
+}
+
+// ---------------------------------------------------------------- reports and nearby developments
+
+/** Anyone signed in reports a problem with a listing; a reviewer handles it. */
+export async function reportListingAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  if (!isUuid(parcelId)) return { error: "not_found" };
+  const here = `/${locale}/parcels/${parcelId}/report`;
+  const reason = value(form, "reason");
+  const details = value(form, "details");
+  if (reason === "") return { errors: [{ field: "reason", code: "report.reason_invalid" }], values: echo(form) };
+  if (reason === "other" && details === "") return { errors: [{ field: "details", code: "report.details_required" }], values: echo(form) };
+  const token = await requireToken(locale, here);
+  const result = await reportListing(parcelId, { reason, details }, token);
+  if (!result.ok) {
+    if (result.status === 401) {
+      await clearSession();
+      redirect(`/${locale}/signin?next=${encodeURIComponent(here)}`);
+    }
+    return { error: result.code, values: echo(form) };
+  }
+  redirect(`/${locale}/parcels/${parcelId}?done=reported`);
+}
+
+export async function decideReportAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const reportId = value(form, "reportId");
+  const decision = value(form, "decision");
+  if (!isUuid(reportId) || (decision !== "resolve" && decision !== "dismiss")) redirect(REVIEW(locale));
+  const token = await requireToken(locale, REVIEW(locale));
+  const result = await decideReport(reportId, decision, value(form, "note"), token);
+  redirect(result.ok ? `${REVIEW(locale)}?done=report` : `${REVIEW(locale)}?error=${encodeURIComponent(result.code)}`);
+}
+
+export async function createDevelopmentAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const token = await requireToken(locale, REVIEW(locale));
+  const sourceUrl = value(form, "sourceUrl");
+  const result = await createDevelopmentProject(
+    { name: value(form, "name"), kind: value(form, "kind"), status: value(form, "status"), authority: value(form, "authority"), sourceUrl: sourceUrl || null, sourceDate: value(form, "sourceDate") },
+    token,
+  );
+  redirect(result.ok ? `${REVIEW(locale)}?done=development#developments` : `${REVIEW(locale)}?error=${encodeURIComponent(result.code)}#developments`);
+}
+
+export async function linkDevelopmentAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  const projectId = value(form, "projectId");
+  if (!isUuid(parcelId)) redirect(`${REVIEW(locale)}?error=review.parcel_id_invalid#developments`);
+  if (!isUuid(projectId)) redirect(`${REVIEW(locale)}?error=development.project_invalid#developments`);
+  const rawDistance = value(form, "distanceKm");
+  const distance = rawDistance === "" ? null : Number(rawDistance);
+  if (distance !== null && !Number.isFinite(distance)) redirect(`${REVIEW(locale)}?error=development.distance_invalid#developments`);
+  const token = await requireToken(locale, REVIEW(locale));
+  const result = await linkDevelopment(parcelId, { projectId, distanceKm: distance, mayAffectParcel: form.get("mayAffectParcel") === "on" }, token);
+  redirect(result.ok ? `${REVIEW(locale)}?done=linked#developments` : `${REVIEW(locale)}?error=${encodeURIComponent(result.code)}#developments`);
 }

@@ -206,6 +206,19 @@ public sealed class BestValueRankerTests
         Assert.Equal(first, second);
     }
 
+    [Fact]
+    public void Price_from_includes_brokerage_and_leaves_out_bait_offers()
+    {
+        // 50L and 51L with 1% brokerage, plus a 30L bait offer: "from" is 50.5L, not 30L.
+        var fair = _ranker.LowestFairPricePaise([(5_000_000_00, 1m, false), (5_100_000_00, 1m, false), (3_000_000_00, 1m, false)]);
+        Assert.Equal(5_050_000_00, fair);
+
+        // Undisclosed brokerage is assumed (2%); a verified owner pays none.
+        Assert.Equal(1_000_000_00, _ranker.LowestFairPricePaise([(1_000_000_00, null, true), (1_000_000_00, null, false)]));
+        Assert.Equal(1_020_000_00, _ranker.LowestFairPricePaise([(1_000_000_00, null, false)]));
+        Assert.Null(_ranker.LowestFairPricePaise([]));
+    }
+
     private static OfferSnapshot Offer(Guid id, ListerKind kind, Authority authority, ListerChecks checks, long rupees, decimal? brokerage, int? responseMinutes, int daysSinceConfirmed) =>
         new(id, id, kind, authority, checks, rupees * 100, brokerage, responseMinutes, Now.AddDays(-daysSinceConfirmed), Now.AddDays(-60));
 }

@@ -20,6 +20,9 @@ public sealed class BhoomisetuDbContext(DbContextOptions<BhoomisetuDbContext> op
     public DbSet<ParcelChangeRequestRecord> ChangeRequests => Set<ParcelChangeRequestRecord>();
     public DbSet<SubscriptionRecord> Subscriptions => Set<SubscriptionRecord>();
     public DbSet<ParcelDocumentRecord> ParcelDocuments => Set<ParcelDocumentRecord>();
+    public DbSet<DevelopmentProjectRecord> DevelopmentProjects => Set<DevelopmentProjectRecord>();
+    public DbSet<ParcelDevelopmentLinkRecord> ParcelDevelopmentLinks => Set<ParcelDevelopmentLinkRecord>();
+    public DbSet<ListingReportRecord> ListingReports => Set<ListingReportRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -94,6 +97,24 @@ public sealed class BhoomisetuDbContext(DbContextOptions<BhoomisetuDbContext> op
         modelBuilder.Entity<ParcelDocumentRecord>(e =>
         {
             e.ToTable("parcel_documents");
+            e.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<DevelopmentProjectRecord>(e =>
+        {
+            e.ToTable("development_projects");
+            e.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<ParcelDevelopmentLinkRecord>(e =>
+        {
+            e.ToTable("parcel_development_links");
+            e.HasKey(x => new { x.ParcelId, x.ProjectId });
+        });
+
+        modelBuilder.Entity<ListingReportRecord>(e =>
+        {
+            e.ToTable("listing_reports");
             e.HasKey(x => x.Id);
         });
 

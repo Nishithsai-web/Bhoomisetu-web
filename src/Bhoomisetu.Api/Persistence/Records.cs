@@ -158,3 +158,41 @@ public sealed class ParcelDocumentRecord
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
+
+public sealed class DevelopmentProjectRecord
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Kind { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+    public string Authority { get; set; } = string.Empty;
+    public string? SourceUrl { get; set; }
+    public DateOnly SourceDate { get; set; }
+    public Guid CreatedBy { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class ParcelDevelopmentLinkRecord
+{
+    public Guid ParcelId { get; set; }
+    public Guid ProjectId { get; set; }
+    public decimal? DistanceKm { get; set; }
+    public bool MayAffectParcel { get; set; }
+    public Guid CreatedBy { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed class ListingReportRecord
+{
+    public Guid Id { get; set; }
+    public Guid ParcelId { get; set; }
+    public Guid ReporterId { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string? Details { get; set; }
+    public string Status { get; set; } = "open";
+    public string? ResolutionNote { get; set; }
+    public Guid? ResolvedBy { get; set; }
+    public DateTimeOffset? ResolvedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+}

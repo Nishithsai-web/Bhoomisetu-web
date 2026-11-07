@@ -66,7 +66,7 @@ public static class MyOffersEndpoints
             .Select(p => new { p.Id, p.Village, p.Mandal, p.District, p.SurveyNumber, p.RecordedAreaSqm })
             .ToListAsync(ct);
         return Results.Ok(rows.Select(p => new ParcelSummary(p.Id, string.Empty, p.District, p.Mandal, p.Village, p.SurveyNumber, string.Empty,
-            Math.Round(p.RecordedAreaSqm / squareYard, 2, MidpointRounding.AwayFromZero), 0, LowestAskingPriceRupees: null, ReviewedDocuments: 0, OwnerOfRecordRecorded: false)).ToList());
+            Math.Round(p.RecordedAreaSqm / squareYard, 2, MidpointRounding.AwayFromZero), 0, LowestPriceRupees: null, ReviewedDocuments: 0, OwnerOfRecordRecorded: false)).ToList());
     }
 
     private static Task<IResult> StillAvailableAsync(Guid parcelId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct) =>

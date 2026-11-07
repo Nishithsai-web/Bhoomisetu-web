@@ -61,7 +61,7 @@ export default async function DocumentsPage({ params, searchParams }: Props) {
   const others = data.documents.filter((x) => !x.uploadedByMe);
   const back = `/${locale}/parcels/${id}/documents`;
   const supportLink =
-    subscription?.ok && subscription.data.supportWhatsappE164 ? whatsappLink(subscription.data.supportWhatsappE164, t.subscription.supportMessage) : null;
+    subscription?.ok && subscription.data.supportWhatsappE164 ? whatsappLink(subscription.data.supportWhatsappE164, t.subscription.buyerSupportMessage) : null;
 
   const row = (doc: ParcelDocument) => (
     <li key={doc.id} className="card">

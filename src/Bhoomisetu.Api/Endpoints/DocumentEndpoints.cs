@@ -434,8 +434,9 @@ public static partial class DocumentEndpoints
             return ApiResults.Invalid("subscription.amount_invalid", "Enter the amount paid in rupees.");
         }
 
-        var reference = request.PaymentReference?.Trim();
-        if (string.IsNullOrEmpty(reference) || reference.Length > 100)
+        // Telugu and Devanagari digits become 0-9, so "౧౨౩" and "123" are the same receipt.
+        var reference = request.PaymentReference is { } raw ? IndianDigits.ToAscii(raw.Trim()) : null;
+        if (string.IsNullOrEmpty(reference) || reference.Length > 100 || !reference.Any(char.IsAsciiLetterOrDigit))
         {
             return ApiResults.Invalid("subscription.reference_required", "Enter the UPI transaction ID (UTR) or receipt number.");
         }
@@ -518,6 +519,6 @@ public static partial class DocumentEndpoints
     /// A standalone 10-digit Indian mobile (optionally "+91 " in front). Digits inside a longer number, such as a
     /// 12-digit UPI transaction ID (UTR), do not match.
     /// </summary>
-    [System.Text.RegularExpressions.GeneratedRegex(@"(?<!\d)(?:\+91)?[6-9]\d{9}(?!\d)")]
+    [System.Text.RegularExpressions.GeneratedRegex(@"(?<!\d)(?:\+?91|0)?[6-9]\d{9}(?!\d)")]
     private static partial System.Text.RegularExpressions.Regex MobileLike();
 }

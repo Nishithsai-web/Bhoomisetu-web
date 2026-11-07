@@ -261,6 +261,7 @@ app.MapMyOffersEndpoints();
 app.MapChangeRequestEndpoints();
 app.MapTrustEndpoints();
 app.MapDocumentEndpoints();
+app.MapDevelopmentEndpoints();
 
 await app.RunAsync();
 

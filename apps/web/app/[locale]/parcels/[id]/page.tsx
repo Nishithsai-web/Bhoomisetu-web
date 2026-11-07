@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getComparison, getParcel, getParcelDocuments, isUuid } from "@/lib/api";
+import { getComparison, getNearbyDevelopments, getParcel, getParcelDocuments, getViewer, isUuid } from "@/lib/api";
+import { getSessionToken } from "@/lib/session";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
 import { formatNumber, formatRupeesShort } from "@/lib/money";
 
-type Props = { params: Promise<{ locale: string; id: string }> };
+type Props = { params: Promise<{ locale: string; id: string }>; searchParams: Promise<{ done?: string }> };
 
 /** Units shown as tiles, in the order village buyers read them: farm units first, then plot units. */
 const UNITS = ["acre", "gunta", "square_yard", "cent", "square_foot", "square_metre"] as const;
@@ -13,7 +14,7 @@ const UNITS = ["acre", "gunta", "square_yard", "cent", "square_foot", "square_me
  * One piece of land: where it is, its area in every unit, size and road access, what was checked, and the way
  * to every price and document. Facts come from the lister and say so; nothing is claimed beyond what was checked.
  */
-export default async function LandPage({ params }: Props) {
+export default async function LandPage({ params, searchParams }: Props) {
   const { locale, id } = await params;
   if (!isLocale(locale) || !isUuid(id)) notFound();
   const t = getDictionary(locale);
@@ -21,7 +22,17 @@ export default async function LandPage({ params }: Props) {
   const s = t.sell;
   const intl = INTL_LOCALE[locale];
 
-  const [parcel, comparison, documents] = await Promise.all([getParcel(id), getComparison(id, "best_value"), getParcelDocuments(id)]);
+  const [parcel, comparison, documents, nearby] = await Promise.all([
+    getParcel(id),
+    getComparison(id, "best_value"),
+    getParcelDocuments(id),
+    getNearbyDevelopments(id),
+  ]);
+  const done = (await searchParams).done;
+  const token = await getSessionToken();
+  const viewer = token ? await getViewer(id, token) : null;
+  // Corrections are open to people with a stake in the land (owner of record or a lister with a price).
+  const involved = Boolean(viewer?.ok && (viewer.data.isOwnerOfRecord || viewer.data.myOfferId));
   if (!comparison.ok && comparison.code === "parcel.duplicate" && comparison.existingParcelId && isUuid(comparison.existingParcelId)) {
     redirect(`/${locale}/parcels/${comparison.existingParcelId}`);
   }
@@ -40,7 +51,9 @@ export default async function LandPage({ params }: Props) {
   const names = t.units.names as Record<string, string>;
   const label = (map: Record<string, string>, key: string | null) => (key ? (map[key] ?? key) : l.notGiven);
   const offers = comparison.ok ? comparison.data.offers : [];
-  const lowest = offers.length > 0 ? Math.min(...offers.map((o) => o.askingPriceRupees)) : null;
+  // Same rule as the comparison: brokerage included, offers flagged "verify before visiting" left out.
+  const fair = offers.filter((o) => !o.badges.includes("verify_before_visiting"));
+  const lowest = offers.length > 0 ? Math.min(...(fair.length > 0 ? fair : offers).map((o) => o.effectivePriceRupees)) : null;
   const ownerRecorded = p.ownerOfRecordRecorded;
   const reviewed = documents.ok ? documents.data.available.reduce((sum, a) => sum + a.count, 0) : 0;
   const n = (value: number, digits = 2) => formatNumber(value, intl, digits);
@@ -60,6 +73,12 @@ export default async function LandPage({ params }: Props) {
         {format(l.survey, { number: p.location.surveyNumber })} ·{" "}
         {lowest === null ? l.noOffers : format(l.priceFrom, { price: formatRupeesShort(lowest, intl, t.amounts) })}
       </p>
+
+      {done === "reported" && (
+        <p className="notice" role="status">
+          {t.report.thanks}
+        </p>
+      )}
 
       <div className="detail">
         <div>
@@ -130,6 +149,52 @@ export default async function LandPage({ params }: Props) {
             <p className="hint">{l.sizeNote}</p>
           </section>
 
+          <section className="card" aria-labelledby="nearby">
+            <h2 id="nearby">{t.nearby.title}</h2>
+            {!nearby.ok || nearby.data.length === 0 ? (
+              <p className="muted">{t.nearby.none}</p>
+            ) : (
+              <div className="table-wrap" tabIndex={0} role="region" aria-labelledby="nearby">
+                <table className="facts nearby">
+                  <thead>
+                    <tr>
+                      <th scope="col">{t.nearby.project}</th>
+                      <th scope="col">{t.nearby.distance}</th>
+                      <th scope="col">{t.nearby.status}</th>
+                      <th scope="col">{t.nearby.source}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {nearby.data.map((d) => (
+                      <tr key={d.projectId}>
+                        <td>
+                          <strong>{d.name}</strong>
+                          <br />
+                          <span className="muted">{(t.nearby.kinds as Record<string, string>)[d.kind] ?? d.kind}</span>
+                          {d.mayAffectParcel && <p className="warning-text">{t.nearby.mayAffect}</p>}
+                        </td>
+                        <td>{d.distanceKm === null ? l.notGiven : format(t.nearby.km, { km: n(d.distanceKm, 1) })}</td>
+                        <td>{(t.nearby.statuses as Record<string, string>)[d.status] ?? d.status}</td>
+                        <td>
+                          {d.sourceUrl ? (
+                            <a href={d.sourceUrl} rel="noopener noreferrer nofollow" target="_blank">
+                              {d.authority}
+                            </a>
+                          ) : (
+                            d.authority
+                          )}
+                          <br />
+                          <span className="muted">{new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" }).format(new Date(d.sourceDate))}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="hint">{t.nearby.note}</p>
+          </section>
+
           <section className="card" aria-labelledby="facts">
             <h2 id="facts">{l.factsTitle}</h2>
             <table className="facts">
@@ -178,7 +243,8 @@ export default async function LandPage({ params }: Props) {
             <Link href={`/${locale}/parcels/${id}/offer`} className="button-link">
               {l.addPrice}
             </Link>
-            <Link href={`/${locale}/parcels/${id}/correct`}>{l.correct}</Link>
+            {involved && <Link href={`/${locale}/parcels/${id}/correct`}>{l.correct}</Link>}
+            <Link href={`/${locale}/parcels/${id}/report`}>{t.report.link}</Link>
             <p className="safety">{t.home.safety}</p>
           </section>
         </aside>

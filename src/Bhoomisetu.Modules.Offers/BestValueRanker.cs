@@ -31,6 +31,30 @@ public sealed class BestValueRanker
         _clock = clock;
     }
 
+    /// <summary>
+    /// The "price from" shown in search results and on the land page: the lowest effective price (brokerage
+    /// included, assumed when undisclosed) among offers that are not suspiciously low, by the same rules as
+    /// <see cref="Compare"/>. Null without offers.
+    /// </summary>
+    public long? LowestFairPricePaise(IReadOnlyList<(long AskingPaise, decimal? BrokeragePercent, bool VerifiedOwner)> offers)
+    {
+        ArgumentNullException.ThrowIfNull(offers);
+        if (offers.Count == 0)
+        {
+            return null;
+        }
+
+        var effective = offers.Select(o => o.VerifiedOwner
+            ? o.AskingPaise
+            : o.AskingPaise + (long)Math.Round(o.AskingPaise * (o.BrokeragePercent ?? _options.AssumedUndisclosedBrokeragePercent) / 100m, MidpointRounding.AwayFromZero)).ToList();
+        var fair = effective.Where((price, i) =>
+        {
+            var others = effective.Where((_, j) => j != i).Select(p => (decimal)p).ToList();
+            return others.Count < 2 || price >= _options.LowPriceOutlierRatio * Median(others);
+        }).ToList();
+        return (fair.Count > 0 ? fair : effective).Min();
+    }
+
     public OfferComparisonResult Compare(IReadOnlyCollection<OfferSnapshot> offers, ComparisonSort sort)
     {
         ArgumentNullException.ThrowIfNull(offers);

@@ -1,6 +1,7 @@
 using Bhoomisetu.Api.Auth;
 using Bhoomisetu.Api.Persistence;
 using Bhoomisetu.Modules.Land;
+using Bhoomisetu.Modules.Offers;
 using Bhoomisetu.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -45,9 +46,9 @@ public sealed record ParcelResponse(
     DateTimeOffset CreatedAt,
     bool OwnerOfRecordRecorded = false);
 
-/// <summary>One search result. LowestAskingPriceRupees is the lowest active asking price (null without offers).</summary>
+/// <summary>One search result. LowestPriceRupees: lowest price including brokerage, bait offers left out (see BestValueRanker.LowestFairPricePaise).</summary>
 public sealed record ParcelSummary(Guid Id, string StateCode, string District, string Mandal, string Village, string SurveyNumber, string LandClass, decimal AreaSquareYards, int ActiveOffers,
-    decimal? LowestAskingPriceRupees, int ReviewedDocuments, bool OwnerOfRecordRecorded);
+    decimal? LowestPriceRupees, int ReviewedDocuments, bool OwnerOfRecordRecorded);
 
 public sealed record PagedResponse<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
 
@@ -256,7 +257,7 @@ public static class ParcelEndpoints
     }
 
     private static async Task<IResult> SearchAsync(
-        string? q, string? state, string? district, string? mandal, string? village, string? landClass, int? page, int? pageSize, BhoomisetuDbContext db, CancellationToken ct)
+        string? q, string? state, string? district, string? mandal, string? village, string? landClass, int? page, int? pageSize, BhoomisetuDbContext db, BestValueRanker ranker, CancellationToken ct)
     {
         // Capped so (page - 1) * size can never overflow into a negative OFFSET.
         var p = Math.Clamp(page ?? 1, 1, 10_000);
@@ -311,16 +312,31 @@ public static class ParcelEndpoints
             {
                 x.Id, x.StateCode, x.District, x.Mandal, x.Village, x.SurveyNumber, x.LandClass, x.RecordedAreaSqm,
                 Offers = db.Offers.Count(o => o.ParcelId == x.Id && o.Status == "active"),
-                Lowest = db.Offers.Where(o => o.ParcelId == x.Id && o.Status == "active").Min(o => (long?)o.AskingPricePaise),
                 Documents = db.ParcelDocuments.Count(d => d.ParcelId == x.Id && d.Status == "approved"),
                 Owner = db.ParcelParties.Any(pp => pp.ParcelId == x.Id && pp.Role == Vocabulary.OwnerOfRecord),
             })
             .ToListAsync(ct);
 
+        // Prices for this page only (at most 100 parcels), ranked by the same rules as the comparison.
+        var ids = items.Select(x => x.Id).ToList();
+        var pageOffers = await db.Offers.AsNoTracking()
+            .Where(o => ids.Contains(o.ParcelId) && o.Status == "active")
+            .Select(o => new
+            {
+                o.ParcelId,
+                o.AskingPricePaise,
+                o.BuyerBrokeragePercent,
+                VerifiedOwner = o.ListerKind == "owner"
+                    && db.ParcelParties.Any(pp => pp.ParcelId == o.ParcelId && pp.UserId == o.ListerUserId && pp.Role == Vocabulary.OwnerOfRecord),
+            })
+            .ToListAsync(ct);
+        var lowest = pageOffers.GroupBy(o => o.ParcelId).ToDictionary(g => g.Key,
+            g => ranker.LowestFairPricePaise(g.Select(o => (o.AskingPricePaise, o.BuyerBrokeragePercent, o.VerifiedOwner)).ToList()));
+
         var summaries = items
             .Select(x => new ParcelSummary(x.Id, x.StateCode, x.District, x.Mandal, x.Village, x.SurveyNumber, x.LandClass,
                 Math.Round(x.RecordedAreaSqm / squareYard, 2, MidpointRounding.AwayFromZero), x.Offers,
-                x.Lowest is { } paise ? paise / 100m : null, x.Documents, x.Owner))
+                lowest.GetValueOrDefault(x.Id) is { } paise ? paise / 100m : null, x.Documents, x.Owner))
             .ToList();
         return Results.Ok(new PagedResponse<ParcelSummary>(summaries, p, size, total));
     }

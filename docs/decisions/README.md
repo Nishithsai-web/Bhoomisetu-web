@@ -114,3 +114,10 @@ Change a decision by adding a dated entry here and updating the register; never 
     in every unit and road access, the agent price comparison and the owner dashboard. Parts of the design that
     need features not built yet (homes and rentals, AI and voice search, maps, price estimates, nearby
     developments, rent and tenant tracking) are left out rather than shown with invented data.
+33. **Nearby developments come from reviewers, with an official source and date.** Anything beyond "proposed,
+    unverified" needs an https link to the authority's notice. A project whose alignment may touch the land is
+    flagged first, telling the buyer to check with the authority. The site never says a project raises prices.
+34. **"Price from" uses the comparison's rules**: brokerage included (assumed when undisclosed) and suspiciously
+    low offers left out, so search results never advertise a bait price the comparison warns about.
+35. **Search accepts English letters only for now.** Matching Telugu and Hindi spellings of village names
+    (transliteration or the LGD village code) is proposed; the home page no longer suggests native-script searches.

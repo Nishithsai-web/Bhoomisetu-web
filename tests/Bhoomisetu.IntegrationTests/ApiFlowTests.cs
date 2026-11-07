@@ -645,7 +645,7 @@ public sealed class ApiFlowTests(ApiFixture fixture)
 
         // Search results carry the lowest asking price and the reviewed-document count, and filter by land type.
         var found = (await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/parcels?q=gopanpally", Ct)).GetProperty("items")[0];
-        Assert.Equal(4_000_000m, found.GetProperty("lowestAskingPriceRupees").GetDecimal());
+        Assert.Equal(4_040_000m, found.GetProperty("lowestPriceRupees").GetDecimal()); // asking price plus 1% brokerage
         Assert.Equal(1, found.GetProperty("reviewedDocuments").GetInt32());
         Assert.False(found.GetProperty("ownerOfRecordRecorded").GetBoolean());
         var detail = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}", Ct);
@@ -667,6 +667,67 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         // The lister removes the document; it disappears for everyone.
         Assert.Equal(HttpStatusCode.NoContent, (await lister.DeleteAsync($"/api/v1/parcels/{parcelId}/documents/{documentId}", Ct)).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await buyer.GetAsync($"/api/v1/parcels/{parcelId}/documents/{documentId}/file", Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Reviewers_add_sourced_developments_to_land_and_handle_listing_reports()
+    {
+        RequireDatabase();
+        var (lister, _) = await fixture.SignInAsync("9848088881");
+        var (buyer, _) = await fixture.SignInAsync("9848088882");
+        var (reviewer, reviewerId) = await fixture.SignInAsync("9848088883");
+        await fixture.ExecuteSqlAsync("UPDATE users SET is_trust_reviewer = true WHERE id = @id", ("id", reviewerId));
+        (reviewer, _) = await fixture.SignInAsync("9848088883");
+        var created = await lister.PostAsJsonAsync("/api/v1/parcels", NewParcel("941", village: "Kandi"), Ct);
+        var parcelId = (await created.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+
+        // A non-proposed project needs an https source; dates cannot be in the future.
+        Assert.Equal("development.source_required", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
+            new { name = "NH-65 widening", kind = "road_widening", status = "approved", authority = "NHAI", sourceDate = "2026-01-10" }, Ct)));
+        Assert.Equal("development.source_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
+            new { name = "NH-65 widening", kind = "road_widening", status = "approved", authority = "NHAI", sourceUrl = "javascript:alert(1)", sourceDate = "2026-01-10" }, Ct)));
+        Assert.Equal("development.date_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
+            new { name = "Metro phase 2", kind = "metro", status = "proposed_unverified", authority = "HMRL", sourceDate = "2099-01-01" }, Ct)));
+        Assert.Equal(HttpStatusCode.Forbidden, (await buyer.PostAsJsonAsync("/api/v1/admin/developments",
+            new { name = "x", kind = "metro", status = "proposed_unverified", authority = "x", sourceDate = "2026-01-10" }, Ct)).StatusCode);
+
+        var road = await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
+            new { name = "NH-65 widening", kind = "road_widening", status = "approved", authority = "NHAI", sourceUrl = "https://nhai.gov.in/notice/123", sourceDate = "2026-01-10" }, Ct);
+        Assert.Equal(HttpStatusCode.Created, road.StatusCode);
+        var roadId = (await road.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        var metro = await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
+            new { name = "Metro phase 2", kind = "metro", status = "proposed_unverified", authority = "HMRL", sourceDate = "2026-02-01" }, Ct);
+        var metroId = (await metro.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+
+        Assert.Equal(HttpStatusCode.NoContent, (await reviewer.PutAsJsonAsync($"/api/v1/admin/parcels/{parcelId}/developments", new { projectId = metroId, distanceKm = 4.5m, mayAffectParcel = false }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await reviewer.PutAsJsonAsync($"/api/v1/admin/parcels/{parcelId}/developments", new { projectId = roadId, distanceKm = 0.2m, mayAffectParcel = true }, Ct)).StatusCode);
+        Assert.Equal("development.distance_invalid", await CodeOf(await reviewer.PutAsJsonAsync($"/api/v1/admin/parcels/{parcelId}/developments", new { projectId = roadId, distanceKm = -1m, mayAffectParcel = true }, Ct)));
+
+        // Anyone sees them; the project that may touch the land comes first.
+        var nearby = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/developments", Ct);
+        Assert.Equal(2, nearby.GetArrayLength());
+        Assert.Equal("NH-65 widening", nearby[0].GetProperty("name").GetString());
+        Assert.True(nearby[0].GetProperty("mayAffectParcel").GetBoolean());
+        Assert.Equal("https://nhai.gov.in/notice/123", nearby[0].GetProperty("sourceUrl").GetString());
+        Assert.Equal(HttpStatusCode.NoContent, (await reviewer.DeleteAsync($"/api/v1/admin/parcels/{parcelId}/developments/{metroId}", Ct)).StatusCode);
+        Assert.Equal(1, (await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/developments", Ct)).GetArrayLength());
+
+        // Reports: signed in, one open report per person and land, a reason; "other" needs details.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await fixture.CreateClient().PostAsJsonAsync($"/api/v1/parcels/{parcelId}/reports", new { reason = "already_sold" }, Ct)).StatusCode);
+        Assert.Equal("report.reason_invalid", await CodeOf(await buyer.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/reports", new { reason = "spam" }, Ct)));
+        Assert.Equal("report.details_required", await CodeOf(await buyer.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/reports", new { reason = "other" }, Ct)));
+        Assert.Equal(HttpStatusCode.Created, (await buyer.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/reports", new { reason = "already_sold", details = "Sold last month" }, Ct)).StatusCode);
+        Assert.Equal("report.already_open", await CodeOf(await buyer.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/reports", new { reason = "already_sold" }, Ct)));
+
+        var queue = await reviewer.GetFromJsonAsync<JsonElement>("/api/v1/admin/reports", Ct);
+        var report = queue.EnumerateArray().Single(r => r.GetProperty("parcelId").GetGuid() == parcelId);
+        var reportId = report.GetProperty("id").GetGuid();
+        Assert.Equal("report.note_required", await CodeOf(await reviewer.PostAsJsonAsync($"/api/v1/admin/reports/{reportId}/decision", new { decision = "resolve" }, Ct)));
+        Assert.Equal(HttpStatusCode.NoContent, (await reviewer.PostAsJsonAsync($"/api/v1/admin/reports/{reportId}/decision", new { decision = "resolve", note = "Lister marked it sold" }, Ct)).StatusCode);
+        Assert.Equal("report.already_decided", await CodeOf(await reviewer.PostAsJsonAsync($"/api/v1/admin/reports/{reportId}/decision", new { decision = "dismiss", note = "x" }, Ct)));
+
+        // After it is handled, the same person may report again.
+        Assert.Equal(HttpStatusCode.Created, (await buyer.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/reports", new { reason = "wrong_details" }, Ct)).StatusCode);
     }
 
     private async Task<HttpResponseMessage> Upload(HttpClient client, Guid parcelId, string type, byte[] bytes, bool declaration = true, string? reference = null)

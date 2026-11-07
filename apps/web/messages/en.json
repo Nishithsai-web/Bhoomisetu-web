@@ -36,7 +36,7 @@
     "languageTitle": "Telugu, Hindi and English",
     "languageBody": "Search and read in the language you are most comfortable with.",
     "safety": "Never pay a token advance before visiting the site and checking the documents.",
-    "examples": "Try a village, mandal or district: Mokila · మోకిల · मोकिला",
+    "examples": "Try a village, mandal or district, for example Mokila or Shankarpalle. Type names in English letters for now.",
     "exploreTitle": "Explore by land type",
     "types": {
       "agricultural": {
@@ -67,7 +67,7 @@
     "checksNote": "A badge never means the land title is clear. Ask a lawyer before paying.",
     "unitsLink": "Open the area converter",
     "contactTitle": "Contact without spam",
-    "contactBody": "Buyers sign in before they can message an owner or agent on WhatsApp, and each person can contact only a few listers a day.",
+    "contactBody": "Buyers sign in before they can message an owner or agent on WhatsApp, and each person can contact a limited number of listers a day.",
     "sellTitle": "Selling land?",
     "sellBody": "List it once. Every agent's price for it appears on one page, so buyers compare fairly.",
     "sellLink": "List your land"
@@ -88,7 +88,7 @@
     "areaAcres": "{value} acres",
     "filterLabel": "Land type",
     "filterAll": "All land",
-    "fromPrice": "From {price}",
+    "fromPrice": "From {price} incl. brokerage",
     "noPrice": "No price yet",
     "reviewedDocs": "{count} documents reviewed",
     "ownerRecorded": "Owner recorded",
@@ -406,7 +406,26 @@
     "subscription.self": "A reviewer cannot start their own subscription.",
     "subscription.reference_invalid": "Enter the transaction ID (UTR) or receipt number, not a UPI ID or phone number.",
     "subscription.reference_used": "This payment reference is already recorded.",
-    "rate_limited": "Too many requests. Please wait a little and try again."
+    "rate_limited": "Too many requests. Please wait a little and try again.",
+    "development.name_invalid": "Enter the project's name (2 to 200 characters).",
+    "development.kind_invalid": "Choose the kind of project.",
+    "development.status_invalid": "Choose the project's status.",
+    "development.authority_invalid": "Enter the authority (for example NHAI, HMDA, R&B department).",
+    "development.source_invalid": "The source must be an https:// link.",
+    "development.source_required": "Give the official source link, or mark the project as proposed and unverified.",
+    "development.date_invalid": "Enter the date of the source (not in the future).",
+    "development.distance_invalid": "Distance must be between 0 and 500 km.",
+    "development.project_invalid": "Choose a development from the list.",
+    "report.reason_invalid": "Choose what is wrong.",
+    "report.details_too_long": "Details can be at most 1,000 characters.",
+    "report.details_required": "Say in a few words what is wrong.",
+    "report.daily_limit": "You have sent many reports today. Please continue tomorrow.",
+    "report.already_open": "You already reported this land. A reviewer will look at it.",
+    "report.decision_invalid": "Choose resolved or dismiss.",
+    "report.note_required": "Say what was done about this report.",
+    "report.note_too_long": "The note can be at most 1,000 characters.",
+    "report.already_decided": "This report was already handled.",
+    "report.reviewer_involved": "You sent this report, so another reviewer must handle it."
   },
   "mine": {
     "title": "My listings",
@@ -498,7 +517,10 @@
       "merged": "Records merged.",
       "owner_set": "Owner recorded.",
       "document": "Document decision saved.",
-      "subscription": "Subscription recorded."
+      "subscription": "Subscription recorded.",
+      "report": "Report decision saved.",
+      "development": "Development added.",
+      "linked": "Linked to the land."
     },
     "mergeConfirm": "Merge this record into the kept one? Prices, the owner and confirmed agents move across. This cannot be undone.",
     "mergeYes": "Yes, merge",
@@ -585,7 +607,8 @@
     "whatsappHint": "Leave empty to use the number you sign in with. Now: {number}",
     "save": "Save",
     "whatsappSaved": "WhatsApp number saved.",
-    "contactNumber": "Buyers who message you will see: {number}. Change it below if you prefer another number."
+    "contactNumber": "Buyers who message you will see: {number}. Change it below if you prefer another number.",
+    "buyerSupportMessage": "Hello Bhoomisetu, I want a buyer subscription to see documents."
   },
   "reviewExtra": {
     "documentsTitle": "Documents waiting for a check",
@@ -605,7 +628,7 @@
   },
   "land": {
     "survey": "Survey number {number}",
-    "priceFrom": "Lowest asking price {price}",
+    "priceFrom": "Price from {price} (brokerage included)",
     "pricesLink": "Compare all {count} prices",
     "pricesLinkOne": "See the price",
     "noOffers": "No prices yet. Owners and agents can add one.",
@@ -617,8 +640,8 @@
     "dimensionsValue": "{width} ft × {length} ft",
     "facing": "Facing",
     "areaCheck": "Area from width × length",
-    "areaMatch": "Matches the recorded area",
-    "areaMismatch": "Differs from the recorded area: check with a surveyor",
+    "areaMatch": "Matches the area given",
+    "areaMismatch": "Differs from the area given: check with a surveyor",
     "roadWidth": "Road in front",
     "roadWidthValue": "{feet} ft ({metres} m)",
     "roadType": "Road type",
@@ -667,5 +690,77 @@
     "statNeedsConfirm": "Need availability confirmed",
     "active": "Active",
     "inactive": "Not active"
+  },
+  "nearby": {
+    "title": "Nearby developments and road widening",
+    "none": "No developments recorded for this land yet.",
+    "project": "Project",
+    "distance": "Distance",
+    "status": "Status",
+    "source": "Source and date",
+    "km": "{km} km",
+    "mayAffect": "May affect this land: check the alignment with the authority before paying.",
+    "note": "Information only, from the source shown. Nearby projects do not promise a rise in price.",
+    "kinds": {
+      "metro": "Metro",
+      "highway": "Highway",
+      "ring_road": "Ring road",
+      "road_widening": "Road widening",
+      "new_road": "New road",
+      "railway": "Railway",
+      "airport": "Airport",
+      "industrial_corridor": "Industrial corridor",
+      "it_corridor": "IT corridor",
+      "other": "Other"
+    },
+    "statuses": {
+      "proposed_unverified": "Proposed, not verified",
+      "approved": "Approved",
+      "under_construction": "Under construction",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    }
+  },
+  "report": {
+    "link": "Report this listing",
+    "title": "Report this listing",
+    "intro": "Tell us what is wrong. A Bhoomisetu reviewer will look at it. Your name is not shown to the lister.",
+    "reason": "What is wrong?",
+    "details": "Details",
+    "detailsHint": "Optional, unless you choose “Something else”. Do not include phone numbers or ID numbers.",
+    "submit": "Send report",
+    "thanks": "Thank you. A reviewer will look at your report.",
+    "reasons": {
+      "wrong_details": "Details are wrong",
+      "already_sold": "Already sold",
+      "fraud_suspected": "Looks like fraud or a fake listing",
+      "duplicate": "Same land listed twice",
+      "ownership_dispute": "Ownership dispute or court case",
+      "other": "Something else"
+    }
+  },
+  "reviewTools": {
+    "reportsTitle": "Reported listings",
+    "resolve": "Resolved",
+    "dismiss": "Dismiss",
+    "reportDone": "Report decision saved.",
+    "developmentsTitle": "Nearby developments",
+    "newProject": "Add a development",
+    "name": "Project name",
+    "kind": "Kind",
+    "status": "Status",
+    "authority": "Authority (for example NHAI, HMDA, R&B)",
+    "sourceUrl": "Official source link (https)",
+    "sourceDate": "Date of the source",
+    "create": "Add development",
+    "linkTitle": "Link a development to land",
+    "parcelId": "Land ID (from the land page address)",
+    "project": "Development",
+    "distanceKm": "Distance in km",
+    "mayAffect": "May touch this land (alignment passes over or next to it)",
+    "link": "Link to land",
+    "developmentDone": "Development added.",
+    "linkedDone": "Linked to the land.",
+    "linkedCount": "{count} pieces of land"
   }
 }

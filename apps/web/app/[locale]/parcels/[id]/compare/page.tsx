@@ -54,7 +54,8 @@ export default async function ComparePage({ params, searchParams }: Props) {
   ]);
   const land = parcelResult.ok ? parcelResult.data : null;
   const x = t.compareExtra;
-  const agents = data.offers.filter((o) => o.authority !== "owner_of_record");
+  // Only agents can be confirmed by the owner; an unverified "says owner" claim is not counted.
+  const agents = data.offers.filter((o) => o.listerKind === "agent");
   const confirmedAgents = agents.filter((o) => o.authority === "owner_confirmed_agent").length;
   const checkedDocuments = documentsResult.ok ? documentsResult.data.available.reduce((sum, a) => sum + a.count, 0) : 0;
   const viewer: ParcelViewer | null = viewerResult?.ok ? viewerResult.data : null;

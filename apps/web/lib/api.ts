@@ -67,8 +67,8 @@ export type ParcelSummary = {
   landClass: string;
   areaSquareYards: number;
   activeOffers: number;
-  /** Lowest active asking price; null when nobody has priced this land yet. */
-  lowestAskingPriceRupees: number | null;
+  /** Lowest price including brokerage, with suspiciously low offers left out; null without prices. */
+  lowestPriceRupees: number | null;
   reviewedDocuments: number;
   ownerOfRecordRecorded: boolean;
 };
@@ -482,4 +482,57 @@ export type ParcelDetail = {
 
 export function getParcel(parcelId: string): Promise<ApiResult<ParcelDetail>> {
   return get<ParcelDetail>(`/api/v1/parcels/${encodeURIComponent(parcelId)}`);
+}
+
+// ---------------------------------------------------------------- nearby developments and listing reports
+
+export const DEVELOPMENT_KINDS = ["metro", "highway", "ring_road", "road_widening", "new_road", "railway", "airport", "industrial_corridor", "it_corridor", "other"] as const;
+export const DEVELOPMENT_STATUSES = ["proposed_unverified", "approved", "under_construction", "completed", "cancelled"] as const;
+export const REPORT_REASONS = ["wrong_details", "already_sold", "fraud_suspected", "duplicate", "ownership_dispute", "other"] as const;
+
+export type NearbyDevelopment = {
+  projectId: string;
+  name: string;
+  kind: string;
+  status: string;
+  authority: string;
+  sourceUrl: string | null;
+  sourceDate: string;
+  distanceKm: number | null;
+  mayAffectParcel: boolean;
+};
+
+export function getNearbyDevelopments(parcelId: string): Promise<ApiResult<NearbyDevelopment[]>> {
+  return get<NearbyDevelopment[]>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/developments`);
+}
+
+export type DevelopmentProject = { id: string; name: string; kind: string; status: string; authority: string; sourceUrl: string | null; sourceDate: string; linkedParcels: number };
+
+export function getDevelopmentProjects(token: string): Promise<ApiResult<DevelopmentProject[]>> {
+  return get<DevelopmentProject[]>("/api/v1/admin/developments", token);
+}
+
+export function createDevelopmentProject(
+  body: { name: string; kind: string; status: string; authority: string; sourceUrl: string | null; sourceDate: string },
+  token: string,
+): Promise<ApiResult<DevelopmentProject>> {
+  return request<DevelopmentProject>("POST", "/api/v1/admin/developments", body, token);
+}
+
+export function linkDevelopment(parcelId: string, body: { projectId: string; distanceKm: number | null; mayAffectParcel: boolean }, token: string): Promise<ApiResult<void>> {
+  return request<void>("PUT", `/api/v1/admin/parcels/${encodeURIComponent(parcelId)}/developments`, body, token);
+}
+
+export function reportListing(parcelId: string, body: { reason: string; details: string }, token: string): Promise<ApiResult<{ id: string }>> {
+  return request<{ id: string }>("POST", `/api/v1/parcels/${encodeURIComponent(parcelId)}/reports`, body, token);
+}
+
+export type ListingReport = { id: string; parcelId: string; village: string; mandal: string; district: string; surveyNumber: string; reason: string; details: string | null; createdAt: string };
+
+export function getReportQueue(token: string): Promise<ApiResult<ListingReport[]>> {
+  return get<ListingReport[]>("/api/v1/admin/reports", token);
+}
+
+export function decideReport(reportId: string, decision: "resolve" | "dismiss", note: string, token: string): Promise<ApiResult<void>> {
+  return request<void>("POST", `/api/v1/admin/reports/${encodeURIComponent(reportId)}/decision`, { decision, note }, token);
 }
