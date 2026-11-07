@@ -40,7 +40,7 @@ cover your change, add one here when you are done.
    and the validation in `Endpoints/ParcelEndpoints.cs`. Validate the same range as the CHECK.
 3. **Web:** add the field to `parseParcelForm` in `apps/web/lib/forms.ts` with a test in `forms.test.ts`, add
    the input to `components/ParcelForm.tsx`, and add the label and a hint in all three message files.
-4. Run `dotnet test`, `npm test`, `npm run check:i18n`. The integration test
+4. Run `dotnet test --solution Bhoomisetu.slnx`, `npm test`, `npm run check:i18n`. The integration test
    `Every_mapped_column_exists_in_the_database` catches a property without a column.
 
 ## Add an API endpoint
@@ -66,7 +66,7 @@ Units, approval bodies and land-record names differ by state. Keep national code
 
 ## Before you open a pull request
 
-- `dotnet build` with no warnings (warnings fail the build), `dotnet test`, `npm test`, `npm run check:i18n`,
+- `dotnet build` with no warnings (warnings fail the build), `dotnet test --solution Bhoomisetu.slnx`, `npm test`, `npm run check:i18n`,
   `npm run typecheck`.
 - New behaviour has a test; a fixed bug has a test that failed before the fix.
 - No secrets, phone numbers or document contents in code, logs or test data.

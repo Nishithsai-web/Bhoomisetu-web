@@ -71,7 +71,7 @@ Three product ideas run through everything:
 ### Running and testing
 
 See the README. In short: `docker compose up -d db`, `dotnet run --project src/Bhoomisetu.Api`,
-`cd apps/web && npm run dev`. Tests: `dotnet test`, `npm test`, `npm run check:i18n`.
+`cd apps/web && npm run dev`. Tests: `dotnet test --solution Bhoomisetu.slnx`, `npm test`, `npm run check:i18n`.
 
 ---
 

@@ -106,7 +106,7 @@ server, so rate limits see real visitor IPs.
 ## Tests
 
 ```bash
-dotnet test                                   # unit + architecture; set BHOOMISETU_TEST_DB to include API tests
+dotnet test --solution Bhoomisetu.slnx        # unit + architecture; set BHOOMISETU_TEST_DB to include API tests
 cd apps/web && npm test && npm run check:i18n && npm run typecheck
 psql -v ON_ERROR_STOP=1 -f db/tests/core_constraints.sql   # after applying db/migrations
 ```

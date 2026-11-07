@@ -62,14 +62,10 @@ jobs:
       - run: dotnet restore Bhoomisetu.slnx
       - run: dotnet build Bhoomisetu.slnx --no-restore -c Release
       - name: Tests (unit, architecture, integration)
-        run: dotnet test Bhoomisetu.slnx --no-build -c Release --logger "trx" --results-directory TestResults
+        # xunit.v3 runs on Microsoft.Testing.Platform (opted in via global.json), which takes --solution.
+        run: dotnet test --solution Bhoomisetu.slnx --no-build -c Release
         env:
           BHOOMISETU_TEST_DB: Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: dotnet-test-results
-          path: TestResults
 
   web:
     name: Web tests and build
