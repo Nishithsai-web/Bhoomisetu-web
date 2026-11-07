@@ -1,0 +1,53 @@
+# Manual: builds the website and takes screenshots of key pages at desktop and phone width, so the design can be
+# checked without a local setup. Pages that need the API show their "service unavailable" state here.
+name: Screenshots
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          BHOOMISETU_API_URL: http://127.0.0.1:9
+      - name: Start the site
+        run: |
+          (BHOOMISETU_API_URL=http://127.0.0.1:9 npx next start -p 3000 > /tmp/next.log 2>&1 &)
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/en > /dev/null && break; sleep 1; done
+      - name: Take screenshots
+        run: |
+          mkdir -p /tmp/shots && cd /tmp/shots && npm init -y > /dev/null && npm i playwright@1.49.1 > /dev/null && npx playwright install --with-deps chromium > /dev/null
+          cat > shoot.mjs <<'JS'
+          import { chromium } from "playwright";
+          const pages = [["home-en", "/en"], ["home-te", "/te"], ["parcels-en", "/en/parcels"], ["units-hi", "/hi/units"]];
+          const browser = await chromium.launch();
+          for (const [width, height, tag] of [[1360, 900, "desktop"], [390, 844, "phone"]]) {
+            const page = await browser.newPage({ viewport: { width, height } });
+            for (const [name, path] of pages) {
+              await page.goto(`http://localhost:3000${path}`, { waitUntil: "networkidle" });
+              const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+              console.log(`${name}-${tag}: horizontal overflow ${overflow}px`);
+              await page.screenshot({ path: `${name}-${tag}.jpg`, fullPage: true, type: "jpeg", quality: 45 });
+            }
+          }
+          await browser.close();
+          JS
+          node shoot.mjs
+      - name: Print screenshots (base64, for environments that cannot download artifacts)
+        run: |
+          cd /tmp/shots && for f in *.jpg; do echo "=====BEGIN $f"; base64 -w0 "$f"; echo; echo "=====END $f"; done
