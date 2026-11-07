@@ -50,4 +50,4 @@ jobs:
           node shoot.mjs
       - name: Print screenshots (base64, for environments that cannot download artifacts)
         run: |
-          cd /tmp/shots && for f in *.jpg; do echo "=====BEGIN $f"; base64 -w0 "$f"; echo; echo "=====END $f"; done
+          cd /tmp/shots && for f in *.jpg; do echo "=====BEGIN $f"; base64 -w 6000 "$f"; echo "=====END $f"; done
