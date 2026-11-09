@@ -825,7 +825,7 @@
     "nearMe": "Near me",
     "locating": "Finding your location…",
     "locationFailed": "Could not get your location. Move the map instead.",
-    "loading": "Loading land…",
+    "loading": "Loading…",
     "failed": "The map could not load. Listings for the Hyderabad area are shown below.",
     "none": "No land with a map location here yet. Move or zoom out.",
     "truncated": "Showing the newest 500. Zoom in to see all.",

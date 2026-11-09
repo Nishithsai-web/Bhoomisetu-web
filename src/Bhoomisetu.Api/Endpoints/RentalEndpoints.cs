@@ -58,6 +58,10 @@ internal sealed class RentalRow
 
     public double Longitude { get; set; }
 
+    public double ExactLatitude { get; set; }
+
+    public double ExactLongitude { get; set; }
+
     public string Status { get; set; } = string.Empty;
 
     public DateTimeOffset AvailabilityConfirmedAt { get; set; }
@@ -87,7 +91,8 @@ public static class RentalEndpoints
         r.id AS "Id", r.lister_user_id AS "ListerUserId", r.lister_kind AS "ListerKind", r.property_type AS "PropertyType", r.bedrooms AS "Bedrooms",
         r.area_sqft AS "AreaSqft", r.rent_rupees AS "RentRupees", r.deposit_rupees AS "DepositRupees", r.furnishing AS "Furnishing",
         r.preferred_tenants AS "PreferredTenants", r.parking AS "Parking", r.available_from AS "AvailableFrom", r.locality AS "Locality",
-        r.mandal AS "Mandal", r.district AS "District", ST_Y(r.centroid::geometry) AS "Latitude", ST_X(r.centroid::geometry) AS "Longitude",
+        r.mandal AS "Mandal", r.district AS "District", ST_Y(r.public_point::geometry) AS "Latitude", ST_X(r.public_point::geometry) AS "Longitude",
+        ST_Y(r.centroid::geometry) AS "ExactLatitude", ST_X(r.centroid::geometry) AS "ExactLongitude",
         r.status AS "Status", r.availability_confirmed_at AS "AvailabilityConfirmedAt"
         """;
 
@@ -224,7 +229,7 @@ public static class RentalEndpoints
             , NULL::double precision AS "DistanceKm"
             FROM rental_listings r
             WHERE r.status = 'active' AND r.availability_confirmed_at >= {0} AND r.bedrooms >= {1}
-              AND r.centroid && ST_MakeEnvelope({2}, {3}, {4}, {5}, 4326)::geography
+              AND r.public_point && ST_MakeEnvelope({2}, {3}, {4}, {5}, 4326)::geography
             ORDER BY r.created_at DESC, r.id
             LIMIT {6}
             """, fresh, minBedrooms, w, s, e, n, MaxPins + 1)).ToListAsync(ct);
@@ -243,12 +248,12 @@ public static class RentalEndpoints
         }
         var rows = await db.Database.SqlQuery<RentalRow>(Sql(
             "SELECT " + Columns + """
-            , ST_Distance(r.centroid, me.centroid) / 1000.0 AS "DistanceKm"
+            , ST_Distance(r.public_point, me.public_point) / 1000.0 AS "DistanceKm"
             FROM rental_listings me
             JOIN rental_listings r ON r.id <> me.id AND r.status = 'active' AND r.availability_confirmed_at >= {0}
-                                  AND ST_DWithin(r.centroid, me.centroid, {1})
+                                  AND ST_DWithin(r.public_point, me.public_point, {1})
             WHERE me.id = {2}
-            ORDER BY r.centroid <-> me.centroid
+            ORDER BY r.public_point <-> me.public_point
             LIMIT {3}
             """, fresh, NearbyRadiusKm * 1000, id, MaxNearby)).ToListAsync(ct);
 
@@ -273,12 +278,12 @@ public static class RentalEndpoints
         var fresh = clock.UtcNow - StaleAfter;
         var rows = await db.Database.SqlQuery<RentalRow>(Sql(
             "SELECT " + Columns + """
-            , ST_Distance(r.centroid, p.centroid) / 1000.0 AS "DistanceKm"
+            , ST_Distance(r.public_point, p.centroid) / 1000.0 AS "DistanceKm"
             FROM parcels p
             JOIN rental_listings r ON r.status = 'active' AND r.availability_confirmed_at >= {0}
-                                  AND ST_DWithin(r.centroid, p.centroid, {1})
+                                  AND ST_DWithin(r.public_point, p.centroid, {1})
             WHERE p.id = {2} AND p.centroid IS NOT NULL
-            ORDER BY r.centroid <-> p.centroid
+            ORDER BY r.public_point <-> p.centroid
             LIMIT {3}
             """, fresh, NearbyRadiusKm * 1000, id, MaxNearby)).ToListAsync(ct);
         return Results.Ok(rows.Select(r => ToResponse(r, contactable: false, viewer: null, points: null)).ToList());
@@ -361,14 +366,14 @@ public static class RentalEndpoints
     }
 
     /// <summary>
-    /// Public responses show a home only to about 110 m (3 decimals): enough to judge the area, not enough to find
-    /// the door, since a room or portion is often the lister's own home. The lister sees their exact point.
+    /// Public responses use the grid point (public_point, about 110 m, migration 0014), and every distance and map
+    /// filter is computed from it too, so the door cannot be worked out. The lister sees their exact point.
     /// </summary>
     private static RentalResponse ToResponse(RentalRow r, bool contactable, Guid? viewer, IReadOnlyList<ComparisonPointResponse>? points)
     {
         var mine = viewer is { } v && v == r.ListerUserId;
         var response = Exact(r, contactable, viewer, points);
-        return mine ? response with { Approximate = false } : response with { Latitude = Math.Round(r.Latitude, 3), Longitude = Math.Round(r.Longitude, 3) };
+        return mine ? response with { Approximate = false, Latitude = r.ExactLatitude, Longitude = r.ExactLongitude } : response;
     }
 
     private static RentalResponse Exact(RentalRow r, bool contactable, Guid? viewer, IReadOnlyList<ComparisonPointResponse>? points) =>
@@ -376,7 +381,7 @@ public static class RentalEndpoints
             Math.Round((decimal)r.RentRupees / r.AreaSqft, 2, MidpointRounding.AwayFromZero),
             Math.Round((decimal)r.DepositRupees / r.RentRupees, 1, MidpointRounding.AwayFromZero),
             r.Furnishing, r.PreferredTenants, r.Parking, r.AvailableFrom, r.Locality, r.Mandal, r.District, r.Latitude, r.Longitude, r.Status,
-            r.AvailabilityConfirmedAt, contactable, viewer is { } v && v == r.ListerUserId, r.DistanceKm is { } km ? Math.Round(km, 2) : null, points ?? []);
+            r.AvailabilityConfirmedAt, contactable, viewer is { } v && v == r.ListerUserId, r.DistanceKm is { } km ? Math.Round(km, 1) : null, points ?? []);
 
     private static ComparablePlace Comparable(RentalResponse r) =>
         new(r.RentPerSqft, r.AreaSqft, r.PropertyType, Bedrooms: r.Bedrooms, DepositMonths: r.DepositMonths, Furnishing: r.Furnishing);

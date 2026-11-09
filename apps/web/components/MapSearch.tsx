@@ -246,13 +246,21 @@ export function MapSearch({ locale, intl, labels, initialMode }: { locale: strin
   }, [load]);
 
   const nearMe = () => {
+    // Without the map library there is no map to move; say so instead of waiting forever.
+    if (!map.current) {
+      setStatus(labels.failed);
+      return;
+    }
     if (!("geolocation" in navigator)) {
       setStatus(labels.locationFailed);
       return;
     }
     setStatus(labels.locating);
     navigator.geolocation.getCurrentPosition(
-      (position) => map.current?.setView([position.coords.latitude, position.coords.longitude], 13),
+      (position) => {
+        map.current?.setView([position.coords.latitude, position.coords.longitude], 13);
+        setStatus("");
+      },
       () => setStatus(labels.locationFailed),
       { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
     );

@@ -798,6 +798,7 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Equal(18m, home.GetProperty("rentPerSqft").GetDecimal());
         // The public sees the home to about 110 m; the lister sees the exact point.
         Assert.Equal(17.401, home.GetProperty("latitude").GetDouble(), 3);
+        Assert.Equal(78.201, home.GetProperty("longitude").GetDouble(), 3);
         Assert.True(home.GetProperty("approximate").GetBoolean());
         Assert.False((await lister.GetFromJsonAsync<JsonElement>($"/api/v1/rentals/{homeAId}", Ct)).GetProperty("approximate").GetBoolean());
         Assert.Equal(3m, home.GetProperty("depositMonths").GetDecimal());

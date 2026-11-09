@@ -202,7 +202,7 @@ export default async function RentalPage({ params, searchParams }: Props) {
                 </button>
               </form>
             ) : (
-              <p className="muted">{h.mine ? r.yourHome : t.errors["contact.lister_not_subscribed"]}</p>
+              <p className="muted">{h.mine ? r.yourHome : h.stale ? r.staleNotice : t.errors["contact.lister_not_subscribed"]}</p>
             )}
             <p className="safety">{r.safety}</p>
           </section>

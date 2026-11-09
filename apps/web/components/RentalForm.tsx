@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { createRentalAction, type FormState } from "@/app/[locale]/actions";
 import type { Dictionary } from "@/lib/i18n";
+import { toAsciiDigits } from "@/lib/units";
 import { Field } from "./Field";
 import { ErrorSummary, useFormFeedback } from "./FormFeedback";
 
@@ -23,8 +24,9 @@ export function RentalForm({ locale, t, options }: { locale: string; t: Dictiona
     const code = state.errors?.find((e) => e.field === name)?.code;
     return code ? (Object.hasOwn(errors, code) ? errors[code] : errors.generic) : undefined;
   };
-  const lat = Number(latitude);
-  const lng = Number(longitude);
+  // Same reading as the server: Telugu/Devanagari digits and a decimal comma are fine.
+  const lat = Number(toAsciiDigits(latitude).replace(",", "."));
+  const lng = Number(toAsciiDigits(longitude).replace(",", "."));
   const preview = latitude !== "" && longitude !== "" && lat >= 6 && lat <= 37.6 && lng >= 68 && lng <= 97.5 ? { lat, lng } : null;
 
   const locate = () => {
