@@ -66,6 +66,7 @@ export type MapLabels = {
   locationFailed: string;
   loading: string;
   failed: string;
+  dataFailed: string;
   none: string;
   truncated: string;
   count: string;
@@ -183,7 +184,8 @@ export function MapSearch({ locale, intl, labels, initialMode }: { locale: strin
       setTruncated(data.truncated);
       setStatus(data.items.length === 0 ? labels.none : fill(labels.count, { count: data.items.length }));
     } catch {
-      setStatus(labels.failed);
+      // The map itself is showing; only the listings for this area could not be fetched.
+      setStatus(labels.dataFailed);
     }
   }, [landClass, labels, locale, price, mode, bedrooms, intl]);
 

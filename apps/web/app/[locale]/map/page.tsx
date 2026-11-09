@@ -25,6 +25,7 @@ export default async function MapPage({ params, searchParams }: { params: Promis
           locationFailed: m.locationFailed,
           loading: m.loading,
           failed: m.failed,
+          dataFailed: m.dataFailed,
           none: m.none,
           truncated: m.truncated,
           count: m.count,

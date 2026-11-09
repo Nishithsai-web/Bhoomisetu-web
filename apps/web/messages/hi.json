@@ -838,7 +838,8 @@
     "rentMode": "किराए के घर",
     "bedroomsLabel": "बेडरूम",
     "anyBedrooms": "कोई भी",
-    "homesTitle": "दिख रहे घर"
+    "homesTitle": "दिख रहे घर",
+    "dataFailed": "इस क्षेत्र की सूचियाँ लोड नहीं हुईं। मानचित्र खिसकाएँ या थोड़ी देर बाद फिर कोशिश करें।"
   },
   "compareNearby": {
     "landTitle": "पास की ज़मीन से तुलना करें",

@@ -838,7 +838,8 @@
     "rentMode": "Homes for rent",
     "bedroomsLabel": "Bedrooms",
     "anyBedrooms": "Any",
-    "homesTitle": "Homes in view"
+    "homesTitle": "Homes in view",
+    "dataFailed": "Could not load listings for this area. Move the map or try again in a moment."
   },
   "compareNearby": {
     "landTitle": "Compare with land nearby",
