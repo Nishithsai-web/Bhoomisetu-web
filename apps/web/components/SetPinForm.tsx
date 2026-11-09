@@ -14,6 +14,7 @@ type Labels = {
   denied: string;
   unavailable: string;
   onLand: string;
+  preview: string;
 };
 
 /**
@@ -26,6 +27,14 @@ export function SetPinForm({ locale, parcelId, labels }: { locale: string; parce
   const [source, setSource] = useState<"gps" | "map">("map");
   const [status, setStatus] = useState<string>("");
   const [onLand, setOnLand] = useState(false);
+
+  // Preview of what will be saved (rounded like the server: about 10 m), only for numbers inside India.
+  const lat = Number(latitude.replace(",", "."));
+  const lng = Number(longitude.replace(",", "."));
+  const preview =
+    latitude !== "" && longitude !== "" && lat >= 6 && lat <= 37.6 && lng >= 68 && lng <= 97.5
+      ? { lat: Math.round(lat * 10000) / 10000, lng: Math.round(lng * 10000) / 10000 }
+      : null;
 
   const locate = () => {
     if (!("geolocation" in navigator)) {
@@ -54,7 +63,20 @@ export function SetPinForm({ locale, parcelId, labels }: { locale: string; parce
       {/* A phone location only counts as "from the land" when the person confirms they are standing on it now. */}
       <input type="hidden" name="source" value={source === "gps" && onLand ? "gps" : "map"} />
       <label className="choice">
-        <input type="checkbox" checked={onLand} onChange={(e) => setOnLand(e.target.checked)} /> {labels.onLand}
+        <input
+          type="checkbox"
+          checked={onLand}
+          onChange={(e) => {
+            setOnLand(e.target.checked);
+            // Unticking forgets the phone's location, so it cannot be saved as the land by mistake.
+            if (!e.target.checked && source === "gps") {
+              setLatitude("");
+              setLongitude("");
+              setSource("map");
+            }
+          }}
+        />{" "}
+        {labels.onLand}
       </label>
       <button type="button" className="secondary" onClick={locate} disabled={!onLand}>
         {labels.useLocation}
@@ -70,7 +92,21 @@ export function SetPinForm({ locale, parcelId, labels }: { locale: string; parce
         <label htmlFor="pin-lng">{labels.longitude}</label>
         <input id="pin-lng" name="longitude" inputMode="decimal" value={longitude} onChange={(e) => { setLongitude(e.target.value); setSource("map"); }} />
       </div>
-      <button type="submit">{labels.save}</button>
+      {preview && (
+        <>
+          <p className="hint">{labels.preview}</p>
+          <iframe
+            className="map-frame"
+            title={labels.preview}
+            loading="lazy"
+            referrerPolicy="no-referrer"
+            src={`https://www.openstreetmap.org/export/embed.html?bbox=${preview.lng - 0.005},${preview.lat - 0.003},${preview.lng + 0.005},${preview.lat + 0.003}&layer=mapnik&marker=${preview.lat},${preview.lng}`}
+          />
+        </>
+      )}
+      <button type="submit" disabled={!preview}>
+        {labels.save}
+      </button>
     </form>
   );
 }

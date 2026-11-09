@@ -791,7 +791,8 @@
       "save": "Save location",
       "denied": "Location permission was refused. Allow it in your browser, or type the numbers.",
       "unavailable": "Could not get your location. Type the numbers instead.",
-      "onLand": "I am standing on this land now"
+      "onLand": "I am standing on this land now",
+      "preview": "Check the pin below is on the land before saving."
     }
   }
 }
