@@ -50,21 +50,24 @@ public static class PlaceEndpoints
         var sql = FormattableStringFactory.Create(
             """
             SELECT p.village AS "Name", p.mandal || ', ' || p.district AS "Detail",
-                   avg(ST_Y(p.centroid::geometry)) AS "Latitude", avg(ST_X(p.centroid::geometry)) AS "Longitude", count(*)::int AS "Listings"
+                   avg(ST_Y(p.centroid::geometry)) AS "Latitude", avg(ST_X(p.centroid::geometry)) AS "Longitude", (count(*) FILTER (WHERE EXISTS (SELECT 1 FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')))::int AS "Listings"
             FROM parcels p
             WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
               AND (p.village ILIKE {0} OR p.mandal ILIKE {0} OR p.district ILIKE {0} OR
             """ + " " + keyClause + " " + """
             )
             GROUP BY p.village, p.mandal, p.district
-            ORDER BY count(*) DESC, p.village
+            ORDER BY "Listings" DESC, count(*) DESC, p.village
             LIMIT {3}
             """, pattern, "%" + key + "%", key.Length > 0 ? key : "-", MaxOwn);
         var own = (await db.Database.SqlQuery<PlaceRow>(sql).ToListAsync(ct))
             .Select(r => new PlaceResult(r.Name, r.Detail, Math.Round(r.Latitude, 4), Math.Round(r.Longitude, 4), r.Listings, "bhoomisetu"))
             .ToList();
 
-        var external = own.Count >= MaxOwn ? [] : await geocoder.SearchAsync(query, language, ct);
+        // OpenStreetMap places we already show (same sound-alike name) are left out.
+        var ownKeys = own.Select(o => PlaceKey.From(o.Name)).ToHashSet(StringComparer.Ordinal);
+        var external = own.Count >= MaxOwn ? [] : (await geocoder.SearchAsync(query, language, ct))
+            .Where(x => !ownKeys.Contains(PlaceKey.From(x.Name.Split(',')[0])));
         return Results.Ok(own.Concat(external.Take(MaxOwn - own.Count)).ToList());
     }
 }

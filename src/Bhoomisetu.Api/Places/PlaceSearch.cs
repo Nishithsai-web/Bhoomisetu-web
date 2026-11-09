@@ -51,7 +51,12 @@ public sealed class NominatimGeocoder(HttpClient http, GeocodingOptions options,
             return cached;
         }
 
-        await Gate.WaitAsync(cancellationToken);
+        // Wait at most 2 s for our turn: a queue of other searches must never stall this one.
+        if (!await Gate.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken))
+        {
+            return [];
+        }
+
         try
         {
             var wait = lastCall.AddSeconds(1) - DateTimeOffset.UtcNow;

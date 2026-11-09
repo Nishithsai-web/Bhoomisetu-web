@@ -23,6 +23,7 @@ type LeafletMap = {
   getCenter(): LatLng;
   getZoom(): number;
   latLngToContainerPoint(at: [number, number]): Point;
+  scrollWheelZoom: { enable(): void; disable(): void };
   invalidateSize(): void;
   on(event: string, handler: () => void): void;
   remove(): void;
@@ -127,6 +128,7 @@ export type MapLabels = {
   expand: string;
   collapse: string;
   clusterLabel: string;
+  perMonthShort: string;
 };
 
 export type MapStart = { mode: "land" | "rent"; lat: number; lng: number; zoom: number; landClass: string; bedrooms: number; newOnly: boolean; q: string };
@@ -151,6 +153,12 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadRef = useRef<() => Promise<void>>(async () => {});
   const inflight = useRef<AbortController | null>(null);
+  /** The pin whose popup is open; reopened after every redraw so panning never closes it. */
+  const selected = useRef<string | null>(null);
+  const redrawing = useRef(false);
+  /** A place chosen before the map finished loading; the map goes there once it is ready. */
+  const pendingPlace = useRef<Place | null>(null);
+  const placeSearch = useRef(0);
   const fallbackArea = useRef({ south: start.lat - 0.2, west: start.lng - 0.25, north: start.lat + 0.2, east: start.lng + 0.25 });
 
   const [mode, setMode] = useState<"land" | "rent">(start.mode);
@@ -208,7 +216,9 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       const m = map.current;
       const L = window.L;
       if (!m || !L || !layer.current) return;
+      redrawing.current = true;
       layer.current.clearLayers();
+      redrawing.current = false;
       markers.current.clear();
       const zoom = m.getZoom();
       const groups = new Map<string, Item[]>();
@@ -230,7 +240,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
           bubble.className = "cluster-pin";
           bubble.textContent = String(group.length);
           bubble.setAttribute("aria-label", fill(labels.clusterLabel, { count: group.length }));
-          L.marker([lat, lng], { icon: L.divIcon({ html: bubble, className: "pin-wrap", iconSize: null }), keyboard: true, title: fill(labels.clusterLabel, { count: group.length }) })
+          L.marker([lat, lng], { icon: L.divIcon({ html: bubble, className: "pin-wrap", iconSize: null }), keyboard: false, title: fill(labels.clusterLabel, { count: group.length }) })
             .on("click", () => m.flyTo([lat, lng], Math.min(zoom + 2, 18)))
             .addTo(layer.current);
           continue;
@@ -245,17 +255,28 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
             ? item.data.lowestPriceRupees === null
               ? "₹ –"
               : compactRupees(item.data.lowestPriceRupees)
-            : `${compactRupees(item.data.rentRupees)}/mo`;
+            : fill(labels.perMonthShort, { rent: compactRupees(item.data.rentRupees) });
         if (fresh) {
           const badge = document.createElement("b");
           badge.textContent = labels.newBadge;
           tag.prepend(badge);
         }
-        const marker = L.marker([item.lat, item.lng], { icon: L.divIcon({ html: tag, className: "pin-wrap", iconSize: null }), keyboard: true, title: tag.textContent ?? "" })
+        // Every pin is also in the list beside the map, which is the keyboard and screen-reader path, so pins
+        // stay out of the tab order (up to 500 of them would come before the list).
+        const place = item.kind === "land" ? `${item.data.village}, ${item.data.mandal}` : item.data.locality;
+        const name = `${place}: ${tag.lastChild?.textContent ?? ""}${fresh ? ` (${labels.newBadge})` : ""}`;
+        const marker = L.marker([item.lat, item.lng], { icon: L.divIcon({ html: tag, className: "pin-wrap", iconSize: null }), keyboard: false, title: name })
           .bindPopup(popupFor(item))
+          .on("popupopen", () => {
+            selected.current = item.id;
+          })
+          .on("popupclose", () => {
+            if (!redrawing.current) selected.current = null;
+          })
           .addTo(layer.current);
         markers.current.set(item.id, marker);
       }
+      if (selected.current) markers.current.get(selected.current)?.openPopup();
     },
     [labels, popupFor],
   );
@@ -323,16 +344,20 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
     loadLeaflet()
       .then((L) => {
         if (cancelled || !element.current || map.current) return;
-        const m = L.map(element.current, { scrollWheelZoom: true, zoomControl: true }).setView([start.lat, start.lng], start.zoom);
+        const m = L.map(element.current, { scrollWheelZoom: false, zoomControl: true }).setView([start.lat, start.lng], start.zoom);
         L.tileLayer(tiles.url, { maxZoom: 19, attribution: tiles.attribution }).addTo(m);
         layer.current = L.layerGroup().addTo(m);
         map.current = m;
+        // The wheel scrolls the page until the map is tapped, so the map never traps scrolling.
+        m.on("click", () => m.scrollWheelZoom.enable());
+        m.on("mouseout", () => m.scrollWheelZoom.disable());
         m.on("moveend", () => {
           if (timer.current) clearTimeout(timer.current);
           timer.current = setTimeout(() => void loadRef.current(), 250);
         });
         void loadRef.current();
-        if (start.q) void searchPlaces(start.q, true);
+        if (pendingPlace.current) goTo(pendingPlace.current);
+        else if (start.q) void searchPlaces(start.q, true);
       })
       .catch(() => {
         // Without the map library, the list still loads for the starting area.
@@ -364,7 +389,14 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
 
   const goTo = (place: Place) => {
     const m = map.current;
-    if (!m) return;
+    if (!m) {
+      // Map still loading: go there when it is ready. Map failed: the list shows the area around the place.
+      pendingPlace.current = place;
+      const d = 0.15;
+      fallbackArea.current = { south: place.latitude - d, west: place.longitude - d, north: place.latitude + d, east: place.longitude + d };
+      void loadRef.current();
+      return;
+    }
     if (place.boundingBox && place.boundingBox.length === 4) {
       const [s, n, w, e] = place.boundingBox as [number, number, number, number];
       m.fitBounds(
@@ -382,9 +414,12 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   async function searchPlaces(text: string, flyToFirst = false) {
     const q = text.trim();
     if (q.length < 2) return;
+    // Only the newest search may move the map.
+    const ticket = ++placeSearch.current;
     try {
       const response = await fetch(`/places?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(locale)}`);
       const found = response.ok ? ((await response.json()) as Place[]) : [];
+      if (ticket !== placeSearch.current) return;
       setPlaces(found);
       if (flyToFirst && found[0]) goTo(found[0]);
     } catch {
@@ -400,8 +435,10 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   const showOnMap = (item: Item) => {
     const m = map.current;
     if (!m) return;
+    // The redraw after the flight reopens this pin's popup (at zoom 15 it is never inside a group).
+    selected.current = item.id;
+    markers.current.get(item.id)?.openPopup();
     m.flyTo([item.lat, item.lng], Math.max(m.getZoom(), 15));
-    setTimeout(() => markers.current.get(item.id)?.openPopup(), 600);
   };
 
   const nearMe = () => {
@@ -464,7 +501,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
         <button type="button" aria-pressed={newOnly} className={newOnly ? "pill active" : "pill"} onClick={() => setNewOnly(!newOnly)}>
           {labels.newOnly}
         </button>
-        <button type="button" className="secondary" onClick={() => setExpanded(!expanded)}>
+        <button type="button" className="secondary" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
           {expanded ? labels.collapse : labels.expand}
         </button>
       </div>

@@ -163,3 +163,9 @@ Change a decision by adding a dated entry here and updating the register; never 
     library), the list sits beside the map on wide screens, and the view and filters live in the address so a
     view can be shared. Tiles come from `BHOOMISETU_MAP_TILES_URL` (OpenStreetMap by default, which must be
     replaced by a licensed provider before launch).
+47. **A land listing's date is its newest active price**, falling back to when the land was added, so a fresh
+    offer on old land counts as "New" and land with no price does not. Place results count only land with an
+    active price. External place search waits at most 2 s for its turn and then returns only our own places;
+    the 1-request-a-second gate is per API instance, so more than one instance needs a shared limit or a paid
+    geocoder. Pins stay out of the tab order: the list beside the map is the keyboard and screen-reader path.
+    The scroll wheel zooms the map only after the map is tapped.

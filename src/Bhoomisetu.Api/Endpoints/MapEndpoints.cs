@@ -93,6 +93,7 @@ public static class MapEndpoints
             return ApiResults.Invalid("parcel.land_class_invalid", "Land class must be agricultural, non_agricultural, converted or unknown.");
         }
 
+        // A listing's date is its newest active price (a fresh offer on old land is new), else when the land was added.
         // Fixed SQL text; the optional filters only add fixed clauses, and every value is a parameter.
         var since = newDays is >= 1 and <= 90 ? clock.UtcNow.AddDays(-newDays.Value) : AllTime;
         var sql = FormattableStringFactory.Create(
@@ -102,14 +103,14 @@ public static class MapEndpoints
                    p.land_class AS "LandClass", p.recorded_area_sqm AS "RecordedAreaSqm",
                    (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
                    NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
-                   false AS "OwnerRecorded", 0 AS "ReviewedDocuments", p.created_at AS "CreatedAt"
+                   false AS "OwnerRecorded", 0 AS "ReviewedDocuments", COALESCE((SELECT max(o.created_at) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active'), p.created_at) AS "CreatedAt"
             FROM parcels p
             WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
               AND p.centroid && ST_MakeEnvelope({0}, {1}, {2}, {3}, 4326)::geography
-              AND p.created_at >= {5}
+              AND COALESCE((SELECT max(o.created_at) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active'), p.created_at) >= {5}
             """ + (landClass is null ? string.Empty : " AND p.land_class = {4}") + """
 
-            ORDER BY p.created_at DESC, p.id
+            ORDER BY "CreatedAt" DESC, p.id
             LIMIT {6}
             """, w, s, e, n, landClass ?? string.Empty, since, MaxPins + 1);
         var rows = await db.Database.SqlQuery<MapRow>(sql).ToListAsync(ct);
@@ -133,7 +134,7 @@ public static class MapEndpoints
                    NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
                    EXISTS (SELECT 1 FROM parcel_parties pp WHERE pp.parcel_id = p.id AND pp.role = 'owner_of_record') AS "OwnerRecorded",
                    (SELECT count(*) FROM parcel_documents d WHERE d.parcel_id = p.id AND d.status = 'approved')::int AS "ReviewedDocuments",
-                   p.created_at AS "CreatedAt"
+                   COALESCE((SELECT max(o.created_at) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active'), p.created_at) AS "CreatedAt"
             FROM parcels p WHERE p.id = {id}
             """).ToListAsync(ct);
         if (subject.Count == 0)
@@ -150,7 +151,7 @@ public static class MapEndpoints
                    ST_Distance(p.centroid, me.centroid) / 1000.0 AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
                    EXISTS (SELECT 1 FROM parcel_parties pp WHERE pp.parcel_id = p.id AND pp.role = 'owner_of_record') AS "OwnerRecorded",
                    (SELECT count(*) FROM parcel_documents d WHERE d.parcel_id = p.id AND d.status = 'approved')::int AS "ReviewedDocuments",
-                   p.created_at AS "CreatedAt"
+                   COALESCE((SELECT max(o.created_at) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active'), p.created_at) AS "CreatedAt"
             FROM parcels me
             JOIN parcels p ON p.id <> me.id AND p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
                           AND ST_DWithin(p.centroid, me.centroid, {NearbyRadiusKm * 1000})

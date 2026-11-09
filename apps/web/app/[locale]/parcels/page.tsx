@@ -69,9 +69,10 @@ export default async function ParcelsPage({ params, searchParams }: Props) {
           <p className="lead">
             {query ? format(p.resultsFor, { query }) : p.all} · {format(p.resultsCount, { count: formatNumber(result.data.total, intl, 0) })}
           </p>
-          {query && (
+          {query && result.data.items[0] && (
             <p>
-              <Link href={`/${locale}/map?q=${encodeURIComponent(query)}`} className="button-link">
+              {/* The map searches places, so it gets the village of the best match, not the whole search text. */}
+              <Link href={`/${locale}/map?q=${encodeURIComponent(result.data.items[0].village)}`} className="button-link">
                 {t.landMap.searchOnMap}
               </Link>
             </p>

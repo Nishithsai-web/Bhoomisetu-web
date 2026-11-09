@@ -858,7 +858,8 @@
     "expand": "बड़ा मानचित्र",
     "collapse": "छोटा मानचित्र",
     "clusterLabel": "यहाँ {count} लिस्टिंग। पास से देखने के लिए दबाएँ।",
-    "searchOnMap": "इन जगहों को मानचित्र पर देखें"
+    "searchOnMap": "इन जगहों को मानचित्र पर देखें",
+    "perMonthShort": "{rent}/माह"
   },
   "compareNearby": {
     "landTitle": "पास की ज़मीन से तुलना करें",

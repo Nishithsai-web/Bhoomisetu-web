@@ -858,7 +858,8 @@
     "expand": "పెద్ద మ్యాప్",
     "collapse": "చిన్న మ్యాప్",
     "clusterLabel": "ఇక్కడ {count} జాబితాలు. దగ్గరగా చూడటానికి నొక్కండి.",
-    "searchOnMap": "ఈ ప్రదేశాలను మ్యాప్‌లో చూడండి"
+    "searchOnMap": "ఈ ప్రదేశాలను మ్యాప్‌లో చూడండి",
+    "perMonthShort": "{rent}/నెల"
   },
   "compareNearby": {
     "landTitle": "దగ్గరలోని భూములతో పోల్చండి",

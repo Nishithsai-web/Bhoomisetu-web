@@ -29,7 +29,7 @@ export default async function MapPage({ params, searchParams }: { params: Promis
   };
   // A licensed tile provider is set by environment before launch; OpenStreetMap's own tiles are for light use.
   const tiles = {
-    url: process.env.BHOOMISETU_MAP_TILES_URL || "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    url: process.env.BHOOMISETU_MAP_TILES_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     attribution: process.env.BHOOMISETU_MAP_TILES_ATTRIBUTION || "&copy; OpenStreetMap contributors",
   };
   const t = getDictionary(locale);
@@ -94,6 +94,7 @@ export default async function MapPage({ params, searchParams }: { params: Promis
           expand: m.expand,
           collapse: m.collapse,
           clusterLabel: m.clusterLabel,
+          perMonthShort: m.perMonthShort,
         }}
       />
       <p className="hint">{m.note}</p>
