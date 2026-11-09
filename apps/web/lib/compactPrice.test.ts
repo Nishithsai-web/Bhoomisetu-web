@@ -10,6 +10,8 @@ test("compact prices read like spoken amounts", () => {
   assert.equal(compactRupees(99_950), "₹1L");
   assert.equal(compactRupees(9_999_999), "₹1Cr");
   assert.equal(compactRupees(999_999), "₹10L");
+  assert.equal(compactRupees(9_500_000), "₹95L");
+  assert.equal(compactRupees(95_000), "₹95k");
 });
 
 test("new means listed within the last days", () => {

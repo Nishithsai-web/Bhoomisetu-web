@@ -156,6 +156,8 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   /** The pin whose popup is open; reopened after every redraw so panning never closes it. */
   const selected = useRef<string | null>(null);
   const redrawing = useRef(false);
+  /** "Show on map" keeps its pin selected through the flight, even if a redraw on the way still groups it. */
+  const holdSelectionUntil = useRef(0);
   /** A place chosen before the map finished loading; the map goes there once it is ready. */
   const pendingPlace = useRef<Place | null>(null);
   const placeSearch = useRef(0);
@@ -276,7 +278,12 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
           .addTo(layer.current);
         markers.current.set(item.id, marker);
       }
-      if (selected.current) markers.current.get(selected.current)?.openPopup();
+      // A selected pin that is now grouped or out of view is let go, so zooming back never pans the map by itself.
+      if (selected.current) {
+        const again = markers.current.get(selected.current);
+        if (again) again.openPopup();
+        else if (Date.now() > holdSelectionUntil.current) selected.current = null;
+      }
     },
     [labels, popupFor],
   );
@@ -362,7 +369,9 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       .catch(() => {
         // Without the map library, the list still loads for the starting area.
         setStatus(labels.failed);
-        void loadRef.current();
+        // Without the map, a place in the address still chooses the area the list shows.
+        if (start.q) void searchPlaces(start.q, true);
+        else void loadRef.current();
       });
     return () => {
       cancelled = true;
@@ -423,7 +432,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       setPlaces(found);
       if (flyToFirst && found[0]) goTo(found[0]);
     } catch {
-      setPlaces([]);
+      if (ticket === placeSearch.current) setPlaces([]);
     }
   }
 
@@ -437,6 +446,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
     if (!m) return;
     // The redraw after the flight reopens this pin's popup (at zoom 15 it is never inside a group).
     selected.current = item.id;
+    holdSelectionUntil.current = Date.now() + 3000;
     markers.current.get(item.id)?.openPopup();
     m.flyTo([item.lat, item.lng], Math.max(m.getZoom(), 15));
   };

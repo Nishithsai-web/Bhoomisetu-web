@@ -164,7 +164,7 @@ Change a decision by adding a dated entry here and updating the register; never 
     view can be shared. Tiles come from `BHOOMISETU_MAP_TILES_URL` (OpenStreetMap by default, which must be
     replaced by a licensed provider before launch).
 47. **A land listing's date is its newest active price**, falling back to when the land was added, so a fresh
-    offer on old land counts as "New" and land with no price does not. Place results count only land with an
+    offer on old land counts as "New" (land with no price yet is new by the day it was added). Place results count only land with an
     active price. External place search waits at most 2 s for its turn and then returns only our own places;
     the 1-request-a-second gate is per API instance, so more than one instance needs a shared limit or a paid
     geocoder. Pins stay out of the tab order: the list beside the map is the keyboard and screen-reader path.
