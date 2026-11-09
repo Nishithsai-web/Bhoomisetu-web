@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { MapParcel } from "@/lib/api";
-import { formatRupeesShort, type AmountWords } from "@/lib/money";
+import type { MapParcel, Rental } from "@/lib/api";
+import { formatRupees, formatRupeesShort, type AmountWords } from "@/lib/money";
 
 // Leaflet is loaded from unpkg with a fixed version and integrity hash, so no map package is bundled.
 const LEAFLET_CSS = { href: "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css", integrity: "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" };
@@ -81,6 +81,17 @@ export type MapLabels = {
   open: string;
   listTitle: string;
   amounts: AmountWords;
+  modeLabel: string;
+  landMode: string;
+  rentMode: string;
+  bedroomsLabel: string;
+  anyBedrooms: string;
+  homeHeadline: string;
+  homeTypes: Record<string, string>;
+  perMonth: string;
+  perSqft: string;
+  homesTitle: string;
+  rentOut: string;
 };
 
 const fill = (text: string, values: Record<string, string | number>) => text.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ""));
@@ -89,7 +100,10 @@ const fill = (text: string, values: Record<string, string | number>) => text.rep
  * Interactive land map: pan and zoom, filter by land type, "near me". Every pin in view is also listed below
  * the map, so the page works with a screen reader, a slow phone, or when the map tiles do not load.
  */
-export function MapSearch({ locale, intl, labels }: { locale: string; intl: string; labels: MapLabels }) {
+export function MapSearch({ locale, intl, labels, initialMode }: { locale: string; intl: string; labels: MapLabels; initialMode: "land" | "rent" }) {
+  const [mode, setMode] = useState<"land" | "rent">(initialMode);
+  const [bedrooms, setBedrooms] = useState(0);
+  const [homes, setHomes] = useState<Rental[]>([]);
   const element = useRef<HTMLDivElement | null>(null);
   const map = useRef<LeafletMap | null>(null);
   const layer = useRef<LayerGroup | null>(null);
@@ -115,12 +129,38 @@ export function MapSearch({ locale, intl, labels }: { locale: string; intl: stri
       north: b.getNorth().toFixed(5),
       east: b.getEast().toFixed(5),
     });
-    if (landClass) params.set("landClass", landClass);
+    if (mode === "land" && landClass) params.set("landClass", landClass);
+    if (mode === "rent") {
+      params.set("mode", "rent");
+      if (bedrooms > 0) params.set("bedrooms", String(bedrooms));
+    }
     try {
       const response = await fetch(`/map-data?${params}`, { cache: "no-store" });
       if (!response.ok) throw new Error(String(response.status));
-      const data = (await response.json()) as { items: MapParcel[]; truncated: boolean };
       layer.current.clearLayers();
+      if (mode === "rent") {
+        const data = (await response.json()) as { items: Rental[]; truncated: boolean };
+        for (const h of data.items) {
+          const box = document.createElement("div");
+          const title = document.createElement("strong");
+          title.textContent = fill(labels.homeHeadline, { bedrooms: h.bedrooms, type: labels.homeTypes[h.propertyType] ?? h.propertyType });
+          const where = document.createElement("div");
+          where.textContent = h.locality;
+          const cost = document.createElement("div");
+          cost.textContent = `${fill(labels.perMonth, { rent: formatRupees(h.rentRupees, intl) })} · ${fill(labels.perSqft, { value: formatRupees(h.rentPerSqft, intl) })}`;
+          const link = document.createElement("a");
+          link.href = `/${locale}/rentals/${h.id}`;
+          link.textContent = labels.open;
+          box.append(title, where, cost, link);
+          L.circleMarker([h.latitude, h.longitude], { radius: 9, color: "#ffffff", weight: 2, fillColor: "#7b2d8b", fillOpacity: 0.95 }).bindPopup(box).addTo(layer.current);
+        }
+        setHomes(data.items);
+        setItems([]);
+        setTruncated(data.truncated);
+        setStatus(data.items.length === 0 ? labels.none : fill(labels.count, { count: data.items.length }));
+        return;
+      }
+      const data = (await response.json()) as { items: MapParcel[]; truncated: boolean };
       for (const p of data.items) {
         // Popup built from DOM nodes with textContent: names typed by listers are never parsed as HTML.
         const box = document.createElement("div");
@@ -139,12 +179,13 @@ export function MapSearch({ locale, intl, labels }: { locale: string; intl: stri
           .addTo(layer.current);
       }
       setItems(data.items);
+      setHomes([]);
       setTruncated(data.truncated);
       setStatus(data.items.length === 0 ? labels.none : fill(labels.count, { count: data.items.length }));
     } catch {
       setStatus(labels.failed);
     }
-  }, [landClass, labels, locale, price]);
+  }, [landClass, labels, locale, price, mode, bedrooms, intl]);
 
   // Map set-up once; Hyderabad region first, the reader can move anywhere in India.
   useEffect(() => {
@@ -195,22 +236,66 @@ export function MapSearch({ locale, intl, labels }: { locale: string; intl: stri
 
   return (
     <div className="map-search">
-      <div className="pills" role="group" aria-label={labels.filterLabel}>
-        <span>{labels.filterLabel}</span>
-        {["", "agricultural", "non_agricultural", "converted"].map((c) => (
-          <button key={c || "all"} type="button" aria-pressed={landClass === c} className={landClass === c ? "pill active" : "pill"} onClick={() => setLandClass(c)}>
-            {c === "" ? labels.all : (labels.types[c] ?? c)}
+      <div className="pills" role="group" aria-label={labels.modeLabel}>
+        {(["land", "rent"] as const).map((m) => (
+          <button key={m} type="button" aria-pressed={mode === m} className={mode === m ? "pill active" : "pill"} onClick={() => setMode(m)}>
+            {m === "land" ? labels.landMode : labels.rentMode}
           </button>
         ))}
         <button type="button" className="secondary" onClick={nearMe}>
           {labels.nearMe}
         </button>
       </div>
+      {mode === "land" ? (
+        <div className="pills" role="group" aria-label={labels.filterLabel}>
+          <span>{labels.filterLabel}</span>
+          {["", "agricultural", "non_agricultural", "converted"].map((c) => (
+            <button key={c || "all"} type="button" aria-pressed={landClass === c} className={landClass === c ? "pill active" : "pill"} onClick={() => setLandClass(c)}>
+              {c === "" ? labels.all : (labels.types[c] ?? c)}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="pills" role="group" aria-label={labels.bedroomsLabel}>
+          <span>{labels.bedroomsLabel}</span>
+          {[0, 1, 2, 3, 4].map((b) => (
+            <button key={b} type="button" aria-pressed={bedrooms === b} className={bedrooms === b ? "pill active" : "pill"} onClick={() => setBedrooms(b)}>
+              {b === 0 ? labels.anyBedrooms : `${b}+`}
+            </button>
+          ))}
+          <a href={`/${locale}/rent/new`} className="button-link">
+            {labels.rentOut}
+          </a>
+        </div>
+      )}
       <div ref={element} className="land-map" role="region" aria-label={labels.mapLabel} />
       <p role="status" className="hint">
         {status}
         {truncated && ` ${labels.truncated}`}
       </p>
+      {homes.length > 0 && (
+        <>
+          <h2>{labels.homesTitle}</h2>
+          <ul className="parcel-list">
+            {homes.map((h) => (
+              <li key={h.id} className="result">
+                <h3>
+                  <a href={`/${locale}/rentals/${h.id}`}>
+                    {fill(labels.homeHeadline, { bedrooms: h.bedrooms, type: labels.homeTypes[h.propertyType] ?? h.propertyType })}, {h.locality}
+                  </a>
+                </h3>
+                <p className="price">
+                  {fill(labels.perMonth, { rent: formatRupees(h.rentRupees, intl) })}{" "}
+                  <span className="muted">· {fill(labels.perSqft, { value: formatRupees(h.rentPerSqft, intl) })}</span>
+                </p>
+                <p className="muted">
+                  {h.mandal}, {h.district}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
       {items.length > 0 && (
         <>
           <h2>{labels.listTitle}</h2>

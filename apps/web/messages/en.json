@@ -14,7 +14,8 @@
     "signOut": "Sign out",
     "mine": "My listings",
     "review": "Review",
-    "map": "Map"
+    "map": "Map",
+    "rent": "Homes for rent"
   },
   "amounts": {
     "lakh": "lakh",
@@ -435,7 +436,20 @@
     "pin.source_invalid": "Use your current location or type the numbers.",
     "pin.not_allowed": "Only the person who listed this land, its owner or a reviewer can set its location.",
     "pin.set_by_reviewer": "A Bhoomisetu reviewer set this location. Ask Bhoomisetu to change it.",
-    "map.area_invalid": "The map area is not valid. Move the map and try again."
+    "map.area_invalid": "The map area is not valid. Move the map and try again.",
+    "rental.lister_kind_invalid": "Say whether you are the owner or an agent.",
+    "rental.type_invalid": "Choose the type of home.",
+    "rental.bedrooms_invalid": "Bedrooms must be a number from 0 to 10.",
+    "rental.area_invalid": "Area must be between 50 and 20,000 sq ft.",
+    "rental.rent_invalid": "Enter the monthly rent in rupees (at least ₹500).",
+    "rental.deposit_invalid": "Enter the deposit in rupees (0 if none).",
+    "rental.furnishing_invalid": "Choose unfurnished, semi-furnished or fully furnished.",
+    "rental.tenants_invalid": "Choose who the home is for.",
+    "rental.available_invalid": "Enter when the home is available (within a year).",
+    "rental.place_invalid": "Enter the locality, mandal and district.",
+    "rental.daily_limit": "You have listed many homes today. Please continue tomorrow.",
+    "rental.not_available": "This home is no longer available.",
+    "rental.action_invalid": "That change is not possible for this home now."
   },
   "mine": {
     "title": "My listings",
@@ -459,7 +473,8 @@
       "sold": "Marked as sold. It no longer shows to buyers.",
       "withdraw": "Your offer is removed.",
       "change-requested": "Your correction was sent. A reviewer will check it, usually within two working days.",
-      "whatsapp": "WhatsApp number saved."
+      "whatsapp": "WhatsApp number saved.",
+      "rental": "Home updated."
     },
     "requests": "My correction requests",
     "requestStatus": {
@@ -699,7 +714,8 @@
     "statSubscription": "Owner/agent subscription",
     "statNeedsConfirm": "Need availability confirmed",
     "active": "Active",
-    "inactive": "Not active"
+    "inactive": "Not active",
+    "rentals": "My homes for rent"
   },
   "nearby": {
     "title": "Nearby developments and road widening",
@@ -816,6 +832,140 @@
     "listTitle": "Land in view",
     "note": "Only land whose owner or agent added a map location is shown. Pins are approximate (about 10 m). Map © OpenStreetMap contributors.",
     "nearbyTitle": "Land nearby (within 10 km)",
-    "openMap": "See more on the map"
+    "openMap": "See more on the map",
+    "modeLabel": "What to show",
+    "landMode": "Land for sale",
+    "rentMode": "Homes for rent",
+    "bedroomsLabel": "Bedrooms",
+    "anyBedrooms": "Any",
+    "homesTitle": "Homes in view"
+  },
+  "compareNearby": {
+    "landTitle": "Compare with land nearby",
+    "rentTitle": "Homes for rent nearby",
+    "homesTitle": "Compare with homes nearby",
+    "switchLabel": "Show nearby",
+    "landTab": "Land for sale",
+    "rentTab": "Homes for rent",
+    "noLand": "No other land with a map location within 10 km yet.",
+    "noRent": "No homes for rent with a map location within 5 km yet.",
+    "land": "Land",
+    "area": "Area",
+    "price": "Price from",
+    "perSqYd": "Per sq yd (gajam)",
+    "perGunta": "Per gunta",
+    "road": "Road in front",
+    "prosCons": "Compared with this one",
+    "thisLand": "This land",
+    "baseline": "The one you are looking at",
+    "sqYd": "{value} sq yd",
+    "guntas": "{value} guntas",
+    "roadValue": "{feet} ft",
+    "unitSqYd": "sq yd",
+    "unitSqFt": "sq ft",
+    "words": {
+      "pro": "Better:",
+      "con": "Worse:",
+      "info": "Note:"
+    },
+    "landNote": "Prices include brokerage and leave out suspiciously low offers. Pros and cons come only from the facts listers gave and Bhoomisetu recorded; check everything yourself before paying.",
+    "rentNote": "Rents as listed by owners and agents, confirmed available in the last 30 days.",
+    "points": {
+      "cheaper": "{percent}% cheaper per {unit}",
+      "costlier": "{percent}% costlier per {unit}",
+      "similar_price": "About the same price per {unit}",
+      "no_price": "No price yet",
+      "bigger": "{percent}% bigger",
+      "smaller": "{percent}% smaller",
+      "different_type": "Different type: {kind}",
+      "road_wider": "Wider road in front: {theirs} m vs {ours} m",
+      "road_narrower": "Narrower road in front: {theirs} m vs {ours} m",
+      "road_unknown": "Road width not given",
+      "main_road_closer": "Closer to the main road: {theirs} m vs {ours} m",
+      "main_road_farther": "Farther from the main road: {theirs} m vs {ours} m",
+      "more_bedrooms": "{theirs} bedrooms (this one has {ours})",
+      "fewer_bedrooms": "{theirs} bedrooms (this one has {ours})",
+      "lower_deposit": "Lower deposit: {theirs} months vs {ours}",
+      "higher_deposit": "Higher deposit: {theirs} months vs {ours}",
+      "furnishing": "Furnishing: {furnishing}",
+      "owner_recorded": "Owner of record recorded",
+      "owner_not_recorded": "No owner of record yet",
+      "documents_reviewed": "{count} documents reviewed",
+      "no_documents": "No documents reviewed"
+    }
+  },
+  "rent": {
+    "headline": "{bedrooms} BHK {type}",
+    "perMonth": "{rent} a month",
+    "perSqft": "{value} per sq ft",
+    "sqft": "{value} sq ft",
+    "rentOut": "Rent out a home",
+    "findMore": "Find other homes for rent",
+    "gone": "This home is no longer available.",
+    "backToMap": "Back to the map",
+    "listed": "Your home is listed. Renters can find it on the map.",
+    "byOwner": "Listed by owner",
+    "byAgent": "Listed by agent",
+    "factsTitle": "About this home",
+    "deposit": "Deposit",
+    "depositMonths": "{months} months' rent",
+    "area": "Area (sq ft)",
+    "furnishing": "Furnishing",
+    "tenants": "For",
+    "parking": "Parking",
+    "availableFrom": "Available from",
+    "place": "Locality",
+    "confirmed": "Availability confirmed",
+    "yes": "Yes",
+    "no": "No",
+    "home": "Home",
+    "rent": "Rent a month",
+    "rentPerSqft": "Per sq ft",
+    "thisHome": "This home",
+    "contactTitle": "Talk to the lister",
+    "yourHome": "This is your home.",
+    "safety": "Visit the home and see the rental agreement before paying any advance.",
+    "firstMessage": "Hello, I saw your home for rent on Bhoomisetu. Is it still available?",
+    "newTitle": "Rent out a home",
+    "newIntro": "Renters see the rent, deposit and size, and compare with homes nearby.",
+    "youAre": "You are",
+    "owner": "The owner",
+    "agent": "An agent",
+    "typeLabel": "Type of home",
+    "bedrooms": "Bedrooms",
+    "bedroomsHint": "0 for a single room or 1 RK.",
+    "locality": "Locality or colony",
+    "whereTitle": "Where is the home?",
+    "whereHelp": "Stand at the home and tap \"Use my current location\", or paste the numbers from Google Maps. Shown to about 10 m.",
+    "atHome": "I am at this home now",
+    "submit": "List the home",
+    "types": {
+      "apartment": "apartment",
+      "independent_house": "independent house",
+      "villa": "villa",
+      "portion": "portion",
+      "room": "room"
+    },
+    "furnishings": {
+      "unfurnished": "Unfurnished",
+      "semi": "Semi-furnished",
+      "full": "Fully furnished"
+    },
+    "tenantKinds": {
+      "any": "Anyone",
+      "family": "Families",
+      "bachelors": "Bachelors"
+    },
+    "statuses": {
+      "active": "Shown",
+      "rented": "Rented",
+      "withdrawn": "Removed"
+    },
+    "actions": {
+      "still_available": "Still available",
+      "rented": "Rented out",
+      "withdraw": "Remove",
+      "relist": "Show again"
+    }
   }
 }

@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { myOfferAction, setWhatsappAction, signOutAction } from "../actions";
+import { myOfferAction, rentalStatusAction, setWhatsappAction, signOutAction } from "../actions";
 import { ConfirmBox } from "@/components/ConfirmBox";
-import { getMyChangeRequests, getMyOffers, getMyParcelsWithoutPrice, getSubscription, type MyOfferAction } from "@/lib/api";
+import { getMyChangeRequests, getMyOffers, getMyParcelsWithoutPrice, getMyRentals, getSubscription, type MyOfferAction } from "@/lib/api";
 import { formatIndianMobile, whatsappLink } from "@/lib/contact";
 import { errorText } from "@/lib/errors";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
@@ -22,7 +22,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
   const intl = INTL_LOCALE[locale];
   const dateFormat = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
   const query = await searchParams;
-  const [offers, requests, unpriced, subscription] = await Promise.all([getMyOffers(token), getMyChangeRequests(token), getMyParcelsWithoutPrice(token), getSubscription(token)]);
+  const [offers, requests, unpriced, subscription, rentals] = await Promise.all([getMyOffers(token), getMyChangeRequests(token), getMyParcelsWithoutPrice(token), getSubscription(token), getMyRentals(token)]);
   if (!offers.ok && offers.status === 401) {
     await clearSession();
     redirect(`/${locale}/signin?next=/${locale}/mine`);
@@ -58,6 +58,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
         <a href="#prices">{dash.prices}</a>
         {unpricedCount > 0 && <a href="#unpriced">{dash.unpriced}</a>}
         {requests.ok && requests.data.length > 0 && <a href="#corrections">{dash.corrections}</a>}
+        <a href="#rentals">{dash.rentals}</a>
         {subscription.ok && <a href="#subscription">{dash.subscription}</a>}
         {subscription.ok && <a href="#whatsapp">{dash.whatsapp}</a>}
       </nav>
@@ -189,6 +190,40 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
           </ul>
         </>
       )}
+      <h2 id="rentals">{dash.rentals}</h2>
+      <p>
+        <Link href={`/${locale}/rent/new`} className="button-link primary">
+          {t.rent.rentOut}
+        </Link>
+      </p>
+      {rentals.ok && rentals.data.length > 0 && (
+        <ul className="parcel-list">
+          {rentals.data.map((h) => (
+            <li key={h.id} className="card">
+              <p>
+                <Link href={`/${locale}/rentals/${h.id}`}>
+                  {format(t.rent.headline, { bedrooms: h.bedrooms, type: (t.rent.types as Record<string, string>)[h.propertyType] ?? h.propertyType })}, {h.locality}
+                </Link>{" "}
+                <span className="badge">{(t.rent.statuses as Record<string, string>)[h.status]}</span>
+              </p>
+              <p className="muted">{format(t.rent.perMonth, { rent: formatRupees(h.rentRupees, intl) })}</p>
+              <div className="form-inline">
+                {(h.status === "active" ? (["still_available", "rented", "withdraw"] as const) : (["relist"] as const)).map((action) => (
+                  <form key={action} action={rentalStatusAction}>
+                    <input type="hidden" name="locale" value={locale} />
+                    <input type="hidden" name="rentalId" value={h.id} />
+                    <input type="hidden" name="action" value={action} />
+                    <button type="submit" className={action === "still_available" || action === "relist" ? undefined : "secondary"}>
+                      {(t.rent.actions as Record<string, string>)[action]}
+                    </button>
+                  </form>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {subscription.ok && (
         <>
           <h2 id="subscription">{t.subscription.title}</h2>

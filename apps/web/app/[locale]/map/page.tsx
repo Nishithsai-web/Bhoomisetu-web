@@ -3,8 +3,9 @@ import { MapSearch } from "@/components/MapSearch";
 import { INTL_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
 
 /** Find land on a map: every pinned listing in view, with its lowest price, filters and "near me". */
-export default async function MapPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function MapPage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ mode?: string }> }) {
   const { locale } = await params;
+  const initialMode = (await searchParams).mode === "rent" ? "rent" : "land";
   if (!isLocale(locale)) notFound();
   const t = getDictionary(locale);
   const m = t.landMap;
@@ -16,6 +17,7 @@ export default async function MapPage({ params }: { params: Promise<{ locale: st
       <MapSearch
         locale={locale}
         intl={INTL_LOCALE[locale]}
+        initialMode={initialMode}
         labels={{
           mapLabel: m.mapLabel,
           nearMe: m.nearMe,
@@ -38,6 +40,17 @@ export default async function MapPage({ params }: { params: Promise<{ locale: st
           open: t.parcels.viewLand,
           listTitle: m.listTitle,
           amounts: t.amounts,
+          modeLabel: m.modeLabel,
+          landMode: m.landMode,
+          rentMode: m.rentMode,
+          bedroomsLabel: m.bedroomsLabel,
+          anyBedrooms: m.anyBedrooms,
+          homeHeadline: t.rent.headline,
+          homeTypes: t.rent.types as Record<string, string>,
+          perMonth: t.rent.perMonth,
+          perSqft: t.rent.perSqft,
+          homesTitle: m.homesTitle,
+          rentOut: t.rent.rentOut,
         }}
       />
       <p className="hint">{m.note}</p>

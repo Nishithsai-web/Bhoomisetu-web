@@ -141,3 +141,13 @@ Change a decision by adding a dated entry here and updating the register; never 
 41. **Map pin rules after QA**: only the person who listed the land, its owner of record, or a reviewer may set
     it; a reviewer's pin cannot be overwritten by a lister. Stored to about 10 m. "From the phone" needs an
     explicit "I am standing on this land now" tick and is labelled "not checked by Bhoomisetu".
+42. **Interactive map: Leaflet 1.9.4 from unpkg (version-locked, integrity-checked) on OpenStreetMap tiles.**
+    No map package in the bundle; every pin in view is also listed below the map. The public OSM tile server
+    is fine for testing; before launch, switch to a tile provider with a production licence (MapTiler, Stadia,
+    or self-hosted) by changing one URL.
+43. **Pros and cons are rules, not AI.** NearbyComparison compares price per unit, area, road width, distance to
+    the main road, recorded owner and reviewed documents (land), and rent per sq ft, bedrooms, deposit and
+    furnishing (homes), with fixed thresholds (5% price, 10% area, 1 m road, 100 m distance). Same data, same
+    words, every time.
+44. **Homes for rent are a separate listing type** (rental_listings) that always has a map point, is hidden
+    after 30 days without "still available", and uses the same WhatsApp contact rules as land.

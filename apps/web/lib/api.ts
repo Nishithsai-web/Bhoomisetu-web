@@ -575,6 +575,115 @@ export function getMapParcels(area: MapArea, landClass?: LandClass): Promise<Api
   return get<{ items: MapParcel[]; truncated: boolean }>(`/api/v1/parcels/map?${params}`);
 }
 
-export function getNearbyLand(parcelId: string): Promise<ApiResult<MapParcel[]>> {
-  return get<MapParcel[]>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/nearby`);
+export type ComparisonPoint = { code: string; kind: "pro" | "con" | "info"; values: Record<string, string> };
+
+export type ComparedLand = {
+  id: string;
+  village: string;
+  mandal: string;
+  district: string;
+  surveyNumber: string;
+  landClass: string;
+  areaSquareYards: number;
+  areaGuntas: number;
+  activeOffers: number;
+  lowestPriceRupees: number | null;
+  pricePerSquareYard: number | null;
+  pricePerGunta: number | null;
+  roadWidthM: number | null;
+  distanceToMainRoadM: number | null;
+  ownerRecorded: boolean;
+  reviewedDocuments: number;
+  distanceKm: number | null;
+  points: ComparisonPoint[];
+};
+
+/** This land and the land for sale within 10 km, with prices per square yard and per gunta, and pros and cons. */
+export function getLandComparison(parcelId: string): Promise<ApiResult<{ subject: ComparedLand; items: ComparedLand[] }>> {
+  return get<{ subject: ComparedLand; items: ComparedLand[] }>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/nearby`);
+}
+
+// ---------------------------------------------------------------- homes for rent
+
+export const PROPERTY_TYPES = ["apartment", "independent_house", "villa", "portion", "room"] as const;
+export const FURNISHINGS = ["unfurnished", "semi", "full"] as const;
+export const TENANTS = ["any", "family", "bachelors"] as const;
+
+export type Rental = {
+  id: string;
+  listerKind: "owner" | "agent";
+  propertyType: string;
+  bedrooms: number;
+  areaSqft: number;
+  rentRupees: number;
+  depositRupees: number;
+  rentPerSqft: number;
+  depositMonths: number;
+  furnishing: string;
+  preferredTenants: string;
+  parking: boolean;
+  availableFrom: string;
+  locality: string;
+  mandal: string;
+  district: string;
+  latitude: number;
+  longitude: number;
+  status: "active" | "rented" | "withdrawn";
+  availabilityConfirmedAt: string;
+  contactable: boolean;
+  mine: boolean;
+  distanceKm: number | null;
+  points: ComparisonPoint[];
+};
+
+export type CreateRental = {
+  listerKind: string;
+  propertyType: string;
+  bedrooms: number;
+  areaSqft: number;
+  rentRupees: number;
+  depositRupees: number;
+  furnishing: string;
+  preferredTenants: string;
+  parking: boolean;
+  availableFrom: string;
+  locality: string;
+  mandal: string;
+  district: string;
+  latitude: number;
+  longitude: number;
+};
+
+export function createRental(body: CreateRental, token: string): Promise<ApiResult<{ id: string }>> {
+  return request<{ id: string }>("POST", "/api/v1/rentals", body, token);
+}
+
+export function getRental(id: string, token?: string): Promise<ApiResult<Rental>> {
+  return get<Rental>(`/api/v1/rentals/${encodeURIComponent(id)}`, token);
+}
+
+export function getRentalComparison(id: string): Promise<ApiResult<{ subject: Rental; items: Rental[] }>> {
+  return get<{ subject: Rental; items: Rental[] }>(`/api/v1/rentals/${encodeURIComponent(id)}/nearby`);
+}
+
+export function getRentalsNearLand(parcelId: string): Promise<ApiResult<Rental[]>> {
+  return get<Rental[]>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/nearby-rentals`);
+}
+
+export function getRentalMap(area: MapArea, bedrooms?: number): Promise<ApiResult<{ items: Rental[]; truncated: boolean }>> {
+  const params = new URLSearchParams({ south: String(area.south), west: String(area.west), north: String(area.north), east: String(area.east) });
+  if (bedrooms) params.set("bedrooms", String(bedrooms));
+  return get<{ items: Rental[]; truncated: boolean }>(`/api/v1/rentals/map?${params}`);
+}
+
+export function setRentalStatus(id: string, action: "still_available" | "rented" | "withdraw" | "relist", token: string): Promise<ApiResult<void>> {
+  return request<void>("POST", `/api/v1/rentals/${encodeURIComponent(id)}/status`, { action }, token);
+}
+
+export function getMyRentals(token: string): Promise<ApiResult<Rental[]>> {
+  return get<Rental[]>("/api/v1/me/rentals", token);
+}
+
+export function getRentalContact(id: string, token: string): Promise<ApiResult<{ whatsappE164: string }>> {
+  return get<{ whatsappE164: string }>(`/api/v1/rentals/${encodeURIComponent(id)}/contact`, token);
 }

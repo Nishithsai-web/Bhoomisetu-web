@@ -93,7 +93,8 @@ public static class MapEndpoints
                        p.village AS "Village", p.mandal AS "Mandal", p.district AS "District", p.survey_number AS "SurveyNumber",
                        p.land_class AS "LandClass", p.recorded_area_sqm AS "RecordedAreaSqm",
                        (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
-                       NULL::double precision AS "DistanceKm"
+                       NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
+                       false AS "OwnerRecorded", 0 AS "ReviewedDocuments"
                 FROM parcels p
                 WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
                   AND p.centroid && ST_MakeEnvelope({w}, {s}, {e}, {n}, 4326)::geography
@@ -106,7 +107,8 @@ public static class MapEndpoints
                        p.village AS "Village", p.mandal AS "Mandal", p.district AS "District", p.survey_number AS "SurveyNumber",
                        p.land_class AS "LandClass", p.recorded_area_sqm AS "RecordedAreaSqm",
                        (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
-                       NULL::double precision AS "DistanceKm"
+                       NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
+                       false AS "OwnerRecorded", 0 AS "ReviewedDocuments"
                 FROM parcels p
                 WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate AND p.land_class = {landClass}
                   AND p.centroid && ST_MakeEnvelope({w}, {s}, {e}, {n}, 4326)::geography

@@ -91,6 +91,12 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `GET /api/v1/me/subscription`, `PUT /api/v1/me/whatsapp` | My subscription status; set my WhatsApp number | Yes |
 | `GET /api/v1/admin/documents`, `POST /api/v1/admin/documents/{id}/decision` | Document check queue; approve or reject with a reason | Trust reviewer |
 | `POST /api/v1/admin/subscriptions` | Record a subscription payment (UPI or receipt reference) | Trust reviewer |
+| `GET /api/v1/parcels/map?south&west&north&east&landClass` | Pinned land in the visible map area with lowest price (max 500) | No |
+| `GET /api/v1/parcels/{id}/nearby` | This land and land for sale within 10 km: price per sq yd and per gunta, road, checks, factual pros and cons | No |
+| `GET /api/v1/parcels/{id}/nearby-rentals` | Homes for rent within 5 km of the land | No |
+| `POST /api/v1/rentals`, `GET /api/v1/rentals/{id}` | List a home for rent (with map point); read one | Yes / No |
+| `GET /api/v1/rentals/map`, `GET /api/v1/rentals/{id}/nearby` | Homes for rent in the map area; compare with homes within 5 km (rent per sq ft, pros and cons) | No |
+| `POST /api/v1/rentals/{id}/status`, `GET /api/v1/me/rentals`, `GET /api/v1/rentals/{id}/contact` | Still available / rented / remove / relist; my homes; WhatsApp of a subscribed lister | Yes |
 | `PUT /api/v1/parcels/{id}/pin` | Set the map pin (phone GPS or typed coordinates, inside India); shown on the land page with directions | Owner, agent with a price, or reviewer |
 | `GET /api/v1/parcels/{id}/developments` | Nearby developments and road widening, with distance, status, official source and date | No |
 | `POST /api/v1/parcels/{id}/reports` | Report a listing (wrong details, sold, fraud, duplicate, dispute, other) | Yes |

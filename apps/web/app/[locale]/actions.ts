@@ -8,6 +8,9 @@ import {
   linkDevelopment,
   reportListing,
   setParcelPin,
+  createRental,
+  getRentalContact,
+  setRentalStatus,
   createOffer,
   createParcel,
   decideChangeRequest,
@@ -467,4 +470,91 @@ export async function setPinAction(form: FormData): Promise<void> {
   const token = await requireToken(locale, back);
   const result = await setParcelPin(parcelId, { latitude, longitude, source }, token);
   redirect(result.ok ? `${back}?done=pin#map` : `${back}?error=${encodeURIComponent(result.code)}#map`);
+}
+
+// ---------------------------------------------------------------- homes for rent
+
+/** Lists a home for rent. The browser sends the map point (phone location on the spot, or typed numbers). */
+export async function createRentalAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const locale = localeOf(form);
+  const here = `/${locale}/rent/new`;
+  const number = (name: string) => {
+    const raw = value(form, name).replace(/[,\s₹]/g, "");
+    return raw === "" ? Number.NaN : Number(raw);
+  };
+  const body = {
+    listerKind: value(form, "listerKind"),
+    propertyType: value(form, "propertyType"),
+    bedrooms: number("bedrooms"),
+    areaSqft: number("areaSqft"),
+    rentRupees: number("rentRupees"),
+    depositRupees: number("depositRupees"),
+    furnishing: value(form, "furnishing"),
+    preferredTenants: value(form, "preferredTenants"),
+    parking: form.get("parking") === "on",
+    availableFrom: value(form, "availableFrom"),
+    locality: value(form, "locality"),
+    mandal: value(form, "mandal"),
+    district: value(form, "district"),
+    latitude: number("latitude"),
+    longitude: number("longitude"),
+  };
+  const errors: FieldError[] = [];
+  const need = (field: string, ok: boolean, code: string) => {
+    if (!ok) errors.push({ field, code });
+  };
+  need("listerKind", body.listerKind === "owner" || body.listerKind === "agent", "rental.lister_kind_invalid");
+  need("propertyType", body.propertyType !== "", "rental.type_invalid");
+  need("bedrooms", Number.isInteger(body.bedrooms) && body.bedrooms >= 0 && body.bedrooms <= 10, "rental.bedrooms_invalid");
+  need("areaSqft", Number.isInteger(body.areaSqft) && body.areaSqft >= 50 && body.areaSqft <= 20000, "rental.area_invalid");
+  need("rentRupees", Number.isInteger(body.rentRupees) && body.rentRupees >= 500, "rental.rent_invalid");
+  need("depositRupees", Number.isInteger(body.depositRupees) && body.depositRupees >= 0, "rental.deposit_invalid");
+  need("furnishing", body.furnishing !== "", "rental.furnishing_invalid");
+  need("preferredTenants", body.preferredTenants !== "", "rental.tenants_invalid");
+  need("availableFrom", /^\d{4}-\d{2}-\d{2}$/.test(body.availableFrom), "rental.available_invalid");
+  need("locality", body.locality.length >= 2, "rental.place_invalid");
+  need("mandal", body.mandal.length >= 2, "rental.place_invalid");
+  need("district", body.district.length >= 2, "rental.place_invalid");
+  need("latitude", Number.isFinite(body.latitude) && Number.isFinite(body.longitude), "pin.outside_india");
+  if (errors.length > 0) return { errors, values: echo(form) };
+
+  const token = await requireToken(locale, here);
+  const result = await createRental(body, token);
+  if (!result.ok) {
+    if (result.status === 401) {
+      await clearSession();
+      redirect(`/${locale}/signin?next=${encodeURIComponent(here)}`);
+    }
+    return { error: result.code, values: echo(form) };
+  }
+  redirect(`/${locale}/rentals/${result.data.id}?done=listed`);
+}
+
+export async function rentalStatusAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const id = value(form, "rentalId");
+  const action = value(form, "action");
+  if (!isUuid(id) || !["still_available", "rented", "withdraw", "relist"].includes(action)) redirect(`/${locale}/mine`);
+  const token = await requireToken(locale, `/${locale}/mine`);
+  const result = await setRentalStatus(id, action as "still_available" | "rented" | "withdraw" | "relist", token);
+  redirect(result.ok ? `/${locale}/mine?done=rental#rentals` : `/${locale}/mine?error=${encodeURIComponent(result.code)}#rentals`);
+}
+
+export async function contactRentalAction(form: FormData): Promise<void> {
+  const locale = localeOf(form) as Locale;
+  const id = value(form, "rentalId");
+  if (!isUuid(id)) redirect(`/${locale}/map?mode=rent`);
+  const back = `/${locale}/rentals/${id}`;
+  const token = await requireToken(locale, back);
+  const result = await getRentalContact(id, token);
+  if (!result.ok) {
+    if (result.status === 401) {
+      await clearSession();
+      redirect(`/${locale}/signin?next=${encodeURIComponent(back)}`);
+    }
+    redirect(`${back}?error=${encodeURIComponent(result.code)}`);
+  }
+  const t = getDictionary(locale);
+  const link = whatsappLink(result.data.whatsappE164, t.rent.firstMessage);
+  redirect(link ?? `${back}?error=api.error`);
 }
