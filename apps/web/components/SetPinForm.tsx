@@ -3,7 +3,18 @@
 import { useState } from "react";
 import { setPinAction } from "@/app/[locale]/actions";
 
-type Labels = { title: string; help: string; useLocation: string; locating: string; latitude: string; longitude: string; save: string; denied: string; unavailable: string };
+type Labels = {
+  title: string;
+  help: string;
+  useLocation: string;
+  locating: string;
+  latitude: string;
+  longitude: string;
+  save: string;
+  denied: string;
+  unavailable: string;
+  onLand: string;
+};
 
 /**
  * Pin the land on the map. The easy way for villagers: stand on the land and tap "Use my current location".
@@ -14,6 +25,7 @@ export function SetPinForm({ locale, parcelId, labels }: { locale: string; parce
   const [longitude, setLongitude] = useState("");
   const [source, setSource] = useState<"gps" | "map">("map");
   const [status, setStatus] = useState<string>("");
+  const [onLand, setOnLand] = useState(false);
 
   const locate = () => {
     if (!("geolocation" in navigator)) {
@@ -39,8 +51,12 @@ export function SetPinForm({ locale, parcelId, labels }: { locale: string; parce
       <p className="hint">{labels.help}</p>
       <input type="hidden" name="locale" value={locale} />
       <input type="hidden" name="parcelId" value={parcelId} />
-      <input type="hidden" name="source" value={source} />
-      <button type="button" className="secondary" onClick={locate}>
+      {/* A phone location only counts as "from the land" when the person confirms they are standing on it now. */}
+      <input type="hidden" name="source" value={source === "gps" && onLand ? "gps" : "map"} />
+      <label className="choice">
+        <input type="checkbox" checked={onLand} onChange={(e) => setOnLand(e.target.checked)} /> {labels.onLand}
+      </label>
+      <button type="button" className="secondary" onClick={locate} disabled={!onLand}>
         {labels.useLocation}
       </button>
       <p role="status" className="hint">

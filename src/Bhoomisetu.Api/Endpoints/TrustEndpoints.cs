@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 namespace Bhoomisetu.Api.Endpoints;
 
 /// <summary>What the signed-in person may do on one parcel's comparison page.</summary>
-public sealed record ParcelViewerResponse(bool IsOwnerOfRecord, Guid? MyOfferId, IReadOnlyList<Guid> ConfirmedOfferIds);
+/// <summary>The signed-in person's relation to one parcel. ListedByMe and IsReviewer decide who may set the map pin.</summary>
+public sealed record ParcelViewerResponse(bool IsOwnerOfRecord, Guid? MyOfferId, IReadOnlyList<Guid> ConfirmedOfferIds, bool ListedByMe = false, bool IsReviewer = false);
 
 public sealed record AdminUserResponse(Guid Id, string PhoneMasked, string? DisplayName, IReadOnlyList<string> Checks, DateTimeOffset CreatedAt);
 
@@ -37,11 +38,13 @@ public static class TrustEndpoints
     private static async Task<IResult> ViewerAsync(Guid parcelId, HttpContext http, BhoomisetuDbContext db, CancellationToken ct)
     {
         var userId = http.User.UserId();
-        if (!await db.Parcels.AnyAsync(p => p.Id == parcelId, ct))
+        var createdBy = await db.Parcels.Where(p => p.Id == parcelId).Select(p => (Guid?)p.CreatedBy).FirstOrDefaultAsync(ct);
+        if (createdBy is null)
         {
             return ApiResults.NotFound("Parcel");
         }
 
+        var isReviewer = await db.Users.AnyAsync(u => u.Id == userId && u.IsTrustReviewer, ct);
         var isOwner = await db.ParcelParties.AnyAsync(p => p.ParcelId == parcelId && p.UserId == userId && p.Role == Vocabulary.OwnerOfRecord, ct);
         var myOffer = await db.Offers.AsNoTracking()
             .Where(o => o.ParcelId == parcelId && o.ListerUserId == userId && o.Status == "active")
@@ -61,7 +64,7 @@ public static class TrustEndpoints
                 .ToListAsync(ct);
         }
 
-        return Results.Ok(new ParcelViewerResponse(isOwner, myOffer, confirmed));
+        return Results.Ok(new ParcelViewerResponse(isOwner, myOffer, confirmed, createdBy == userId, isReviewer));
     }
 
     /// <summary>The owner removes confirmation from whoever made an offer, without needing their account id.</summary>

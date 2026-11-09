@@ -5,12 +5,13 @@ namespace Bhoomisetu.Modules.Land;
 
 /// <summary>
 /// A sound-alike key for place names, so a village typed in Telugu, Hindi or English letters finds the same
-/// land: "మోకిల", "मोकिला" and "Mokila" all become "mokil".
+/// land: "మోకిల", "मोकिला" and "Mokila" all become "mukil".
 /// <para>
 /// Telugu and Devanagari are first written in plain Latin letters (both scripts share one layout, so one table
 /// serves both). Then the usual spelling differences are folded away: sh/s, ch/c, w/v, ee/i, oo/u, ow/au,
-/// final y/e/i, n/m before a consonant, doubled letters, and the vowel "a", which English spellings and Hindi
-/// pronunciation drop in different places.
+/// final y/e/i, a final -u or -am, o/u, n/m before a consonant, doubled letters, and the vowels "a" and "e",
+/// which English spellings and Hindi pronunciation drop in different places. Known miss: names whose first
+/// vowel differs between scripts (Kurnool / కర్నూలు).
 /// </para>
 /// <para>
 /// The key is only for matching. It is never shown, and it can join two different names that sound alike, so
@@ -74,6 +75,18 @@ public static partial class PlaceKey
             s = s[..^1] + "i";
         }
 
+        // Telugu names end in a vowel or anusvara that English drops or writes as m:
+        // గుంటూరు/Guntur, ఒంగోలు/Ongole, ఖమ్మం/Khammam, మహేశ్వరం/Maheshwaram.
+        if (s.Length > 3 && s[^1] == 'n' && IsVowel(s[^2]))
+        {
+            s = s[..^1] + "m";
+        }
+
+        if (s.Length > 3 && s[^1] is 'i' or 'u' && !IsVowel(s[^2]))
+        {
+            s = s[..^1];
+        }
+
         // "Moyinabad" (Telugu య) and "Moinabad": a y gliding into i is not written in English.
         s = GlideY().Replace(s, string.Empty);
 
@@ -82,6 +95,9 @@ public static partial class PlaceKey
 
         // "Gachibowli" and "गचीबोवली" (bovli): ov before a consonant is the same sound as ou.
         s = OvBeforeConsonant().Replace(s, "ou");
+
+        // Long o and u are spelled interchangeably in English ("Nellore"/నెల్లూరు, "Kurnool").
+        s = s.Replace("ou", "u", StringComparison.Ordinal).Replace('o', 'u');
 
         var folded = new StringBuilder(s.Length);
         for (var i = 0; i < s.Length; i++)
@@ -105,6 +121,8 @@ public static partial class PlaceKey
 
         return folded.ToString();
     }
+
+    private static bool IsVowel(char c) => c is 'a' or 'e' or 'i' or 'o' or 'u';
 
     [GeneratedRegex("(?<=[aeiou])y(?=i)")]
     private static partial Regex GlideY();

@@ -737,13 +737,22 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Equal("report.reviewer_involved", await CodeOf(await listerReviewer.PostAsJsonAsync($"/api/v1/admin/reports/{ownReport.GetProperty("id").GetGuid()}/decision", new { decision = "dismiss", note = "Not fraud" }, Ct)));
 
         // Map pin: only people involved (or reviewers) set it, inside India; everyone reads it.
-        Assert.Equal("pin.not_involved", await CodeOf(await buyer.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 17.4, longitude = 78.2, source = "gps" }, Ct)));
+        Assert.Equal("pin.not_allowed", await CodeOf(await buyer.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 17.4, longitude = 78.2, source = "gps" }, Ct)));
+        // An agent with a price cannot move the pin either (anyone can add a price).
+        await buyer.PostAsJsonAsync($"/api/v1/parcels/{parcelId}/offers", new { listerKind = "agent", askingPriceRupees = 100m, buyerBrokeragePercent = 1m }, Ct);
+        Assert.Equal("pin.not_allowed", await CodeOf(await buyer.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 17.4, longitude = 78.2, source = "map" }, Ct)));
         Assert.Equal("pin.outside_india", await CodeOf(await lister.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 51.5, longitude = -0.1, source = "gps" }, Ct)));
         Assert.Equal(HttpStatusCode.OK, (await lister.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 17.3912345678, longitude = 78.1934567891, source = "gps" }, Ct)).StatusCode);
         var pin = (await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}", Ct)).GetProperty("pin");
-        Assert.Equal(17.391235, pin.GetProperty("latitude").GetDouble(), 6);
-        Assert.Equal(78.193457, pin.GetProperty("longitude").GetDouble(), 6);
+        Assert.Equal(17.3912, pin.GetProperty("latitude").GetDouble(), 4);
+        Assert.Equal(78.1935, pin.GetProperty("longitude").GetDouble(), 4);
         Assert.Equal("lister_gps", pin.GetProperty("source").GetString());
+
+        // Once a reviewer sets it, the lister cannot overwrite it.
+        Assert.Equal(HttpStatusCode.OK, (await reviewer.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 17.40, longitude = 78.20, source = "map" }, Ct)).StatusCode);
+        Assert.Equal("pin.set_by_reviewer", await CodeOf(await lister.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 17.41, longitude = 78.21, source = "map" }, Ct)));
+        var viewer = await lister.GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/viewer", Ct);
+        Assert.True(viewer.GetProperty("listedByMe").GetBoolean());
 
         // Search finds the land when its village is typed in Telugu or Hindi letters.
         Assert.NotEmpty((await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels?q={Uri.EscapeDataString("కంది")}", Ct)).GetProperty("items").EnumerateArray());

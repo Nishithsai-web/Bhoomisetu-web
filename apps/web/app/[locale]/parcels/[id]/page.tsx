@@ -35,6 +35,8 @@ export default async function LandPage({ params, searchParams }: Props) {
   const viewer = token ? await getViewer(id, token) : null;
   // Corrections are open to people with a stake in the land (owner of record or a lister with a price).
   const involved = Boolean(viewer?.ok && (viewer.data.isOwnerOfRecord || viewer.data.myOfferId));
+  // The pin: whoever listed the land, its owner of record, or a reviewer (agents with a price cannot move it).
+  const mayPin = Boolean(viewer?.ok && (viewer.data.listedByMe || viewer.data.isOwnerOfRecord || viewer.data.isReviewer));
   if (!comparison.ok && comparison.code === "parcel.duplicate" && comparison.existingParcelId && isUuid(comparison.existingParcelId)) {
     redirect(`/${locale}/parcels/${comparison.existingParcelId}`);
   }
@@ -118,7 +120,7 @@ export default async function LandPage({ params, searchParams }: Props) {
             ) : (
               <p className="muted">{t.map.none}</p>
             )}
-            {involved && (
+            {mayPin && (
               <SetPinForm
                 locale={locale}
                 parcelId={id}

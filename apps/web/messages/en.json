@@ -428,7 +428,8 @@
     "report.reviewer_involved": "You sent this report, so another reviewer must handle it.",
     "pin.outside_india": "Enter a point inside India (latitude and longitude as numbers).",
     "pin.source_invalid": "Use your current location or type the numbers.",
-    "pin.not_involved": "Only the owner, an agent with a price on this land or a reviewer can set its location."
+    "pin.not_allowed": "Only the person who listed this land, its owner or a reviewer can set its location.",
+    "pin.set_by_reviewer": "A Bhoomisetu reviewer set this location. Ask Bhoomisetu to change it."
   },
   "mine": {
     "title": "My listings",
@@ -772,24 +773,25 @@
     "none": "No map location yet. The owner or agent can add it.",
     "frameTitle": "Map showing where the land is",
     "directions": "Get directions",
-    "note": "The pin is approximate and shows roughly where the land is, not its boundary.",
+    "note": "The pin is approximate (about 10 m) and shows roughly where the land is, not its boundary.",
     "saved": "Location saved.",
     "sources": {
-      "lister_gps": "Pin set from the phone of someone standing on the land",
-      "lister_map": "Pin set by the owner or agent",
+      "lister_gps": "Pin from the lister's phone location (not checked by Bhoomisetu)",
+      "lister_map": "Pin placed by the lister (not checked by Bhoomisetu)",
       "reviewer": "Pin set by a Bhoomisetu reviewer"
     },
     "form": {
       "title": "Add the land on the map",
       "titleChange": "Change the map location",
-      "help": "Easiest: stand on the land and tap \"Use my current location\". Or paste the numbers from Google Maps.",
+      "help": "Only tap \"Use my current location\" while you are standing on the land, or your own location will be shown. You can also paste the numbers from Google Maps.",
       "useLocation": "Use my current location",
       "locating": "Finding your location…",
       "latitude": "Latitude (for example 17.391234)",
       "longitude": "Longitude (for example 78.193456)",
       "save": "Save location",
       "denied": "Location permission was refused. Allow it in your browser, or type the numbers.",
-      "unavailable": "Could not get your location. Type the numbers instead."
+      "unavailable": "Could not get your location. Type the numbers instead.",
+      "onLand": "I am standing on this land now"
     }
   }
 }

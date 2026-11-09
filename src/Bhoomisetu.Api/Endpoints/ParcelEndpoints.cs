@@ -281,8 +281,8 @@ public static class ParcelEndpoints
     }
 
     /// <summary>
-    /// Sets the map pin. Allowed for whoever listed the land, a lister with a price on it, a recorded party, or a
-    /// trust reviewer. Must be inside India; stored to 6 decimals (about 10 cm, finer than any phone GPS).
+    /// Sets the map pin. Allowed for whoever listed the land, its owner of record, or a
+    /// trust reviewer. Must be inside India; stored to 4 decimals (about 10 m).
     /// </summary>
     private static async Task<IResult> SetPinAsync(Guid id, SetPinRequest request, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
     {
@@ -308,16 +308,27 @@ public static class ParcelEndpoints
             return duplicate;
         }
 
+        // Only whoever listed the land, its owner of record, or a reviewer. Agents with a price cannot move it:
+        // anyone can add a price, and a wrong pin sends buyers to the wrong field.
         var userId = http.User.UserId();
         var isReviewer = await db.Users.AnyAsync(u => u.Id == userId && u.IsTrustReviewer, ct);
-        if (!isReviewer && !await DocumentEndpoints.IsInvolvedAsync(db, parcel, userId, ct))
+        var isOwner = await db.ParcelParties.AnyAsync(pp => pp.ParcelId == id && pp.UserId == userId && pp.Role == Vocabulary.OwnerOfRecord, ct);
+        if (!isReviewer && !isOwner && parcel.CreatedBy != userId)
         {
-            return ApiResults.Forbidden("pin.not_involved", "Only the owner, an agent with a price on this land or a reviewer can set its location.");
+            return ApiResults.Forbidden("pin.not_allowed", "Only the person who listed this land, its owner or a reviewer can set its location.");
         }
 
-        var source = isReviewer && !await DocumentEndpoints.IsInvolvedAsync(db, parcel, userId, ct) ? "reviewer" : request.Source == "gps" ? "lister_gps" : "lister_map";
-        lat = Math.Round(lat, 6);
-        lng = Math.Round(lng, 6);
+        var current = await db.Database.SqlQuery<string>($"SELECT centroid_source AS \"Value\" FROM parcels WHERE id = {id} AND centroid IS NOT NULL").ToListAsync(ct);
+        if (!isReviewer && current.FirstOrDefault() == "reviewer")
+        {
+            return ApiResults.Problem(StatusCodes.Status409Conflict, "pin.set_by_reviewer", "A reviewer set this location. Ask Bhoomisetu to change it.");
+        }
+
+        var source = isReviewer && !isOwner && parcel.CreatedBy != userId ? "reviewer" : request.Source == "gps" ? "lister_gps" : "lister_map";
+
+        // About 10 m: enough to find the field, not enough to point at a house if someone pinned from home.
+        lat = Math.Round(lat, 4);
+        lng = Math.Round(lng, 4);
         var now = clock.UtcNow;
         await db.Database.ExecuteSqlAsync(
             $"""
@@ -372,28 +383,47 @@ public static class ParcelEndpoints
             query = query.Where(x => x.LandClass == landClass);
         }
 
+        string? exactKey = null;
+
         // One free-text box: a village, mandal or district name, in English, Telugu or Hindi letters. Names match
         // as typed, and also by sound-alike key, so "మోకిల" and "मोकिला" find land listed as "Mokila".
         if (!string.IsNullOrWhiteSpace(q))
         {
             var pattern = ContainsPattern(q);
             var key = PlaceKey.From(q);
-            if (key.Length >= 3)
+            if (key.Length >= 5)
             {
+                // Long keys: contained in the stored key, or the stored key is the start of the typed one
+                // ("Anantapur" stored, "అనంతపురం" typed).
                 var keyPattern = ContainsPattern(key);
                 query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern)
-                    || EF.Functions.Like(x.VillageKey!, keyPattern) || EF.Functions.Like(x.MandalKey!, keyPattern) || EF.Functions.Like(x.DistrictKey!, keyPattern));
+                    || EF.Functions.Like(x.VillageKey!, keyPattern) || EF.Functions.Like(x.MandalKey!, keyPattern) || EF.Functions.Like(x.DistrictKey!, keyPattern)
+                    || (x.VillageKey!.Length >= 4 && EF.Functions.Like(key, x.VillageKey + "%"))
+                    || (x.MandalKey!.Length >= 4 && EF.Functions.Like(key, x.MandalKey + "%"))
+                    || (x.DistrictKey!.Length >= 4 && EF.Functions.Like(key, x.DistrictKey + "%")));
+            }
+            else if (key.Length >= 2)
+            {
+                // Short keys match whole names only, so "Nandi" does not bring up every "...nd..." village.
+                query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern)
+                    || x.VillageKey == key || x.MandalKey == key || x.DistrictKey == key);
             }
             else
             {
                 query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern));
             }
+
+            exactKey = key;
         }
 
         var total = await query.CountAsync(ct);
+
+        // Exact place matches first (the village typed, in any script), then newest.
+        var ordered = exactKey is { Length: > 0 } k
+            ? query.OrderByDescending(x => x.VillageKey == k || x.MandalKey == k || x.DistrictKey == k).ThenByDescending(x => x.CreatedAt).ThenBy(x => x.Id)
+            : query.OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id);
         var squareYard = Modules.Land.Area.FactorToSquareMetres(AreaUnit.SquareYard);
-        var items = await query
-            .OrderByDescending(x => x.CreatedAt).ThenBy(x => x.Id)
+        var items = await ordered
             .Skip((p - 1) * size).Take(size)
             .Select(x => new
             {

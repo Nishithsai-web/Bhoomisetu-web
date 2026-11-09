@@ -134,3 +134,10 @@ Change a decision by adding a dated entry here and updating the register; never 
     standing on the land and using the phone's location; its source is shown. "Get directions" opens Google Maps.
     Plot boundaries, map search and map layers need a tile provider and licensed boundary data (proposed).
 39. **Hidden duplicates are a stored, indexed flag** (`is_hidden_duplicate`), so search does not read every row.
+40. **Place-key matching rules after QA**: final -u/-i and final anusvara (-am) folded, o/u merged; tested on 27
+    Telangana and AP places in three scripts. Short keys (under 5 letters) match whole names only; long keys may
+    match inside a name or be extended by it (Anantapur / అనంతపురం). Exact place matches are listed first.
+    Known miss: names whose first vowel differs by script (Kurnool / కర్నూలు); the LGD code will close it.
+41. **Map pin rules after QA**: only the person who listed the land, its owner of record, or a reviewer may set
+    it; a reviewer's pin cannot be overwritten by a lister. Stored to about 10 m. "From the phone" needs an
+    explicit "I am standing on this land now" tick and is labelled "not checked by Bhoomisetu".

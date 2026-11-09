@@ -15,11 +15,14 @@ public sealed class PlaceKeyBackfill(IServiceScopeFactory scopes, ILogger<PlaceK
         try
         {
             var total = 0;
+            var after = Guid.Empty;
             while (!stoppingToken.IsCancellationRequested)
             {
                 await using var scope = scopes.CreateAsyncScope();
                 var db = scope.ServiceProvider.GetRequiredService<BhoomisetuDbContext>();
-                var batch = await db.Parcels.Where(p => p.VillageKey == null).OrderBy(p => p.Id).Take(BatchSize).ToListAsync(stoppingToken);
+
+                // Pages forward by id, so a row that somehow keeps a null key can never make this loop forever.
+                var batch = await db.Parcels.Where(p => p.VillageKey == null && p.Id.CompareTo(after) > 0).OrderBy(p => p.Id).Take(BatchSize).ToListAsync(stoppingToken);
                 if (batch.Count == 0)
                 {
                     break;
@@ -33,6 +36,7 @@ public sealed class PlaceKeyBackfill(IServiceScopeFactory scopes, ILogger<PlaceK
 
                 await db.SaveChangesAsync(stoppingToken);
                 total += batch.Count;
+                after = batch[^1].Id;
             }
 
             if (total > 0)

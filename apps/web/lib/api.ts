@@ -287,7 +287,14 @@ export function getMyParcelsWithoutPrice(token: string): Promise<ApiResult<Parce
 
 // ---------------------------------------------------------------- owner and reviewer workflows
 
-export type ParcelViewer = { isOwnerOfRecord: boolean; myOfferId: string | null; confirmedOfferIds: string[] };
+export type ParcelViewer = {
+  isOwnerOfRecord: boolean;
+  myOfferId: string | null;
+  confirmedOfferIds: string[];
+  /** This person listed the land (may set its map pin). */
+  listedByMe: boolean;
+  isReviewer: boolean;
+};
 
 export function getViewer(parcelId: string, token: string): Promise<ApiResult<ParcelViewer>> {
   return get<ParcelViewer>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/viewer`, token);
