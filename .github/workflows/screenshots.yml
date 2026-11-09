@@ -34,7 +34,7 @@ jobs:
           mkdir -p /tmp/shots && cd /tmp/shots && npm init -y > /dev/null && npm i playwright@1.49.1 > /dev/null && npx playwright install --with-deps chromium > /dev/null
           cat > shoot.mjs <<'JS'
           import { chromium } from "playwright";
-          const pages = [["map-en", "/en/map"], ["map-rent-te", "/te/map?mode=rent"], ["rent-new-en", "/en/signin"]];
+          const pages = [["map-en", "/en/map"], ["map-rent-te", "/te/map?mode=rent"], ["map-new-hi", "/hi/map?new=1&z=12&landClass=agricultural"]];
           const browser = await chromium.launch();
           for (const [width, height, tag] of [[1360, 900, "desktop"], [390, 844, "phone"]]) {
             const page = await browser.newPage({ viewport: { width, height } });
