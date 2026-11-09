@@ -35,7 +35,24 @@ internal sealed class MapRow
     public int ActiveOffers { get; set; }
 
     public double? DistanceKm { get; set; }
+
+    public decimal? RoadWidthM { get; set; }
+
+    public int? DistanceToMainRoadM { get; set; }
+
+    public bool OwnerRecorded { get; set; }
+
+    public int ReviewedDocuments { get; set; }
 }
+
+/// <summary>One piece of land in a "compare with land nearby" table, with prices per square yard and per gunta.</summary>
+public sealed record ComparedLandResponse(Guid Id, string Village, string Mandal, string District, string SurveyNumber, string LandClass,
+    decimal AreaSquareYards, decimal AreaGuntas, int ActiveOffers, decimal? LowestPriceRupees, decimal? PricePerSquareYard, decimal? PricePerGunta,
+    decimal? RoadWidthM, int? DistanceToMainRoadM, bool OwnerRecorded, int ReviewedDocuments, double? DistanceKm, IReadOnlyList<ComparisonPointResponse> Points);
+
+public sealed record ComparisonPointResponse(string Code, string Kind, IReadOnlyDictionary<string, string> Values);
+
+public sealed record LandComparisonResponse(ComparedLandResponse Subject, IReadOnlyList<ComparedLandResponse> Items);
 
 /// <summary>
 /// Map search: every pinned piece of land inside the visible area, and land near one parcel. Uses the PostGIS
@@ -101,9 +118,24 @@ public static class MapEndpoints
         return Results.Ok(new MapResponse(await ToResponseAsync(rows.Take(MaxPins).ToList(), db, ranker, ct), truncated));
     }
 
+    /// <summary>
+    /// "Compare with land nearby": this land and up to 8 pinned pieces within 10 km, with price per square yard and
+    /// per gunta, and pros and cons from <see cref="NearbyComparison"/>. Empty items when this land has no pin.
+    /// </summary>
     private static async Task<IResult> NearbyAsync(Guid id, BhoomisetuDbContext db, BestValueRanker ranker, CancellationToken ct)
     {
-        if (!await db.Parcels.AnyAsync(p => p.Id == id, ct))
+        var subject = await db.Database.SqlQuery<MapRow>(
+            $"""
+            SELECT p.id AS "Id", COALESCE(ST_Y(p.centroid::geometry), 0) AS "Latitude", COALESCE(ST_X(p.centroid::geometry), 0) AS "Longitude",
+                   p.village AS "Village", p.mandal AS "Mandal", p.district AS "District", p.survey_number AS "SurveyNumber",
+                   p.land_class AS "LandClass", p.recorded_area_sqm AS "RecordedAreaSqm",
+                   (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
+                   NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
+                   EXISTS (SELECT 1 FROM parcel_parties pp WHERE pp.parcel_id = p.id AND pp.role = 'owner_of_record') AS "OwnerRecorded",
+                   (SELECT count(*) FROM parcel_documents d WHERE d.parcel_id = p.id AND d.status = 'approved')::int AS "ReviewedDocuments"
+            FROM parcels p WHERE p.id = {id}
+            """).ToListAsync(ct);
+        if (subject.Count == 0)
         {
             return ApiResults.NotFound("Parcel");
         }
@@ -114,7 +146,9 @@ public static class MapEndpoints
                    p.village AS "Village", p.mandal AS "Mandal", p.district AS "District", p.survey_number AS "SurveyNumber",
                    p.land_class AS "LandClass", p.recorded_area_sqm AS "RecordedAreaSqm",
                    (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
-                   ST_Distance(p.centroid, me.centroid) / 1000.0 AS "DistanceKm"
+                   ST_Distance(p.centroid, me.centroid) / 1000.0 AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
+                   EXISTS (SELECT 1 FROM parcel_parties pp WHERE pp.parcel_id = p.id AND pp.role = 'owner_of_record') AS "OwnerRecorded",
+                   (SELECT count(*) FROM parcel_documents d WHERE d.parcel_id = p.id AND d.status = 'approved')::int AS "ReviewedDocuments"
             FROM parcels me
             JOIN parcels p ON p.id <> me.id AND p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
                           AND ST_DWithin(p.centroid, me.centroid, {NearbyRadiusKm * 1000})
@@ -123,8 +157,31 @@ public static class MapEndpoints
             LIMIT {MaxNearby}
             """).ToListAsync(ct);
 
-        return Results.Ok(await ToResponseAsync(rows, db, ranker, ct));
+        var lowest = await ParcelEndpoints.LowestPricesAsync(db, ranker, rows.Select(r => r.Id).Append(id).ToList(), ct);
+        var ours = ToCompared(subject[0], lowest, null);
+        var ourPlace = Comparable(ours);
+        return Results.Ok(new LandComparisonResponse(ours, rows.Select(r => ToCompared(r, lowest, ourPlace)).ToList()));
     }
+
+    private static ComparedLandResponse ToCompared(MapRow r, Dictionary<Guid, long?> lowest, ComparablePlace? subject)
+    {
+        var squareYards = r.RecordedAreaSqm / Area.FactorToSquareMetres(AreaUnit.SquareYard);
+        var guntas = r.RecordedAreaSqm / Area.FactorToSquareMetres(AreaUnit.Gunta);
+        decimal? price = lowest.GetValueOrDefault(r.Id) is { } paise ? paise / 100m : null;
+        var compared = new ComparedLandResponse(r.Id, r.Village, r.Mandal, r.District, r.SurveyNumber, r.LandClass,
+            Math.Round(squareYards, 2, MidpointRounding.AwayFromZero), Math.Round(guntas, 2, MidpointRounding.AwayFromZero), r.ActiveOffers, price,
+            price is { } p1 && squareYards > 0 ? Math.Round(p1 / squareYards, 0, MidpointRounding.AwayFromZero) : null,
+            price is { } p2 && guntas > 0 ? Math.Round(p2 / guntas, 0, MidpointRounding.AwayFromZero) : null,
+            r.RoadWidthM, r.DistanceToMainRoadM, r.OwnerRecorded, r.ReviewedDocuments,
+            r.DistanceKm is { } km ? Math.Round(km, 2) : null, []);
+        return subject is null ? compared : compared with { Points = Points(NearbyComparison.Compare(subject, Comparable(compared))) };
+    }
+
+    private static ComparablePlace Comparable(ComparedLandResponse land) =>
+        new(land.PricePerSquareYard, land.AreaSquareYards, land.LandClass, land.RoadWidthM, land.DistanceToMainRoadM, land.OwnerRecorded, land.ReviewedDocuments);
+
+    internal static IReadOnlyList<ComparisonPointResponse> Points(IReadOnlyList<ComparisonPoint> points) =>
+        points.Select(p => new ComparisonPointResponse(p.Code, p.Kind.ToString().ToLowerInvariant(), p.Values)).ToList();
 
     private static async Task<List<MapParcelResponse>> ToResponseAsync(List<MapRow> rows, BhoomisetuDbContext db, BestValueRanker ranker, CancellationToken ct)
     {

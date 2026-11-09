@@ -206,3 +206,27 @@ public sealed class ListingReportRecord
     public DateTimeOffset? ResolvedAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
 }
+
+/// <summary>A home offered for rent. Its map point (centroid) is read and written with SQL, like parcels.</summary>
+public sealed class RentalRecord
+{
+    public Guid Id { get; set; }
+    public Guid ListerUserId { get; set; }
+    public string ListerKind { get; set; } = string.Empty;
+    public string PropertyType { get; set; } = string.Empty;
+    public short Bedrooms { get; set; }
+    public int AreaSqft { get; set; }
+    public int RentRupees { get; set; }
+    public int DepositRupees { get; set; }
+    public string Furnishing { get; set; } = string.Empty;
+    public string PreferredTenants { get; set; } = string.Empty;
+    public bool Parking { get; set; }
+    public DateOnly AvailableFrom { get; set; }
+    public string Locality { get; set; } = string.Empty;
+    public string Mandal { get; set; } = string.Empty;
+    public string District { get; set; } = string.Empty;
+    public string Status { get; set; } = "active";
+    public DateTimeOffset AvailabilityConfirmedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+}

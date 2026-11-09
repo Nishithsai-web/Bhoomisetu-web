@@ -264,6 +264,7 @@ app.MapTrustEndpoints();
 app.MapDocumentEndpoints();
 app.MapDevelopmentEndpoints();
 app.MapMapEndpoints();
+app.MapRentalEndpoints();
 
 await app.RunAsync();
 

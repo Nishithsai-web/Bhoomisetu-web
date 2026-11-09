@@ -773,8 +773,51 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Equal("map.area_invalid", await CodeOf(await fixture.CreateClient().GetAsync("/api/v1/parcels/map?south=17.5&west=78.1&north=17.3&east=78.3", Ct)));
 
         var nearbyLand = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/nearby", Ct);
-        var near = nearbyLand.EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == ownId);
+        Assert.Equal(parcelId, nearbyLand.GetProperty("subject").GetProperty("id").GetGuid());
+        Assert.True(nearbyLand.GetProperty("subject").GetProperty("areaGuntas").GetDecimal() > 0);
+        var near = nearbyLand.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == ownId);
         Assert.InRange(near.GetProperty("distanceKm").GetDouble(), 1.0, 2.0);
+        Assert.Contains(near.GetProperty("points").EnumerateArray(), p => p.GetProperty("code").GetString() == "no_price");
+
+        // Homes for rent: listed with a map point, found on the map, compared with homes nearby (rent per sq ft).
+        object Home(int rent, int sqft, int bedrooms, double lat, double lng) => new
+        {
+            listerKind = "owner", propertyType = "apartment", bedrooms, areaSqft = sqft, rentRupees = rent, depositRupees = rent * 3,
+            furnishing = "semi", preferredTenants = "any", parking = true, availableFrom = "2026-11-01",
+            locality = "Kandi village", mandal = "Kandi", district = "Sangareddy", latitude = lat, longitude = lng,
+        };
+        Assert.Equal("rental.rent_invalid", await CodeOf(await lister.PostAsJsonAsync("/api/v1/rentals", Home(100, 1000, 2, 17.40, 78.20), Ct)));
+        Assert.Equal("pin.outside_india", await CodeOf(await lister.PostAsJsonAsync("/api/v1/rentals", Home(15000, 1000, 2, 51.5, -0.1), Ct)));
+        var homeA = await lister.PostAsJsonAsync("/api/v1/rentals", Home(18000, 1000, 2, 17.401, 78.201), Ct);
+        Assert.Equal(HttpStatusCode.Created, homeA.StatusCode);
+        var homeAId = (await homeA.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+        var homeB = await buyer.PostAsJsonAsync("/api/v1/rentals", Home(15000, 1200, 3, 17.405, 78.205), Ct);
+        var homeBId = (await homeB.Content.ReadFromJsonAsync<JsonElement>(Ct)).GetProperty("id").GetGuid();
+
+        var home = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/rentals/{homeAId}", Ct);
+        Assert.Equal(18m, home.GetProperty("rentPerSqft").GetDecimal());
+        Assert.Equal(3m, home.GetProperty("depositMonths").GetDecimal());
+        var rentMap = await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/rentals/map?south=17.3&west=78.1&north=17.5&east=78.3", Ct);
+        Assert.Contains(homeAId, rentMap.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+        Assert.DoesNotContain(homeAId, (await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/rentals/map?south=17.3&west=78.1&north=17.5&east=78.3&bedrooms=3", Ct))
+            .GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+
+        var homesNearby = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/rentals/{homeAId}/nearby", Ct);
+        var other = homesNearby.GetProperty("items").EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == homeBId);
+        Assert.Equal(12.5m, other.GetProperty("rentPerSqft").GetDecimal());
+        var codes = other.GetProperty("points").EnumerateArray().Select(p => p.GetProperty("code").GetString()).ToList();
+        Assert.Contains("cheaper", codes);
+        Assert.Contains("more_bedrooms", codes);
+        Assert.Contains(homeAId, (await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/nearby-rentals", Ct))
+            .EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+
+        // Contact needs the lister's subscription; marking it rented takes it off the map.
+        Assert.Equal("contact.lister_not_subscribed", await CodeOf(await buyer.GetAsync($"/api/v1/rentals/{homeAId}/contact", Ct)));
+        Assert.Equal(HttpStatusCode.NotFound, (await buyer.PostAsJsonAsync($"/api/v1/rentals/{homeAId}/status", new { action = "rented" }, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await lister.PostAsJsonAsync($"/api/v1/rentals/{homeAId}/status", new { action = "rented" }, Ct)).StatusCode);
+        Assert.DoesNotContain(homeAId, (await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/rentals/map?south=17.3&west=78.1&north=17.5&east=78.3", Ct))
+            .GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+        Assert.Single((await lister.GetFromJsonAsync<JsonElement>("/api/v1/me/rentals", Ct)).EnumerateArray());
 
         // A too-short https link is refused by the API, not by the database.
         Assert.Equal("development.source_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
