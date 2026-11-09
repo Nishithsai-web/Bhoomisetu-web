@@ -44,7 +44,23 @@ public sealed record ParcelResponse(
     ParcelRoadResponse Road,
     int ActiveOffers,
     DateTimeOffset CreatedAt,
-    bool OwnerOfRecordRecorded = false);
+    bool OwnerOfRecordRecorded = false,
+    ParcelPinResponse? Pin = null);
+
+/// <summary>The map pin for the land: where someone involved stood on it (gps), chose it on a map, or a reviewer set it.</summary>
+public sealed record ParcelPinResponse(double Latitude, double Longitude, string Source);
+
+public sealed record SetPinRequest(double? Latitude, double? Longitude, string? Source);
+
+/// <summary>Row shape for reading the PostGIS point.</summary>
+internal sealed class PinRow
+{
+    public double Latitude { get; set; }
+
+    public double Longitude { get; set; }
+
+    public string? Source { get; set; }
+}
 
 /// <summary>One search result. LowestPriceRupees: lowest price including brokerage, bait offers left out (see BestValueRanker.LowestFairPricePaise).</summary>
 public sealed record ParcelSummary(Guid Id, string StateCode, string District, string Mandal, string Village, string SurveyNumber, string LandClass, decimal AreaSquareYards, int ActiveOffers,
@@ -65,6 +81,7 @@ public static class ParcelEndpoints
 
         group.MapPost("/", CreateAsync).RequireAuthorization();
         group.MapGet("/{id:guid}", GetAsync);
+        group.MapPut("/{id:guid}/pin", SetPinAsync).RequireAuthorization();
         group.MapGet("/", SearchAsync);
     }
 
@@ -253,7 +270,65 @@ public static class ParcelEndpoints
 
         var offers = await db.Offers.CountAsync(o => o.ParcelId == id && o.Status == "active", ct);
         var owner = await db.ParcelParties.AnyAsync(p => p.ParcelId == id && p.Role == Vocabulary.OwnerOfRecord, ct);
-        return Results.Ok(ToResponse(record, offers) with { OwnerOfRecordRecorded = owner });
+        var pin = (await db.Database.SqlQuery<PinRow>(
+                $"""
+                SELECT ST_Y(centroid::geometry) AS "Latitude", ST_X(centroid::geometry) AS "Longitude", centroid_source AS "Source"
+                FROM parcels WHERE id = {id} AND centroid IS NOT NULL
+                """).ToListAsync(ct))
+            .Select(r => new ParcelPinResponse(r.Latitude, r.Longitude, r.Source ?? "lister_map"))
+            .FirstOrDefault();
+        return Results.Ok(ToResponse(record, offers) with { OwnerOfRecordRecorded = owner, Pin = pin });
+    }
+
+    /// <summary>
+    /// Sets the map pin. Allowed for whoever listed the land, a lister with a price on it, a recorded party, or a
+    /// trust reviewer. Must be inside India; stored to 6 decimals (about 10 cm, finer than any phone GPS).
+    /// </summary>
+    private static async Task<IResult> SetPinAsync(Guid id, SetPinRequest request, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
+    {
+        if (request.Latitude is not { } lat || request.Longitude is not { } lng || double.IsNaN(lat) || double.IsNaN(lng)
+            || lat is < 6.0 or > 37.6 || lng is < 68.0 or > 97.5)
+        {
+            return ApiResults.Invalid("pin.outside_india", "The point must be inside India.");
+        }
+
+        if (request.Source is not ("gps" or "map"))
+        {
+            return ApiResults.Invalid("pin.source_invalid", "Say whether the point came from your phone's location or the map.");
+        }
+
+        var parcel = await db.Parcels.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (parcel is null)
+        {
+            return ApiResults.NotFound("Parcel");
+        }
+
+        if (RejectIfDuplicate(parcel) is { } duplicate)
+        {
+            return duplicate;
+        }
+
+        var userId = http.User.UserId();
+        var isReviewer = await db.Users.AnyAsync(u => u.Id == userId && u.IsTrustReviewer, ct);
+        if (!isReviewer && !await DocumentEndpoints.IsInvolvedAsync(db, parcel, userId, ct))
+        {
+            return ApiResults.Forbidden("pin.not_involved", "Only the owner, an agent with a price on this land or a reviewer can set its location.");
+        }
+
+        var source = isReviewer && !await DocumentEndpoints.IsInvolvedAsync(db, parcel, userId, ct) ? "reviewer" : request.Source == "gps" ? "lister_gps" : "lister_map";
+        lat = Math.Round(lat, 6);
+        lng = Math.Round(lng, 6);
+        var now = clock.UtcNow;
+        await db.Database.ExecuteSqlAsync(
+            $"""
+            UPDATE parcels
+            SET centroid = ST_SetSRID(ST_MakePoint({lng}, {lat}), 4326)::geography,
+                centroid_source = {source}, centroid_set_by = {userId}, centroid_set_at = {now}, updated_at = {now}
+            WHERE id = {id}
+            """, ct);
+        audit.Add(userId, "parcel.pin_set", "parcel", id.ToString(), new { lat, lng, source });
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new ParcelPinResponse(lat, lng, source));
     }
 
     private static async Task<IResult> SearchAsync(
@@ -264,7 +339,8 @@ public static class ParcelEndpoints
         var size = Math.Clamp(pageSize ?? 20, 1, 100);
 
         // Records set aside as duplicates (migration 0003) stay out of search until a reviewer merges them.
-        var query = db.Parcels.AsNoTracking().Where(x => !x.NameKey.Contains(DuplicateMarker));
+        // Records set aside as duplicates stay out of search (stored flag with a partial index, migration 0011).
+        var query = db.Parcels.AsNoTracking().Where(x => !x.IsHiddenDuplicate);
         if (!string.IsNullOrWhiteSpace(state))
         {
             var s = state.Trim().ToUpperInvariant();
@@ -296,11 +372,22 @@ public static class ParcelEndpoints
             query = query.Where(x => x.LandClass == landClass);
         }
 
-        // One free-text box: a village, mandal or district name.
+        // One free-text box: a village, mandal or district name, in English, Telugu or Hindi letters. Names match
+        // as typed, and also by sound-alike key, so "మోకిల" and "मोकिला" find land listed as "Mokila".
         if (!string.IsNullOrWhiteSpace(q))
         {
             var pattern = ContainsPattern(q);
-            query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern));
+            var key = PlaceKey.From(q);
+            if (key.Length >= 3)
+            {
+                var keyPattern = ContainsPattern(key);
+                query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern)
+                    || EF.Functions.Like(x.VillageKey!, keyPattern) || EF.Functions.Like(x.MandalKey!, keyPattern) || EF.Functions.Like(x.DistrictKey!, keyPattern));
+            }
+            else
+            {
+                query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern));
+            }
         }
 
         var total = await query.CountAsync(ct);

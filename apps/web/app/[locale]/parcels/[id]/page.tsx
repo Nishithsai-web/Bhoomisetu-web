@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getComparison, getNearbyDevelopments, getParcel, getParcelDocuments, getViewer, isUuid } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
+import { SetPinForm } from "@/components/SetPinForm";
+import { errorText } from "@/lib/errors";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
 import { formatNumber, formatRupeesShort } from "@/lib/money";
 
-type Props = { params: Promise<{ locale: string; id: string }>; searchParams: Promise<{ done?: string }> };
+type Props = { params: Promise<{ locale: string; id: string }>; searchParams: Promise<{ done?: string; error?: string }> };
 
 /** Units shown as tiles, in the order village buyers read them: farm units first, then plot units. */
 const UNITS = ["acre", "gunta", "square_yard", "cent", "square_foot", "square_metre"] as const;
@@ -28,7 +30,7 @@ export default async function LandPage({ params, searchParams }: Props) {
     getParcelDocuments(id),
     getNearbyDevelopments(id),
   ]);
-  const done = (await searchParams).done;
+  const { done, error } = await searchParams;
   const token = await getSessionToken();
   const viewer = token ? await getViewer(id, token) : null;
   // Corrections are open to people with a stake in the land (owner of record or a lister with a price).
@@ -74,6 +76,16 @@ export default async function LandPage({ params, searchParams }: Props) {
         {lowest === null ? l.noOffers : format(l.priceFrom, { price: formatRupeesShort(lowest, intl, t.amounts) })}
       </p>
 
+      {done === "pin" && (
+        <p className="notice" role="status">
+          {t.map.saved}
+        </p>
+      )}
+      {error && (
+        <p className="notice error" role="alert">
+          {errorText(t, error)}
+        </p>
+      )}
       {done === "reported" && (
         <p className="notice" role="status">
           {t.report.thanks}
@@ -82,6 +94,39 @@ export default async function LandPage({ params, searchParams }: Props) {
 
       <div className="detail">
         <div>
+          <section className="card" aria-labelledby="map-title" id="map">
+            <h2 id="map-title">{t.map.title}</h2>
+            {p.pin ? (
+              <>
+                <iframe
+                  className="map-frame"
+                  title={t.map.frameTitle}
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${p.pin.longitude - 0.01},${p.pin.latitude - 0.006},${p.pin.longitude + 0.01},${p.pin.latitude + 0.006}&layer=mapnik&marker=${p.pin.latitude},${p.pin.longitude}`}
+                />
+                <p className="form-inline">
+                  <a className="button-link primary" href={`https://www.google.com/maps/dir/?api=1&destination=${p.pin.latitude},${p.pin.longitude}`} rel="noopener noreferrer" target="_blank">
+                    {t.map.directions}
+                    <span className="visually-hidden"> {t.nearby.opensNewTab}</span>
+                  </a>
+                </p>
+                <p className="hint">
+                  {(t.map.sources as Record<string, string>)[p.pin.source]} · {t.map.note} © OpenStreetMap
+                </p>
+              </>
+            ) : (
+              <p className="muted">{t.map.none}</p>
+            )}
+            {involved && (
+              <SetPinForm
+                locale={locale}
+                parcelId={id}
+                labels={{ ...t.map.form, title: p.pin ? t.map.form.titleChange : t.map.form.title }}
+              />
+            )}
+          </section>
+
           <section className="card" aria-labelledby="area">
             <h2 id="area">{l.areaTitle}</h2>
             <dl className="unit-tiles">

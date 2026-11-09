@@ -1,0 +1,43 @@
+using Bhoomisetu.Modules.Land;
+using Xunit;
+
+namespace Bhoomisetu.UnitTests.Land;
+
+public sealed class PlaceKeyTests
+{
+    [Theory]
+    [InlineData("Mokila", "మోకిల", "मोकिला")]
+    [InlineData("Shankarpalle", "శంకర్‌పల్లి", "शंकरपल्ली")]
+    [InlineData("Shankarpally", "Shankarpalli", "SHANKARPALLE")]
+    [InlineData("Shamshabad", "శంషాబాద్", "शमशाबाद")]
+    [InlineData("Kukatpally", "కూకట్‌పల్లి", "कूकटपल्ली")]
+    [InlineData("Hyderabad", "హైదరాబాద్", "हैदराबाद")]
+    [InlineData("Ranga Reddy", "రంగారెడ్డి", "रंगारेड्डी")]
+    [InlineData("Medchal", "మేడ్చల్", "मेडचल")]
+    [InlineData("Gachibowli", "గచ్చిబౌలి", "गचीबोवली")]
+    [InlineData("Kondapur", "కొండాపూర్", "कोंडापुर")]
+    [InlineData("Sangareddy", "సంగారెడ్డి", "संगारेड्डी")]
+    [InlineData("Vikarabad", "వికారాబాద్", "विकाराबाद")]
+    [InlineData("Chevella", "చేవెళ్ల", "चेवेल्ला")]
+    [InlineData("Moinabad", "మొయినాబాద్", "मोइनाबाद")]
+    public void The_same_place_in_three_scripts_has_one_key(string english, string telugu, string hindi)
+    {
+        var key = PlaceKey.From(english);
+        Assert.NotEmpty(key);
+        Assert.Equal(key, PlaceKey.From(telugu));
+        Assert.Equal(key, PlaceKey.From(hindi));
+    }
+
+    [Theory]
+    [InlineData("Mokila", "Moinabad")]
+    [InlineData("Kandi", "Kondapur")]
+    [InlineData("Medak", "Medchal")]
+    [InlineData("Gopanpally", "Gachibowli")]
+    public void Different_places_keep_different_keys(string a, string b) => Assert.NotEqual(PlaceKey.From(a), PlaceKey.From(b));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  123 / - ")]
+    public void Text_without_letters_has_an_empty_key(string? value) => Assert.Equal(string.Empty, PlaceKey.From(value));
+}

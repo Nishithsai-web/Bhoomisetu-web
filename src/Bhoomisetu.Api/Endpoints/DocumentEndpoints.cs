@@ -502,7 +502,7 @@ public static partial class DocumentEndpoints
     }
 
     /// <summary>Who may add documents: whoever listed the land, a lister with an active price on it, or a recorded party.</summary>
-    private static async Task<bool> IsInvolvedAsync(BhoomisetuDbContext db, ParcelRecord parcel, Guid userId, CancellationToken ct) =>
+    internal static async Task<bool> IsInvolvedAsync(BhoomisetuDbContext db, ParcelRecord parcel, Guid userId, CancellationToken ct) =>
         parcel.CreatedBy == userId
         || await db.Offers.AnyAsync(o => o.ParcelId == parcel.Id && o.ListerUserId == userId && o.Status == "active", ct)
         || await db.ParcelParties.AnyAsync(p => p.ParcelId == parcel.Id && p.UserId == userId, ct);

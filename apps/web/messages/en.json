@@ -36,7 +36,7 @@
     "languageTitle": "Telugu, Hindi and English",
     "languageBody": "Search and read in the language you are most comfortable with.",
     "safety": "Never pay a token advance before visiting the site and checking the documents.",
-    "examples": "Try a village, mandal or district, for example Mokila or Shankarpalle. Type names in English letters for now.",
+    "examples": "Try a village, mandal or district in any language: Mokila · మోకిల · मोकिला",
     "exploreTitle": "Explore by land type",
     "types": {
       "agricultural": {
@@ -425,7 +425,10 @@
     "report.note_required": "Say what was done about this report.",
     "report.note_too_long": "The note can be at most 1,000 characters.",
     "report.already_decided": "This report was already handled.",
-    "report.reviewer_involved": "You sent this report, so another reviewer must handle it."
+    "report.reviewer_involved": "You sent this report, so another reviewer must handle it.",
+    "pin.outside_india": "Enter a point inside India (latitude and longitude as numbers).",
+    "pin.source_invalid": "Use your current location or type the numbers.",
+    "pin.not_involved": "Only the owner, an agent with a price on this land or a reviewer can set its location."
   },
   "mine": {
     "title": "My listings",
@@ -763,5 +766,30 @@
     "developmentDone": "Development added.",
     "linkedDone": "Linked to the land.",
     "linkedCount": "{count} pieces of land"
+  },
+  "map": {
+    "title": "Where the land is",
+    "none": "No map location yet. The owner or agent can add it.",
+    "frameTitle": "Map showing where the land is",
+    "directions": "Get directions",
+    "note": "The pin is approximate and shows roughly where the land is, not its boundary.",
+    "saved": "Location saved.",
+    "sources": {
+      "lister_gps": "Pin set from the phone of someone standing on the land",
+      "lister_map": "Pin set by the owner or agent",
+      "reviewer": "Pin set by a Bhoomisetu reviewer"
+    },
+    "form": {
+      "title": "Add the land on the map",
+      "titleChange": "Change the map location",
+      "help": "Easiest: stand on the land and tap \"Use my current location\". Or paste the numbers from Google Maps.",
+      "useLocation": "Use my current location",
+      "locating": "Finding your location…",
+      "latitude": "Latitude (for example 17.391234)",
+      "longitude": "Longitude (for example 78.193456)",
+      "save": "Save location",
+      "denied": "Location permission was refused. Allow it in your browser, or type the numbers.",
+      "unavailable": "Could not get your location. Type the numbers instead."
+    }
   }
 }

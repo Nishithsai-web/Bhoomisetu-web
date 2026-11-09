@@ -47,6 +47,16 @@ public sealed class ParcelRecord
     public string Mandal { get; set; } = string.Empty;
     public string Village { get; set; } = string.Empty;
     public string? LgdVillageCode { get; set; }
+
+    /// <summary>Sound-alike search keys (PlaceKey), filled by the DbContext on every save.</summary>
+    public string? VillageKey { get; set; }
+
+    public string? MandalKey { get; set; }
+
+    public string? DistrictKey { get; set; }
+
+    /// <summary>Computed by the database from NameKey: true for a record set aside as a duplicate.</summary>
+    public bool IsHiddenDuplicate { get; set; }
     public string SurveyNumberRaw { get; set; } = string.Empty;
     public string SurveyNumber { get; set; } = string.Empty;
     public string LandClass { get; set; } = string.Empty;

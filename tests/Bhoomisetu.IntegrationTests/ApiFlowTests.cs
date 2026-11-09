@@ -736,6 +736,19 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         var ownReport = (await listerReviewer.GetFromJsonAsync<JsonElement>("/api/v1/admin/reports", Ct)).EnumerateArray().Single(r => r.GetProperty("parcelId").GetGuid() == ownId);
         Assert.Equal("report.reviewer_involved", await CodeOf(await listerReviewer.PostAsJsonAsync($"/api/v1/admin/reports/{ownReport.GetProperty("id").GetGuid()}/decision", new { decision = "dismiss", note = "Not fraud" }, Ct)));
 
+        // Map pin: only people involved (or reviewers) set it, inside India; everyone reads it.
+        Assert.Equal("pin.not_involved", await CodeOf(await buyer.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 17.4, longitude = 78.2, source = "gps" }, Ct)));
+        Assert.Equal("pin.outside_india", await CodeOf(await lister.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 51.5, longitude = -0.1, source = "gps" }, Ct)));
+        Assert.Equal(HttpStatusCode.OK, (await lister.PutAsJsonAsync($"/api/v1/parcels/{parcelId}/pin", new { latitude = 17.3912345678, longitude = 78.1934567891, source = "gps" }, Ct)).StatusCode);
+        var pin = (await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}", Ct)).GetProperty("pin");
+        Assert.Equal(17.391235, pin.GetProperty("latitude").GetDouble(), 6);
+        Assert.Equal(78.193457, pin.GetProperty("longitude").GetDouble(), 6);
+        Assert.Equal("lister_gps", pin.GetProperty("source").GetString());
+
+        // Search finds the land when its village is typed in Telugu or Hindi letters.
+        Assert.NotEmpty((await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels?q={Uri.EscapeDataString("కంది")}", Ct)).GetProperty("items").EnumerateArray());
+        Assert.NotEmpty((await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels?q={Uri.EscapeDataString("कंदी")}", Ct)).GetProperty("items").EnumerateArray());
+
         // A too-short https link is refused by the API, not by the database.
         Assert.Equal("development.source_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
             new { name = "Short link", kind = "metro", status = "approved", authority = "HMRL", sourceUrl = "https://a.b", sourceDate = "2026-01-10" }, Ct)));

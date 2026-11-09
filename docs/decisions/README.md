@@ -125,3 +125,12 @@ Change a decision by adding a dated entry here and updating the register; never 
     environment is deployed yet; CI databases are rebuilt each run). Local databases created from an earlier
     commit must be recreated. From the first shared deployment on, applied migrations are never edited: fixes go
     in a new numbered migration, and the checksum check in MigrationRunner enforces this.
+37. **Search works in Telugu, Hindi and English letters** through a sound-alike place key (PlaceKey):
+    both Indic scripts are written in plain Latin letters, then usual spelling differences are folded away
+    (sh/s, ee/i, final y/e/i, n/m before a consonant, the vowels a and e). Tested on 13 Telangana places in all
+    three scripts. Keys are stored with trigram indexes; names still match as typed. Matching by LGD village
+    code is the more exact follow-up once LGD codes are filled in. This replaces decision 35.
+38. **Map: an OpenStreetMap embed with one pin, no map library.** The pin is set by someone involved, ideally by
+    standing on the land and using the phone's location; its source is shown. "Get directions" opens Google Maps.
+    Plot boundaries, map search and map layers need a tile provider and licensed boundary data (proposed).
+39. **Hidden duplicates are a stored, indexed flag** (`is_hidden_duplicate`), so search does not read every row.

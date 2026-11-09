@@ -7,6 +7,7 @@ import {
   decideReport,
   linkDevelopment,
   reportListing,
+  setParcelPin,
   createOffer,
   createParcel,
   decideChangeRequest,
@@ -449,4 +450,21 @@ export async function linkDevelopmentAction(form: FormData): Promise<void> {
   const token = await requireToken(locale, REVIEW(locale));
   const result = await linkDevelopment(parcelId, { projectId, distanceKm: distance, mayAffectParcel: form.get("mayAffectParcel") === "on" }, token);
   redirect(result.ok ? `${REVIEW(locale)}?done=linked#developments` : `${REVIEW(locale)}?error=${encodeURIComponent(result.code)}#developments`);
+}
+
+/** Sets the land's map pin from the phone's location or typed coordinates. */
+export async function setPinAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  if (!isUuid(parcelId)) redirect(`/${locale}/parcels`);
+  const back = `/${locale}/parcels/${parcelId}`;
+  const latitude = Number(value(form, "latitude").replace(",", "."));
+  const longitude = Number(value(form, "longitude").replace(",", "."));
+  const source = value(form, "source") === "gps" ? "gps" : "map";
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || value(form, "latitude") === "" || value(form, "longitude") === "") {
+    redirect(`${back}?error=pin.outside_india#map`);
+  }
+  const token = await requireToken(locale, back);
+  const result = await setParcelPin(parcelId, { latitude, longitude, source }, token);
+  redirect(result.ok ? `${back}?done=pin#map` : `${back}?error=${encodeURIComponent(result.code)}#map`);
 }

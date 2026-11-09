@@ -478,7 +478,13 @@ export type ParcelDetail = {
   activeOffers: number;
   createdAt: string;
   ownerOfRecordRecorded: boolean;
+  /** Map pin; null until someone involved or a reviewer sets it. */
+  pin: { latitude: number; longitude: number; source: "lister_gps" | "lister_map" | "reviewer" } | null;
 };
+
+export function setParcelPin(parcelId: string, body: { latitude: number; longitude: number; source: "gps" | "map" }, token: string): Promise<ApiResult<unknown>> {
+  return request<unknown>("PUT", `/api/v1/parcels/${encodeURIComponent(parcelId)}/pin`, body, token);
+}
 
 export function getParcel(parcelId: string): Promise<ApiResult<ParcelDetail>> {
   return get<ParcelDetail>(`/api/v1/parcels/${encodeURIComponent(parcelId)}`);

@@ -127,6 +127,7 @@ builder.Services.AddSingleton(documentOptions);
 builder.Services.AddSingleton<IDocumentStorage>(new LocalDocumentStorage(Path.Combine(builder.Environment.ContentRootPath, documentOptions.StoragePath)));
 builder.Services.AddSingleton(config.GetSection(SubscriptionOptions.SectionName).Get<SubscriptionOptions>() ?? new SubscriptionOptions());
 builder.Services.AddScoped<SubscriptionService>();
+builder.Services.AddHostedService<PlaceKeyBackfill>();
 
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
