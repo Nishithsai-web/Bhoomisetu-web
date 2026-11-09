@@ -1,13 +1,15 @@
+using System.Runtime.CompilerServices;
 using Bhoomisetu.Api.Persistence;
 using Bhoomisetu.Modules.Land;
 using Bhoomisetu.Modules.Offers;
+using Bhoomisetu.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bhoomisetu.Api.Endpoints;
 
 /// <summary>One pinned piece of land on the map. DistanceKm is set for "land nearby".</summary>
 public sealed record MapParcelResponse(Guid Id, double Latitude, double Longitude, string Village, string Mandal, string District, string SurveyNumber,
-    string LandClass, decimal AreaSquareYards, int ActiveOffers, decimal? LowestPriceRupees, double? DistanceKm);
+    string LandClass, decimal AreaSquareYards, int ActiveOffers, decimal? LowestPriceRupees, double? DistanceKm, DateTimeOffset CreatedAt);
 
 public sealed record MapResponse(IReadOnlyList<MapParcelResponse> Items, bool Truncated);
 
@@ -43,6 +45,8 @@ internal sealed class MapRow
     public bool OwnerRecorded { get; set; }
 
     public int ReviewedDocuments { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
 }
 
 /// <summary>One piece of land in a "compare with land nearby" table, with prices per square yard and per gunta.</summary>
@@ -61,6 +65,9 @@ public sealed record LandComparisonResponse(ComparedLandResponse Subject, IReadO
 public static class MapEndpoints
 {
     internal const int MaxPins = 500;
+
+    /// <summary>"No date filter": earlier than any listing.</summary>
+    internal static readonly DateTimeOffset AllTime = new(2000, 1, 1, 0, 0, 0, TimeSpan.Zero);
     internal const double NearbyRadiusKm = 10;
     internal const int MaxNearby = 8;
 
@@ -71,7 +78,7 @@ public static class MapEndpoints
         group.MapGet("/{id:guid}/nearby", NearbyAsync);
     }
 
-    private static async Task<IResult> InAreaAsync(double? south, double? west, double? north, double? east, string? landClass, BhoomisetuDbContext db, BestValueRanker ranker, CancellationToken ct)
+    private static async Task<IResult> InAreaAsync(double? south, double? west, double? north, double? east, string? landClass, int? newDays, BhoomisetuDbContext db, BestValueRanker ranker, IClock clock, CancellationToken ct)
     {
         // A box over India (with a margin); anything else is a mistake or someone scraping.
         if (south is not { } s || west is not { } w || north is not { } n || east is not { } e
@@ -86,35 +93,26 @@ public static class MapEndpoints
             return ApiResults.Invalid("parcel.land_class_invalid", "Land class must be agricultural, non_agricultural, converted or unknown.");
         }
 
-        var rows = landClass is null
-            ? await db.Database.SqlQuery<MapRow>(
-                $"""
-                SELECT p.id AS "Id", ST_Y(p.centroid::geometry) AS "Latitude", ST_X(p.centroid::geometry) AS "Longitude",
-                       p.village AS "Village", p.mandal AS "Mandal", p.district AS "District", p.survey_number AS "SurveyNumber",
-                       p.land_class AS "LandClass", p.recorded_area_sqm AS "RecordedAreaSqm",
-                       (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
-                       NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
-                       false AS "OwnerRecorded", 0 AS "ReviewedDocuments"
-                FROM parcels p
-                WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
-                  AND p.centroid && ST_MakeEnvelope({w}, {s}, {e}, {n}, 4326)::geography
-                ORDER BY p.created_at DESC, p.id
-                LIMIT {MaxPins + 1}
-                """).ToListAsync(ct)
-            : await db.Database.SqlQuery<MapRow>(
-                $"""
-                SELECT p.id AS "Id", ST_Y(p.centroid::geometry) AS "Latitude", ST_X(p.centroid::geometry) AS "Longitude",
-                       p.village AS "Village", p.mandal AS "Mandal", p.district AS "District", p.survey_number AS "SurveyNumber",
-                       p.land_class AS "LandClass", p.recorded_area_sqm AS "RecordedAreaSqm",
-                       (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
-                       NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
-                       false AS "OwnerRecorded", 0 AS "ReviewedDocuments"
-                FROM parcels p
-                WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate AND p.land_class = {landClass}
-                  AND p.centroid && ST_MakeEnvelope({w}, {s}, {e}, {n}, 4326)::geography
-                ORDER BY p.created_at DESC, p.id
-                LIMIT {MaxPins + 1}
-                """).ToListAsync(ct);
+        // Fixed SQL text; the optional filters only add fixed clauses, and every value is a parameter.
+        var since = newDays is >= 1 and <= 90 ? clock.UtcNow.AddDays(-newDays.Value) : AllTime;
+        var sql = FormattableStringFactory.Create(
+            """
+            SELECT p.id AS "Id", ST_Y(p.centroid::geometry) AS "Latitude", ST_X(p.centroid::geometry) AS "Longitude",
+                   p.village AS "Village", p.mandal AS "Mandal", p.district AS "District", p.survey_number AS "SurveyNumber",
+                   p.land_class AS "LandClass", p.recorded_area_sqm AS "RecordedAreaSqm",
+                   (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
+                   NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
+                   false AS "OwnerRecorded", 0 AS "ReviewedDocuments", p.created_at AS "CreatedAt"
+            FROM parcels p
+            WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
+              AND p.centroid && ST_MakeEnvelope({0}, {1}, {2}, {3}, 4326)::geography
+              AND p.created_at >= {5}
+            """ + (landClass is null ? string.Empty : " AND p.land_class = {4}") + """
+
+            ORDER BY p.created_at DESC, p.id
+            LIMIT {6}
+            """, w, s, e, n, landClass ?? string.Empty, since, MaxPins + 1);
+        var rows = await db.Database.SqlQuery<MapRow>(sql).ToListAsync(ct);
 
         var truncated = rows.Count > MaxPins;
         return Results.Ok(new MapResponse(await ToResponseAsync(rows.Take(MaxPins).ToList(), db, ranker, ct), truncated));
@@ -134,7 +132,8 @@ public static class MapEndpoints
                    (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
                    NULL::double precision AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
                    EXISTS (SELECT 1 FROM parcel_parties pp WHERE pp.parcel_id = p.id AND pp.role = 'owner_of_record') AS "OwnerRecorded",
-                   (SELECT count(*) FROM parcel_documents d WHERE d.parcel_id = p.id AND d.status = 'approved')::int AS "ReviewedDocuments"
+                   (SELECT count(*) FROM parcel_documents d WHERE d.parcel_id = p.id AND d.status = 'approved')::int AS "ReviewedDocuments",
+                   p.created_at AS "CreatedAt"
             FROM parcels p WHERE p.id = {id}
             """).ToListAsync(ct);
         if (subject.Count == 0)
@@ -150,7 +149,8 @@ public static class MapEndpoints
                    (SELECT count(*) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')::int AS "ActiveOffers",
                    ST_Distance(p.centroid, me.centroid) / 1000.0 AS "DistanceKm", p.road_width_m AS "RoadWidthM", p.distance_to_main_road_m AS "DistanceToMainRoadM",
                    EXISTS (SELECT 1 FROM parcel_parties pp WHERE pp.parcel_id = p.id AND pp.role = 'owner_of_record') AS "OwnerRecorded",
-                   (SELECT count(*) FROM parcel_documents d WHERE d.parcel_id = p.id AND d.status = 'approved')::int AS "ReviewedDocuments"
+                   (SELECT count(*) FROM parcel_documents d WHERE d.parcel_id = p.id AND d.status = 'approved')::int AS "ReviewedDocuments",
+                   p.created_at AS "CreatedAt"
             FROM parcels me
             JOIN parcels p ON p.id <> me.id AND p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
                           AND ST_DWithin(p.centroid, me.centroid, {NearbyRadiusKm * 1000})
@@ -192,6 +192,6 @@ public static class MapEndpoints
         return rows.Select(r => new MapParcelResponse(r.Id, r.Latitude, r.Longitude, r.Village, r.Mandal, r.District, r.SurveyNumber, r.LandClass,
             Math.Round(r.RecordedAreaSqm / squareYard, 2, MidpointRounding.AwayFromZero), r.ActiveOffers,
             lowest.GetValueOrDefault(r.Id) is { } paise ? paise / 100m : null,
-            r.DistanceKm is { } km ? Math.Round(km, 2) : null)).ToList();
+            r.DistanceKm is { } km ? Math.Round(km, 2) : null, r.CreatedAt)).ToList();
     }
 }

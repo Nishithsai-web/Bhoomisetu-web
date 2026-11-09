@@ -66,6 +66,7 @@ public sealed class ApiFixture : IAsyncLifetime
         Environment.SetEnvironmentVariable("Otp__MaxRequestsPerHourPerNumber", "100");
         Environment.SetEnvironmentVariable("Otp__MaxHumanCheckedRequestsPerHourPerNumber", "100");
         Environment.SetEnvironmentVariable("Otp__MaxSmsPerHourGlobal", "100000");
+        Environment.SetEnvironmentVariable("Geocoding__Provider", "none");
         Environment.SetEnvironmentVariable("Documents__StoragePath", Path.Combine(Path.GetTempPath(), $"bhoomisetu-docs-{Guid.NewGuid():N}"));
         Environment.SetEnvironmentVariable("RateLimits__RequestsPerIpPerMinute", "100000");
 

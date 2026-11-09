@@ -4,6 +4,7 @@ using Bhoomisetu.Api.Auth;
 using Bhoomisetu.Api.Documents;
 using Bhoomisetu.Api.Endpoints;
 using Bhoomisetu.Api.Persistence;
+using Bhoomisetu.Api.Places;
 using Bhoomisetu.Modules.Identity;
 using Bhoomisetu.Modules.Offers;
 using Bhoomisetu.SharedKernel;
@@ -128,6 +129,19 @@ builder.Services.AddSingleton<IDocumentStorage>(new LocalDocumentStorage(Path.Co
 builder.Services.AddSingleton(config.GetSection(SubscriptionOptions.SectionName).Get<SubscriptionOptions>() ?? new SubscriptionOptions());
 builder.Services.AddScoped<SubscriptionService>();
 builder.Services.AddHostedService<PlaceKeyBackfill>();
+
+// Place search for the map: our own places plus OpenStreetMap (cached a day, at most one call a second).
+builder.Services.AddMemoryCache();
+var geocodingOptions = config.GetSection(GeocodingOptions.SectionName).Get<GeocodingOptions>() ?? new GeocodingOptions();
+builder.Services.AddSingleton(geocodingOptions);
+if (string.Equals(geocodingOptions.Provider, "nominatim", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddHttpClient<IExternalGeocoder, NominatimGeocoder>(client => client.Timeout = TimeSpan.FromSeconds(5));
+}
+else
+{
+    builder.Services.AddSingleton<IExternalGeocoder, NoExternalGeocoder>();
+}
 
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
@@ -272,6 +286,7 @@ app.MapDocumentEndpoints();
 app.MapDevelopmentEndpoints();
 app.MapMapEndpoints();
 app.MapRentalEndpoints();
+app.MapPlaceEndpoints();
 
 await app.RunAsync();
 

@@ -16,7 +16,7 @@ public sealed record CreateRentalRequest(
 public sealed record RentalResponse(Guid Id, string ListerKind, string PropertyType, int Bedrooms, int AreaSqft, int RentRupees, int DepositRupees,
     decimal RentPerSqft, decimal DepositMonths, string Furnishing, string PreferredTenants, bool Parking, DateOnly AvailableFrom,
     string Locality, string Mandal, string District, double Latitude, double Longitude, string Status, DateTimeOffset AvailabilityConfirmedAt,
-    bool Contactable, bool Mine, double? DistanceKm, IReadOnlyList<ComparisonPointResponse> Points, bool Stale = false, bool Approximate = true);
+    bool Contactable, bool Mine, double? DistanceKm, IReadOnlyList<ComparisonPointResponse> Points, bool Stale = false, bool Approximate = true, DateTimeOffset? CreatedAt = null);
 
 public sealed record RentalComparisonResponse(RentalResponse Subject, IReadOnlyList<RentalResponse> Items);
 
@@ -66,6 +66,8 @@ internal sealed class RentalRow
 
     public DateTimeOffset AvailabilityConfirmedAt { get; set; }
 
+    public DateTimeOffset CreatedAt { get; set; }
+
     public double? DistanceKm { get; set; }
 }
 
@@ -93,7 +95,7 @@ public static class RentalEndpoints
         r.preferred_tenants AS "PreferredTenants", r.parking AS "Parking", r.available_from AS "AvailableFrom", r.locality AS "Locality",
         r.mandal AS "Mandal", r.district AS "District", ST_Y(r.public_point::geometry) AS "Latitude", ST_X(r.public_point::geometry) AS "Longitude",
         ST_Y(r.centroid::geometry) AS "ExactLatitude", ST_X(r.centroid::geometry) AS "ExactLongitude",
-        r.status AS "Status", r.availability_confirmed_at AS "AvailabilityConfirmedAt"
+        r.status AS "Status", r.availability_confirmed_at AS "AvailabilityConfirmedAt", r.created_at AS "CreatedAt"
         """;
 
     public static void MapRentalEndpoints(this IEndpointRouteBuilder app)
@@ -214,7 +216,7 @@ public static class RentalEndpoints
         return Results.Ok(ToResponse(row, contactable, userId, null) with { Stale = stale });
     }
 
-    private static async Task<IResult> InAreaAsync(double? south, double? west, double? north, double? east, int? bedrooms, BhoomisetuDbContext db, IClock clock, CancellationToken ct)
+    private static async Task<IResult> InAreaAsync(double? south, double? west, double? north, double? east, int? bedrooms, int? newDays, BhoomisetuDbContext db, IClock clock, CancellationToken ct)
     {
         if (south is not { } s || west is not { } w || north is not { } n || east is not { } e
             || double.IsNaN(s) || double.IsNaN(w) || double.IsNaN(n) || double.IsNaN(e) || s >= n || w >= e || s < 0 || n > 40 || w < 60 || e > 100)
@@ -230,9 +232,11 @@ public static class RentalEndpoints
             FROM rental_listings r
             WHERE r.status = 'active' AND r.availability_confirmed_at >= {0} AND r.bedrooms >= {1}
               AND r.public_point && ST_MakeEnvelope({2}, {3}, {4}, {5}, 4326)::geography
+              AND r.created_at >= {7}
             ORDER BY r.created_at DESC, r.id
             LIMIT {6}
-            """, fresh, minBedrooms, w, s, e, n, MaxPins + 1)).ToListAsync(ct);
+            """, fresh, minBedrooms, w, s, e, n, MaxPins + 1,
+            newDays is >= 1 and <= 90 ? clock.UtcNow.AddDays(-newDays.Value) : MapEndpoints.AllTime)).ToListAsync(ct);
         return Results.Ok(new { items = rows.Take(MaxPins).Select(r => ToResponse(r, contactable: false, viewer: null, points: null)).ToList(), truncated = rows.Count > MaxPins });
     }
 
@@ -372,7 +376,7 @@ public static class RentalEndpoints
     private static RentalResponse ToResponse(RentalRow r, bool contactable, Guid? viewer, IReadOnlyList<ComparisonPointResponse>? points)
     {
         var mine = viewer is { } v && v == r.ListerUserId;
-        var response = Exact(r, contactable, viewer, points);
+        var response = Exact(r, contactable, viewer, points) with { CreatedAt = r.CreatedAt };
         return mine ? response with { Approximate = false, Latitude = r.ExactLatitude, Longitude = r.ExactLongitude } : response;
     }
 

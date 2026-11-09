@@ -771,6 +771,17 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.DoesNotContain(parcelId, (await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/parcels/map?south=12.9&west=77.5&north=13.1&east=77.7", Ct))
             .GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
         Assert.Equal("map.area_invalid", await CodeOf(await fixture.CreateClient().GetAsync("/api/v1/parcels/map?south=17.5&west=78.1&north=17.3&east=78.3", Ct)));
+        // "New this week" keeps listings made today; each pin says when it was listed.
+        var fresh = await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/parcels/map?south=17.3&west=78.1&north=17.5&east=78.3&newDays=7", Ct);
+        Assert.Contains(parcelId, fresh.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+        Assert.True(fresh.GetProperty("items")[0].TryGetProperty("createdAt", out _));
+
+        // Place search: our own places in any script, with the number of listings.
+        var places = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/places?q={Uri.EscapeDataString("కంది")}&lang=te", Ct);
+        var kandi = places.EnumerateArray().First(p => p.GetProperty("name").GetString() == "Kandi");
+        Assert.Equal("bhoomisetu", kandi.GetProperty("source").GetString());
+        Assert.True(kandi.GetProperty("listings").GetInt32() >= 2);
+        Assert.Equal("place.query_invalid", await CodeOf(await fixture.CreateClient().GetAsync("/api/v1/places?q=k", Ct)));
 
         var nearbyLand = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/nearby", Ct);
         Assert.Equal(parcelId, nearbyLand.GetProperty("subject").GetProperty("id").GetGuid());
