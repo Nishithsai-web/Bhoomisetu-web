@@ -69,6 +69,13 @@ export default async function ParcelsPage({ params, searchParams }: Props) {
           <p className="lead">
             {query ? format(p.resultsFor, { query }) : p.all} · {format(p.resultsCount, { count: formatNumber(result.data.total, intl, 0) })}
           </p>
+          {query && (
+            <p>
+              <Link href={`/${locale}/map?q=${encodeURIComponent(query)}`} className="button-link">
+                {t.landMap.searchOnMap}
+              </Link>
+            </p>
+          )}
           <ul className="parcel-list">
             {result.data.items.map((parcel) => (
               <li key={parcel.id} className="result">

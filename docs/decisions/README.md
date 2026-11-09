@@ -155,3 +155,11 @@ Change a decision by adding a dated entry here and updating the register; never 
     page shows an area, not a pin. Map endpoints have an optional per-IP limit (`RateLimits:MapPerIpPerMinute`),
     to switch on once visitor IPs reach the API. Prices across different land types or home types are shown as
     notes, not as better or worse. Road widths in pros and cons are in feet, matching how they are spoken of.
+46. **The map is a live explorer, not only "near me".** Place search (`GET /api/v1/places`) shows our own
+    villages, mandals and districts first (any script, via the sound-alike key), then OpenStreetMap Nominatim
+    for places without listings (India only, 1 request a second, cached a day, fails soft; switch off with
+    `Geocoding:Provider=none`). Pins carry price tags, listings from the last 7 days are marked "New" with a
+    "New this week" filter, pins group into numbered circles when zoomed out (client-side grid, no extra
+    library), the list sits beside the map on wide screens, and the view and filters live in the address so a
+    view can be shared. Tiles come from `BHOOMISETU_MAP_TILES_URL` (OpenStreetMap by default, which must be
+    replaced by a licensed provider before launch).

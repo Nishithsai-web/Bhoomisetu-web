@@ -450,7 +450,8 @@
     "rental.daily_limit": "You have listed many homes today. Please continue tomorrow.",
     "rental.not_available": "This home is no longer available.",
     "rental.action_invalid": "That change is not possible for this home now.",
-    "rental.stale": "This home has not been confirmed as available for a month, so contact is paused."
+    "rental.stale": "This home has not been confirmed as available for a month, so contact is paused.",
+    "place.query_invalid": "Type at least 2 letters of a place name."
   },
   "mine": {
     "title": "My listings",
@@ -843,7 +844,21 @@
     "dataFailed": "Could not load listings for this area. Move the map or try again in a moment.",
     "noneRent": "No homes for rent with a map location here yet. Move or zoom out.",
     "countRent": "Homes in view: {count}",
-    "mapLabelRent": "Map of homes for rent"
+    "mapLabelRent": "Map of homes for rent",
+    "searchLabel": "Search a place",
+    "searchPlaceholder": "Village, mandal, district or town",
+    "searchButton": "Go",
+    "placesTitle": "Places found",
+    "placeListings": "{count} listings",
+    "placeNoListings": "No listings yet",
+    "noPlaces": "No place found with that name. Try another spelling.",
+    "newOnly": "New this week",
+    "newBadge": "New",
+    "showOnMap": "Show on map",
+    "expand": "Bigger map",
+    "collapse": "Smaller map",
+    "clusterLabel": "{count} listings here. Tap to zoom in.",
+    "searchOnMap": "See these places on the map"
   },
   "compareNearby": {
     "landTitle": "Compare with land nearby",

@@ -1164,3 +1164,126 @@ legend {
 .point-info .point-word {
   color: var(--muted);
 }
+
+/* Map explorer: search, map and list side by side on wide screens */
+.explorer-search {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.explorer-search input {
+  flex: 1 1 220px;
+  min-height: 48px;
+}
+.place-results ul {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  display: grid;
+  gap: 6px;
+}
+.place-button {
+  width: 100%;
+  text-align: left;
+  min-height: 44px;
+  background: #fff;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 400;
+}
+.place-button .tag {
+  margin-left: 6px;
+}
+.tag-plain {
+  background: transparent;
+  border: 1px dashed var(--line);
+}
+.tag-new {
+  background: #fde9c8;
+  color: #6b3c00;
+  font-weight: 700;
+}
+.explorer-body {
+  display: grid;
+  gap: 16px;
+}
+.explorer-list .parcel-list {
+  margin-top: 8px;
+}
+@media (min-width: 960px) {
+  .explorer-body {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+  .explorer-list {
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .explorer.is-expanded .explorer-body {
+    grid-template-columns: 1fr;
+  }
+  .explorer.is-expanded .explorer-list {
+    max-height: none;
+  }
+}
+.explorer.is-expanded .land-map {
+  height: 82vh;
+}
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  min-height: 44px;
+  color: var(--teal-dark);
+  text-decoration: underline;
+  font-weight: 600;
+}
+
+/* Price tags and grouped pins drawn on the map */
+.pin-wrap {
+  background: none;
+  border: 0;
+}
+.price-pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transform: translate(-50%, -100%);
+  white-space: nowrap;
+  padding: 3px 8px;
+  border: 2px solid #5c6b6d;
+  border-radius: 14px;
+  background: #fff;
+  color: #14292c;
+  font: 700 13px/1.2 system-ui, sans-serif;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+  cursor: pointer;
+}
+.price-pin b {
+  background: #b5620a;
+  color: #fff;
+  border-radius: 8px;
+  padding: 0 5px;
+  font-size: 11px;
+}
+.price-pin.is-new {
+  background: #fff7ea;
+}
+.cluster-pin {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #14292c;
+  color: #fff;
+  border: 3px solid #fff;
+  font: 700 14px/1 system-ui, sans-serif;
+  box-shadow: 0 1px 5px rgb(0 0 0 / 0.3);
+  cursor: pointer;
+}

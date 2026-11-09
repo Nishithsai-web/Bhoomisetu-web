@@ -54,7 +54,7 @@ public static class PlaceEndpoints
             FROM parcels p
             WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
               AND (p.village ILIKE {0} OR p.mandal ILIKE {0} OR p.district ILIKE {0} OR
-            """ + keyClause + """
+            """ + " " + keyClause + " " + """
             )
             GROUP BY p.village, p.mandal, p.district
             ORDER BY count(*) DESC, p.village

@@ -11,15 +11,16 @@ export async function GET(request: NextRequest) {
   if (Object.values(area).some((v) => !Number.isFinite(v))) {
     return NextResponse.json({ code: "map.area_invalid" }, { status: 400 });
   }
+  const newDays = q.get("newDays") === "7" ? 7 : undefined;
   if (q.get("mode") === "rent") {
     const bedrooms = Number(q.get("bedrooms") ?? "0");
-    const homes = await getRentalMap(area, Number.isInteger(bedrooms) && bedrooms > 0 && bedrooms <= 10 ? bedrooms : undefined);
+    const homes = await getRentalMap(area, Number.isInteger(bedrooms) && bedrooms > 0 && bedrooms <= 10 ? bedrooms : undefined, newDays);
     return homes.ok
       ? NextResponse.json(homes.data, { headers: { "cache-control": "no-store" } })
       : NextResponse.json({ code: homes.code }, { status: homes.status });
   }
   const landClass = q.get("landClass") ?? "";
-  const result = await getMapParcels(area, isLandClass(landClass) ? landClass : undefined);
+  const result = await getMapParcels(area, isLandClass(landClass) ? landClass : undefined, newDays);
   if (!result.ok) {
     return NextResponse.json({ code: result.code }, { status: result.status });
   }

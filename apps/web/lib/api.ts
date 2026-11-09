@@ -565,13 +565,15 @@ export type MapParcel = {
   activeOffers: number;
   lowestPriceRupees: number | null;
   distanceKm: number | null;
+  createdAt: string;
 };
 
 export type MapArea = { south: number; west: number; north: number; east: number };
 
-export function getMapParcels(area: MapArea, landClass?: LandClass): Promise<ApiResult<{ items: MapParcel[]; truncated: boolean }>> {
+export function getMapParcels(area: MapArea, landClass?: LandClass, newDays?: number): Promise<ApiResult<{ items: MapParcel[]; truncated: boolean }>> {
   const params = new URLSearchParams({ south: String(area.south), west: String(area.west), north: String(area.north), east: String(area.east) });
   if (landClass) params.set("landClass", landClass);
+  if (newDays) params.set("newDays", String(newDays));
   return get<{ items: MapParcel[]; truncated: boolean }>(`/api/v1/parcels/map?${params}`);
 }
 
@@ -638,6 +640,7 @@ export type Rental = {
   stale: boolean;
   /** Public view: shown only to about 110 m; the lister sees the exact point. */
   approximate: boolean;
+  createdAt: string | null;
 };
 
 export type CreateRental = {
@@ -674,9 +677,10 @@ export function getRentalsNearLand(parcelId: string): Promise<ApiResult<Rental[]
   return get<Rental[]>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/nearby-rentals`);
 }
 
-export function getRentalMap(area: MapArea, bedrooms?: number): Promise<ApiResult<{ items: Rental[]; truncated: boolean }>> {
+export function getRentalMap(area: MapArea, bedrooms?: number, newDays?: number): Promise<ApiResult<{ items: Rental[]; truncated: boolean }>> {
   const params = new URLSearchParams({ south: String(area.south), west: String(area.west), north: String(area.north), east: String(area.east) });
   if (bedrooms) params.set("bedrooms", String(bedrooms));
+  if (newDays) params.set("newDays", String(newDays));
   return get<{ items: Rental[]; truncated: boolean }>(`/api/v1/rentals/map?${params}`);
 }
 
@@ -690,4 +694,10 @@ export function getMyRentals(token: string): Promise<ApiResult<Rental[]>> {
 
 export function getRentalContact(id: string, token: string): Promise<ApiResult<{ whatsappE164: string }>> {
   return get<{ whatsappE164: string }>(`/api/v1/rentals/${encodeURIComponent(id)}/contact`, token);
+}
+
+export type Place = { name: string; detail: string; latitude: number; longitude: number; listings: number; source: "bhoomisetu" | "openstreetmap"; boundingBox: number[] | null };
+
+export function searchPlaces(q: string, lang: string): Promise<ApiResult<Place[]>> {
+  return get<Place[]>(`/api/v1/places?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}`);
 }

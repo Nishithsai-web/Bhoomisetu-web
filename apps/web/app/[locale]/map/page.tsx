@@ -1,12 +1,37 @@
 import { notFound } from "next/navigation";
-import { MapSearch } from "@/components/MapSearch";
+import { MapSearch, type MapStart } from "@/components/MapSearch";
 import { INTL_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
 
-/** Find land on a map: every pinned listing in view, with its lowest price, filters and "near me". */
-export default async function MapPage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<{ mode?: string }> }) {
+type Search = { mode?: string; q?: string; lat?: string; lng?: string; z?: string; landClass?: string; bedrooms?: string; new?: string };
+
+const num = (value: string | undefined, min: number, max: number, fallback: number) => {
+  const n = Number(value);
+  return value !== undefined && value !== "" && Number.isFinite(n) && n >= min && n <= max ? n : fallback;
+};
+
+/**
+ * Explore land and homes on a live map: search any place, price tags on pins, new listings marked, filters.
+ * The view and filters come from the address, so a shared link opens the same view. Bounds are India's.
+ */
+export default async function MapPage({ params, searchParams }: { params: Promise<{ locale: string }>; searchParams: Promise<Search> }) {
   const { locale } = await params;
-  const initialMode = (await searchParams).mode === "rent" ? "rent" : "land";
   if (!isLocale(locale)) notFound();
+  const sp = await searchParams;
+  const start: MapStart = {
+    mode: sp.mode === "rent" ? "rent" : "land",
+    lat: num(sp.lat, 6, 38, 17.385),
+    lng: num(sp.lng, 68, 98, 78.4867),
+    zoom: Math.round(num(sp.z, 5, 18, 11)),
+    landClass: ["agricultural", "non_agricultural", "converted"].includes(sp.landClass ?? "") ? (sp.landClass as string) : "",
+    bedrooms: Math.round(num(sp.bedrooms, 0, 4, 0)),
+    newOnly: sp.new === "1",
+    q: (sp.q ?? "").slice(0, 100),
+  };
+  // A licensed tile provider is set by environment before launch; OpenStreetMap's own tiles are for light use.
+  const tiles = {
+    url: process.env.BHOOMISETU_MAP_TILES_URL || "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution: process.env.BHOOMISETU_MAP_TILES_ATTRIBUTION || "&copy; OpenStreetMap contributors",
+  };
   const t = getDictionary(locale);
   const m = t.landMap;
 
@@ -17,7 +42,8 @@ export default async function MapPage({ params, searchParams }: { params: Promis
       <MapSearch
         locale={locale}
         intl={INTL_LOCALE[locale]}
-        initialMode={initialMode}
+        start={start}
+        tiles={tiles}
         labels={{
           mapLabel: m.mapLabel,
           nearMe: m.nearMe,
@@ -55,6 +81,19 @@ export default async function MapPage({ params, searchParams }: { params: Promis
           perSqft: t.rent.perSqft,
           homesTitle: m.homesTitle,
           rentOut: t.rent.rentOut,
+          searchLabel: m.searchLabel,
+          searchPlaceholder: m.searchPlaceholder,
+          searchButton: m.searchButton,
+          placesTitle: m.placesTitle,
+          placeListings: m.placeListings,
+          placeNoListings: m.placeNoListings,
+          noPlaces: m.noPlaces,
+          newOnly: m.newOnly,
+          newBadge: m.newBadge,
+          showOnMap: m.showOnMap,
+          expand: m.expand,
+          collapse: m.collapse,
+          clusterLabel: m.clusterLabel,
         }}
       />
       <p className="hint">{m.note}</p>
