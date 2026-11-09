@@ -758,6 +758,24 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.NotEmpty((await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels?q={Uri.EscapeDataString("కంది")}", Ct)).GetProperty("items").EnumerateArray());
         Assert.NotEmpty((await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels?q={Uri.EscapeDataString("कंदी")}", Ct)).GetProperty("items").EnumerateArray());
 
+        // Map search: pins inside the visible area, filtered by land type; land nearby with distance.
+        Assert.Equal(HttpStatusCode.OK, (await listerReviewer.PutAsJsonAsync($"/api/v1/parcels/{ownId}/pin", new { latitude = 17.41, longitude = 78.21, source = "map" }, Ct)).StatusCode);
+        var area = await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/parcels/map?south=17.3&west=78.1&north=17.5&east=78.3", Ct);
+        var pinned = area.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()).ToList();
+        Assert.Contains(parcelId, pinned);
+        Assert.Contains(ownId, pinned);
+        var landType = area.GetProperty("items")[0].GetProperty("landClass").GetString();
+        var otherType = landType == "agricultural" ? "converted" : "agricultural";
+        Assert.DoesNotContain(parcelId, (await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/map?south=17.3&west=78.1&north=17.5&east=78.3&landClass={otherType}", Ct))
+            .GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+        Assert.DoesNotContain(parcelId, (await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/parcels/map?south=12.9&west=77.5&north=13.1&east=77.7", Ct))
+            .GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
+        Assert.Equal("map.area_invalid", await CodeOf(await fixture.CreateClient().GetAsync("/api/v1/parcels/map?south=17.5&west=78.1&north=17.3&east=78.3", Ct)));
+
+        var nearbyLand = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/parcels/{parcelId}/nearby", Ct);
+        var near = nearbyLand.EnumerateArray().Single(i => i.GetProperty("id").GetGuid() == ownId);
+        Assert.InRange(near.GetProperty("distanceKm").GetDouble(), 1.0, 2.0);
+
         // A too-short https link is refused by the API, not by the database.
         Assert.Equal("development.source_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/developments",
             new { name = "Short link", kind = "metro", status = "approved", authority = "HMRL", sourceUrl = "https://a.b", sourceDate = "2026-01-10" }, Ct)));

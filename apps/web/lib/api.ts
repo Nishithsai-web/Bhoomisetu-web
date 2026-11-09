@@ -549,3 +549,32 @@ export function getReportQueue(token: string): Promise<ApiResult<ListingReport[]
 export function decideReport(reportId: string, decision: "resolve" | "dismiss", note: string, token: string): Promise<ApiResult<void>> {
   return request<void>("POST", `/api/v1/admin/reports/${encodeURIComponent(reportId)}/decision`, { decision, note }, token);
 }
+
+// ---------------------------------------------------------------- map search and land nearby
+
+export type MapParcel = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  village: string;
+  mandal: string;
+  district: string;
+  surveyNumber: string;
+  landClass: string;
+  areaSquareYards: number;
+  activeOffers: number;
+  lowestPriceRupees: number | null;
+  distanceKm: number | null;
+};
+
+export type MapArea = { south: number; west: number; north: number; east: number };
+
+export function getMapParcels(area: MapArea, landClass?: LandClass): Promise<ApiResult<{ items: MapParcel[]; truncated: boolean }>> {
+  const params = new URLSearchParams({ south: String(area.south), west: String(area.west), north: String(area.north), east: String(area.east) });
+  if (landClass) params.set("landClass", landClass);
+  return get<{ items: MapParcel[]; truncated: boolean }>(`/api/v1/parcels/map?${params}`);
+}
+
+export function getNearbyLand(parcelId: string): Promise<ApiResult<MapParcel[]>> {
+  return get<MapParcel[]>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/nearby`);
+}

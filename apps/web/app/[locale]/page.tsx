@@ -41,6 +41,10 @@ export default async function HomePage({ params }: { params: Promise<{ locale: s
             <strong>{h.types.all.title}</strong>
             <span>{h.types.all.body}</span>
           </Link>
+          <Link href={`/${locale}/map`} className="type-card">
+            <strong>{h.types.map.title}</strong>
+            <span>{h.types.map.body}</span>
+          </Link>
         </div>
       </section>
 

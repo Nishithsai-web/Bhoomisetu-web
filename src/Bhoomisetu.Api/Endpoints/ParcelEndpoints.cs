@@ -243,6 +243,24 @@ public static class ParcelEndpoints
         return at >= 0 && Guid.TryParse(parcel.NameKey.AsSpan(at + DuplicateMarker.Length), out var kept) ? kept : null;
     }
 
+    /// <summary>"Price from" for each parcel (brokerage included, bait offers left out), keyed by parcel id.</summary>
+    internal static async Task<Dictionary<Guid, long?>> LowestPricesAsync(BhoomisetuDbContext db, BestValueRanker ranker, IReadOnlyList<Guid> ids, CancellationToken ct)
+    {
+        var offers = await db.Offers.AsNoTracking()
+            .Where(o => ids.Contains(o.ParcelId) && o.Status == "active")
+            .Select(o => new
+            {
+                o.ParcelId,
+                o.AskingPricePaise,
+                o.BuyerBrokeragePercent,
+                VerifiedOwner = o.ListerKind == "owner"
+                    && db.ParcelParties.Any(pp => pp.ParcelId == o.ParcelId && pp.UserId == o.ListerUserId && pp.Role == Vocabulary.OwnerOfRecord),
+            })
+            .ToListAsync(ct);
+        return offers.GroupBy(o => o.ParcelId).ToDictionary(g => g.Key,
+            g => ranker.LowestFairPricePaise(g.Select(o => (o.AskingPricePaise, o.BuyerBrokeragePercent, o.VerifiedOwner)).ToList()));
+    }
+
     /// <summary>
     /// A 409 pointing to the kept record when <paramref name="parcel"/> was set aside as a duplicate; otherwise null.
     /// Offers or corrections saved on a hidden duplicate would never be seen, so writes are sent to the kept record.
@@ -438,20 +456,7 @@ public static class ParcelEndpoints
             .ToListAsync(ct);
 
         // Prices for this page only (at most 100 parcels), ranked by the same rules as the comparison.
-        var ids = items.Select(x => x.Id).ToList();
-        var pageOffers = await db.Offers.AsNoTracking()
-            .Where(o => ids.Contains(o.ParcelId) && o.Status == "active")
-            .Select(o => new
-            {
-                o.ParcelId,
-                o.AskingPricePaise,
-                o.BuyerBrokeragePercent,
-                VerifiedOwner = o.ListerKind == "owner"
-                    && db.ParcelParties.Any(pp => pp.ParcelId == o.ParcelId && pp.UserId == o.ListerUserId && pp.Role == Vocabulary.OwnerOfRecord),
-            })
-            .ToListAsync(ct);
-        var lowest = pageOffers.GroupBy(o => o.ParcelId).ToDictionary(g => g.Key,
-            g => ranker.LowestFairPricePaise(g.Select(o => (o.AskingPricePaise, o.BuyerBrokeragePercent, o.VerifiedOwner)).ToList()));
+        var lowest = await LowestPricesAsync(db, ranker, items.Select(x => x.Id).ToList(), ct);
 
         var summaries = items
             .Select(x => new ParcelSummary(x.Id, x.StateCode, x.District, x.Mandal, x.Village, x.SurveyNumber, x.LandClass,

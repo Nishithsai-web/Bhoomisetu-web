@@ -263,6 +263,7 @@ app.MapChangeRequestEndpoints();
 app.MapTrustEndpoints();
 app.MapDocumentEndpoints();
 app.MapDevelopmentEndpoints();
+app.MapMapEndpoints();
 
 await app.RunAsync();
 

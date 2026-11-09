@@ -1072,3 +1072,47 @@ legend {
   border: 1px solid var(--line);
   border-radius: 12px;
 }
+
+/* Map search */
+.land-map {
+  height: min(70vh, 560px);
+  min-height: 360px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: #dcebe9;
+  z-index: 0;
+}
+
+.pills .pill {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 22px;
+  border: 1px solid var(--control-border);
+  background: #fff;
+  color: var(--ink);
+  font-weight: 400;
+}
+
+.pills .pill.active {
+  background: var(--teal-dark);
+  border-color: var(--teal-dark);
+  color: var(--paper);
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.nearby-land {
+  display: grid;
+  gap: 8px;
+  padding-left: 20px;
+}
+
+.result h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}

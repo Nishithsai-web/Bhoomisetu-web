@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getComparison, getNearbyDevelopments, getParcel, getParcelDocuments, getViewer, isUuid } from "@/lib/api";
+import { getComparison, getNearbyDevelopments, getNearbyLand, getParcel, getParcelDocuments, getViewer, isUuid } from "@/lib/api";
 import { getSessionToken } from "@/lib/session";
 import { SetPinForm } from "@/components/SetPinForm";
 import { errorText } from "@/lib/errors";
@@ -30,6 +30,7 @@ export default async function LandPage({ params, searchParams }: Props) {
     getParcelDocuments(id),
     getNearbyDevelopments(id),
   ]);
+  const nearbyLand = parcel.ok && parcel.data.pin ? await getNearbyLand(id) : null;
   const { done, error } = await searchParams;
   const token = await getSessionToken();
   const viewer = token ? await getViewer(id, token) : null;
@@ -242,6 +243,28 @@ export default async function LandPage({ params, searchParams }: Props) {
             )}
             <p className="hint">{t.nearby.note}</p>
           </section>
+
+          {nearbyLand?.ok && nearbyLand.data.length > 0 && (
+            <section className="card" aria-labelledby="nearby-land">
+              <h2 id="nearby-land">{t.landMap.nearbyTitle}</h2>
+              <ul className="nearby-land">
+                {nearbyLand.data.map((n2) => (
+                  <li key={n2.id}>
+                    <Link href={`/${locale}/parcels/${n2.id}`}>
+                      {n2.village}, {n2.mandal}
+                    </Link>{" "}
+                    <span className="muted">
+                      · {format(t.nearby.km, { km: n(n2.distanceKm ?? 0, 1) })} · {(s.landClasses as Record<string, string>)[n2.landClass] ?? n2.landClass} ·{" "}
+                      {n2.lowestPriceRupees === null ? t.parcels.noPrice : format(t.parcels.fromPrice, { price: formatRupeesShort(n2.lowestPriceRupees, intl, t.amounts) })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <p>
+                <Link href={`/${locale}/map`}>{t.landMap.openMap}</Link>
+              </p>
+            </section>
+          )}
 
           <section className="card" aria-labelledby="facts">
             <h2 id="facts">{l.factsTitle}</h2>
