@@ -5,7 +5,7 @@ export type Point = { code: string; kind: "pro" | "con" | "info"; values: Record
 
 /** {placeholders} filled from values; code-valued fields (kind, furnishing) are first turned into labels. */
 export function describePoint(point: Point, texts: Record<string, string>, labels: { unit: string; kinds: Record<string, string>; furnishing: Record<string, string> }): string {
-  const template = Object.hasOwn(texts, point.code) ? texts[point.code] : point.code;
+  const template = texts[point.code] ?? point.code;
   const values: Record<string, string> = { ...point.values, unit: labels.unit };
   if (values.kind) values.kind = labels.kinds[values.kind] ?? values.kind;
   if (values.furnishing) values.furnishing = labels.furnishing[values.furnishing] ?? values.furnishing;
