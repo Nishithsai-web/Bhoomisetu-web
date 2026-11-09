@@ -67,7 +67,7 @@ public static class MapEndpoints
     public static void MapMapEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/parcels").WithTags("Map");
-        group.MapGet("/map", InAreaAsync);
+        group.MapGet("/map", InAreaAsync).RequireRateLimiting(RateLimitPolicies.Map);
         group.MapGet("/{id:guid}/nearby", NearbyAsync);
     }
 

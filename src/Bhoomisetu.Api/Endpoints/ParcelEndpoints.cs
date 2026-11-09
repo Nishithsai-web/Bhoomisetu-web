@@ -411,17 +411,14 @@ public static class ParcelEndpoints
             var key = PlaceKey.From(q);
             if (key.Length >= 5)
             {
-                // Long keys: contained in the stored key, or the stored key is the typed one without a 1-2 letter
-                // ending ("Anantapur" stored, "అనంతపురం" typed: -m). Equality, so the trigram indexes are used and
-                // "Mangalpalle" does not pull in "Amangal".
+                // Long keys: contained in the stored key, or the stored key is the typed one without its Telugu
+                // ending ("Anantapur" stored, "అనంతపురం" typed: -m). Equality, so the trigram indexes are used.
                 var keyPattern = ContainsPattern(key);
-                var less1 = key[..^1];
-                var less2 = key[..^2];
+                // Only a real Telugu ending may be missing in English (-m from anusvara, -u, -i): one letter.
+                var less1 = key[^1] is 'm' or 'u' or 'i' ? key[..^1] : key;
                 query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern)
                     || EF.Functions.Like(x.VillageKey!, keyPattern) || EF.Functions.Like(x.MandalKey!, keyPattern) || EF.Functions.Like(x.DistrictKey!, keyPattern)
-                    || x.VillageKey == less1 || x.VillageKey == less2
-                    || x.MandalKey == less1 || x.MandalKey == less2
-                    || x.DistrictKey == less1 || x.DistrictKey == less2);
+                    || x.VillageKey == less1 || x.MandalKey == less1 || x.DistrictKey == less1);
             }
             else if (key.Length >= 2)
             {

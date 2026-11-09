@@ -202,9 +202,9 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
             <li key={h.id} className="card">
               <p>
                 <Link href={`/${locale}/rentals/${h.id}`}>
-                  {format(t.rent.headline, { bedrooms: h.bedrooms, type: (t.rent.types as Record<string, string>)[h.propertyType] ?? h.propertyType })}, {h.locality}
+                  {(h.bedrooms === 0 ? ((t.rent.types as Record<string, string>)[h.propertyType] ?? h.propertyType) : format(t.rent.headline, { bedrooms: h.bedrooms, type: (t.rent.types as Record<string, string>)[h.propertyType] ?? h.propertyType }))}, {h.locality}
                 </Link>{" "}
-                <span className="badge">{(t.rent.statuses as Record<string, string>)[h.status]}</span>
+                <span className="badge">{h.stale ? t.rent.staleBadge : (t.rent.statuses as Record<string, string>)[h.status]}</span>
               </p>
               <p className="muted">{format(t.rent.perMonth, { rent: formatRupees(h.rentRupees, intl) })}</p>
               <div className="form-inline">

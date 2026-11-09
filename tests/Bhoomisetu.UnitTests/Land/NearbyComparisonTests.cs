@@ -17,7 +17,8 @@ public sealed class NearbyComparisonTests
         Assert.Equal(PointKind.Pro, cheaper.Kind);
         Assert.Equal("18", cheaper.Values["percent"]);
         Assert.Equal(PointKind.Pro, Assert.Single(points, p => p.Code == "road_wider").Kind);
-        Assert.Equal("12.2", Assert.Single(points, p => p.Code == "road_wider").Values["theirs"]);
+        Assert.Equal("40", Assert.Single(points, p => p.Code == "road_wider").Values["theirs"]);
+        Assert.Equal("30", Assert.Single(points, p => p.Code == "road_wider").Values["ours"]);
         Assert.Contains(points, p => p.Code == "main_road_closer" && p.Kind == PointKind.Pro);
     }
 
@@ -44,6 +45,14 @@ public sealed class NearbyComparisonTests
         var withChecks = NearbyComparison.Compare(Ours with { OwnerRecorded = true }, Ours with { ReviewedDocuments = 2 }).Select(p => p.Code).ToArray();
         Assert.Contains("owner_not_recorded", withChecks);
         Assert.Contains("documents_reviewed", withChecks);
+    }
+
+    [Fact]
+    public void Across_different_types_the_price_is_a_note_not_a_pro()
+    {
+        var points = NearbyComparison.Compare(Ours, Ours with { PricePerUnit = 10_000m, Kind = "agricultural" });
+        Assert.Equal(PointKind.Info, Assert.Single(points, p => p.Code == "cheaper").Kind);
+        Assert.Contains(points, p => p.Code == "different_type");
     }
 
     [Fact]

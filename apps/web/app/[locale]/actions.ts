@@ -35,7 +35,7 @@ import {
 import { CHANGE_FIELDS, parseOfferForm, parseParcelForm, safeNextPath, toMetres, type FieldError } from "@/lib/forms";
 import { whatsappLink } from "@/lib/contact";
 import { getDictionary, type Locale } from "@/lib/i18n";
-import { parseAreaValue } from "@/lib/units";
+import { parseAreaValue, toAsciiDigits } from "@/lib/units";
 import { isLocale } from "@/lib/i18n";
 import { clearSession, getSessionToken, setSession } from "@/lib/session";
 
@@ -478,9 +478,11 @@ export async function setPinAction(form: FormData): Promise<void> {
 export async function createRentalAction(_previous: FormState, form: FormData): Promise<FormState> {
   const locale = localeOf(form);
   const here = `/${locale}/rent/new`;
+  // Telugu and Devanagari digits are accepted; amounts may have commas; coordinates may use a decimal comma.
   const number = (name: string) => {
-    const raw = value(form, name).replace(/[,\s₹]/g, "");
-    return raw === "" ? Number.NaN : Number(raw);
+    const raw = toAsciiDigits(value(form, name)).replace(/[\s₹]/g, "");
+    const cleaned = name === "latitude" || name === "longitude" ? raw.replace(",", ".") : raw.replace(/,/g, "");
+    return cleaned === "" ? Number.NaN : Number(cleaned);
   };
   const body = {
     listerKind: value(form, "listerKind"),

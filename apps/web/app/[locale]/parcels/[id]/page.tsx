@@ -336,7 +336,7 @@ export default async function LandPage({ params, searchParams }: Props) {
                       <li key={h.id} className="result">
                         <h3>
                           <Link href={`/${locale}/rentals/${h.id}`}>
-                            {format(t.rent.headline, { bedrooms: h.bedrooms, type: (t.rent.types as Record<string, string>)[h.propertyType] ?? h.propertyType })}, {h.locality}
+                            {(h.bedrooms === 0 ? ((t.rent.types as Record<string, string>)[h.propertyType] ?? h.propertyType) : format(t.rent.headline, { bedrooms: h.bedrooms, type: (t.rent.types as Record<string, string>)[h.propertyType] ?? h.propertyType }))}, {h.locality}
                           </Link>
                         </h3>
                         <p className="price">

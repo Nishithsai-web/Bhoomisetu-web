@@ -796,6 +796,10 @@ public sealed class ApiFlowTests(ApiFixture fixture)
 
         var home = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/rentals/{homeAId}", Ct);
         Assert.Equal(18m, home.GetProperty("rentPerSqft").GetDecimal());
+        // The public sees the home to about 110 m; the lister sees the exact point.
+        Assert.Equal(17.401, home.GetProperty("latitude").GetDouble(), 3);
+        Assert.True(home.GetProperty("approximate").GetBoolean());
+        Assert.False((await lister.GetFromJsonAsync<JsonElement>($"/api/v1/rentals/{homeAId}", Ct)).GetProperty("approximate").GetBoolean());
         Assert.Equal(3m, home.GetProperty("depositMonths").GetDecimal());
         var rentMap = await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/rentals/map?south=17.3&west=78.1&north=17.5&east=78.3", Ct);
         Assert.Contains(homeAId, rentMap.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
@@ -818,6 +822,7 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.DoesNotContain(homeAId, (await fixture.CreateClient().GetFromJsonAsync<JsonElement>("/api/v1/rentals/map?south=17.3&west=78.1&north=17.5&east=78.3", Ct))
             .GetProperty("items").EnumerateArray().Select(i => i.GetProperty("id").GetGuid()));
         Assert.Single((await lister.GetFromJsonAsync<JsonElement>("/api/v1/me/rentals", Ct)).EnumerateArray());
+        Assert.Equal(HttpStatusCode.NotFound, (await fixture.CreateClient().GetAsync($"/api/v1/rentals/{homeAId}/nearby", Ct)).StatusCode);
 
         // A too-short https link is refused by the API, not by the database.
         Assert.Equal("development.source_invalid", await CodeOf(await reviewer.PostAsJsonAsync("/api/v1/admin/developments",

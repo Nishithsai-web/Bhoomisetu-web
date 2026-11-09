@@ -192,6 +192,13 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions { PermitLimit = contactsPerIpPerDay, Window = TimeSpan.FromDays(1), QueueLimit = 0 })
         : RateLimitPartition.GetNoLimiter("off"));
 
+    // Off (0) by default for the same reason as the contact limit; turn on once visitor IPs reach the API.
+    var mapPerIpPerMinute = config.GetValue("RateLimits:MapPerIpPerMinute", 0);
+    options.AddPolicy(RateLimitPolicies.Map, http => mapPerIpPerMinute > 0
+        ? RateLimitPartition.GetFixedWindowLimiter(RateLimitPolicies.ClientKey(http),
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = mapPerIpPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 })
+        : RateLimitPartition.GetNoLimiter("off"));
+
     // A 429 explains itself like every other error, so the web app can show a plain message.
     options.OnRejected = async (context, token) =>
     {
@@ -281,6 +288,9 @@ namespace Bhoomisetu.Api
 
         /// <summary>WhatsApp number reveals per IP (or IPv6 /64) per day, on top of the per-account limit.</summary>
         public const string Contact = "contact";
+
+        /// <summary>Map-area requests per IP per minute (against bulk copying of listings).</summary>
+        public const string Map = "map";
 
         /// <summary>
         /// Rate-limit key for a client: the IPv4 address, or the /64 prefix for IPv6, because one home or phone

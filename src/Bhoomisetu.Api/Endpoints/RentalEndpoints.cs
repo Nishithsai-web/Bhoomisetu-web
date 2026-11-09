@@ -16,7 +16,7 @@ public sealed record CreateRentalRequest(
 public sealed record RentalResponse(Guid Id, string ListerKind, string PropertyType, int Bedrooms, int AreaSqft, int RentRupees, int DepositRupees,
     decimal RentPerSqft, decimal DepositMonths, string Furnishing, string PreferredTenants, bool Parking, DateOnly AvailableFrom,
     string Locality, string Mandal, string District, double Latitude, double Longitude, string Status, DateTimeOffset AvailabilityConfirmedAt,
-    bool Contactable, bool Mine, double? DistanceKm, IReadOnlyList<ComparisonPointResponse> Points);
+    bool Contactable, bool Mine, double? DistanceKm, IReadOnlyList<ComparisonPointResponse> Points, bool Stale = false, bool Approximate = true);
 
 public sealed record RentalComparisonResponse(RentalResponse Subject, IReadOnlyList<RentalResponse> Items);
 
@@ -95,7 +95,7 @@ public static class RentalEndpoints
     {
         var group = app.MapGroup("/api/v1/rentals").WithTags("Rentals");
         group.MapPost("/", CreateAsync).RequireAuthorization();
-        group.MapGet("/map", InAreaAsync);
+        group.MapGet("/map", InAreaAsync).RequireRateLimiting(RateLimitPolicies.Map);
         group.MapGet("/{id:guid}", GetAsync);
         group.MapGet("/{id:guid}/nearby", NearbyAsync);
         group.MapPost("/{id:guid}/status", StatusAsync).RequireAuthorization();
@@ -189,7 +189,7 @@ public static class RentalEndpoints
         return Results.Created($"/api/v1/rentals/{id}", new { id });
     }
 
-    private static async Task<IResult> GetAsync(Guid id, HttpContext http, BhoomisetuDbContext db, SubscriptionService subscriptions, CancellationToken ct)
+    private static async Task<IResult> GetAsync(Guid id, HttpContext http, BhoomisetuDbContext db, SubscriptionService subscriptions, IClock clock, CancellationToken ct)
     {
         var rows = await db.Database.SqlQuery<RentalRow>(Sql("SELECT " + Columns + ", NULL::double precision AS \"DistanceKm\" FROM rental_listings r WHERE r.id = {0}", id)).ToListAsync(ct);
         if (rows.Count == 0)
@@ -204,8 +204,9 @@ public static class RentalEndpoints
             return ApiResults.Problem(StatusCodes.Status410Gone, "rental.not_available", "This home is no longer available.");
         }
 
-        var contactable = await subscriptions.IsListerAsync(row.ListerUserId, ct);
-        return Results.Ok(ToResponse(row, contactable, userId, null));
+        var stale = row.Status == "active" && row.AvailabilityConfirmedAt < clock.UtcNow - StaleAfter;
+        var contactable = !stale && await subscriptions.IsListerAsync(row.ListerUserId, ct);
+        return Results.Ok(ToResponse(row, contactable, userId, null) with { Stale = stale });
     }
 
     private static async Task<IResult> InAreaAsync(double? south, double? west, double? north, double? east, int? bedrooms, BhoomisetuDbContext db, IClock clock, CancellationToken ct)
@@ -233,13 +234,13 @@ public static class RentalEndpoints
     /// <summary>"Compare with homes nearby": up to 8 active homes within 5 km, rent per sq ft, and factual pros and cons.</summary>
     private static async Task<IResult> NearbyAsync(Guid id, BhoomisetuDbContext db, IClock clock, CancellationToken ct)
     {
-        var subject = await db.Database.SqlQuery<RentalRow>(Sql("SELECT " + Columns + ", NULL::double precision AS \"DistanceKm\" FROM rental_listings r WHERE r.id = {0}", id)).ToListAsync(ct);
+        var fresh = clock.UtcNow - StaleAfter;
+        var subject = await db.Database.SqlQuery<RentalRow>(Sql("SELECT " + Columns + ", NULL::double precision AS \"DistanceKm\" FROM rental_listings r WHERE r.id = {0} AND r.status = 'active'", id)).ToListAsync(ct);
         if (subject.Count == 0)
         {
+            // Rented or removed homes are not shown anywhere, including as the centre of a comparison.
             return ApiResults.NotFound("Rental");
         }
-
-        var fresh = clock.UtcNow - StaleAfter;
         var rows = await db.Database.SqlQuery<RentalRow>(Sql(
             "SELECT " + Columns + """
             , ST_Distance(r.centroid, me.centroid) / 1000.0 AS "DistanceKm"
@@ -318,13 +319,14 @@ public static class RentalEndpoints
         return Results.NoContent();
     }
 
-    private static async Task<IResult> MineAsync(HttpContext http, BhoomisetuDbContext db, CancellationToken ct)
+    private static async Task<IResult> MineAsync(HttpContext http, BhoomisetuDbContext db, IClock clock, CancellationToken ct)
     {
         var userId = http.User.UserId();
         var rows = await db.Database.SqlQuery<RentalRow>(
             Sql("SELECT " + Columns + ", NULL::double precision AS \"DistanceKm\" FROM rental_listings r WHERE r.lister_user_id = {0} ORDER BY r.created_at DESC LIMIT 100", userId))
             .ToListAsync(ct);
-        return Results.Ok(rows.Select(r => ToResponse(r, contactable: false, viewer: userId, points: null)).ToList());
+        var fresh = clock.UtcNow - StaleAfter;
+        return Results.Ok(rows.Select(r => ToResponse(r, contactable: false, viewer: userId, points: null) with { Stale = r.Status == "active" && r.AvailabilityConfirmedAt < fresh }).ToList());
     }
 
     private static async Task<IResult> ContactAsync(Guid id, HttpContext http, BhoomisetuDbContext db, SubscriptionService subscriptions, IClock clock, AuditWriter audit, CancellationToken ct)
@@ -333,6 +335,11 @@ public static class RentalEndpoints
         if (rental is null)
         {
             return ApiResults.NotFound("Rental");
+        }
+
+        if (rental.AvailabilityConfirmedAt < clock.UtcNow - StaleAfter)
+        {
+            return ApiResults.Problem(StatusCodes.Status409Conflict, "rental.stale", "This home has not been confirmed as available for a month, so contact is paused.");
         }
 
         var userId = http.User.UserId();
@@ -353,7 +360,18 @@ public static class RentalEndpoints
         return Results.Ok(new ContactResponse(lister.WhatsappE164 ?? lister.PhoneE164));
     }
 
-    private static RentalResponse ToResponse(RentalRow r, bool contactable, Guid? viewer, IReadOnlyList<ComparisonPointResponse>? points) =>
+    /// <summary>
+    /// Public responses show a home only to about 110 m (3 decimals): enough to judge the area, not enough to find
+    /// the door, since a room or portion is often the lister's own home. The lister sees their exact point.
+    /// </summary>
+    private static RentalResponse ToResponse(RentalRow r, bool contactable, Guid? viewer, IReadOnlyList<ComparisonPointResponse>? points)
+    {
+        var mine = viewer is { } v && v == r.ListerUserId;
+        var response = Exact(r, contactable, viewer, points);
+        return mine ? response with { Approximate = false } : response with { Latitude = Math.Round(r.Latitude, 3), Longitude = Math.Round(r.Longitude, 3) };
+    }
+
+    private static RentalResponse Exact(RentalRow r, bool contactable, Guid? viewer, IReadOnlyList<ComparisonPointResponse>? points) =>
         new(r.Id, r.ListerKind, r.PropertyType, r.Bedrooms, r.AreaSqft, r.RentRupees, r.DepositRupees,
             Math.Round((decimal)r.RentRupees / r.AreaSqft, 2, MidpointRounding.AwayFromZero),
             Math.Round((decimal)r.DepositRupees / r.RentRupees, 1, MidpointRounding.AwayFromZero),

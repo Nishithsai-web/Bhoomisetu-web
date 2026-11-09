@@ -634,6 +634,10 @@ export type Rental = {
   mine: boolean;
   distanceKm: number | null;
   points: ComparisonPoint[];
+  /** Active but not confirmed as available for 30 days: hidden from the map, contact paused. */
+  stale: boolean;
+  /** Public view: shown only to about 110 m; the lister sees the exact point. */
+  approximate: boolean;
 };
 
 export type CreateRental = {

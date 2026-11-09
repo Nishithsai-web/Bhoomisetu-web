@@ -449,7 +449,8 @@
     "rental.place_invalid": "Enter the locality, mandal and district.",
     "rental.daily_limit": "You have listed many homes today. Please continue tomorrow.",
     "rental.not_available": "This home is no longer available.",
-    "rental.action_invalid": "That change is not possible for this home now."
+    "rental.action_invalid": "That change is not possible for this home now.",
+    "rental.stale": "This home has not been confirmed as available for a month, so contact is paused."
   },
   "mine": {
     "title": "My listings",
@@ -825,10 +826,10 @@
     "locating": "Finding your location…",
     "locationFailed": "Could not get your location. Move the map instead.",
     "loading": "Loading land…",
-    "failed": "The map could not load. The list of land still works.",
+    "failed": "The map could not load. Listings for the Hyderabad area are shown below.",
     "none": "No land with a map location here yet. Move or zoom out.",
     "truncated": "Showing the newest 500. Zoom in to see all.",
-    "count": "{count} pieces of land in view",
+    "count": "Land in view: {count}",
     "listTitle": "Land in view",
     "note": "Only land whose owner or agent added a map location is shown. Pins are approximate (about 10 m). Map © OpenStreetMap contributors.",
     "nearbyTitle": "Land nearby (within 10 km)",
@@ -839,7 +840,10 @@
     "bedroomsLabel": "Bedrooms",
     "anyBedrooms": "Any",
     "homesTitle": "Homes in view",
-    "dataFailed": "Could not load listings for this area. Move the map or try again in a moment."
+    "dataFailed": "Could not load listings for this area. Move the map or try again in a moment.",
+    "noneRent": "No homes for rent with a map location here yet. Move or zoom out.",
+    "countRent": "Homes in view: {count}",
+    "mapLabelRent": "Map of homes for rent"
   },
   "compareNearby": {
     "landTitle": "Compare with land nearby",
@@ -879,19 +883,19 @@
       "bigger": "{percent}% bigger",
       "smaller": "{percent}% smaller",
       "different_type": "Different type: {kind}",
-      "road_wider": "Wider road in front: {theirs} m vs {ours} m",
-      "road_narrower": "Narrower road in front: {theirs} m vs {ours} m",
+      "road_wider": "Wider road in front: {theirs} ft vs {ours} ft",
+      "road_narrower": "Narrower road in front: {theirs} ft vs {ours} ft",
       "road_unknown": "Road width not given",
       "main_road_closer": "Closer to the main road: {theirs} m vs {ours} m",
       "main_road_farther": "Farther from the main road: {theirs} m vs {ours} m",
-      "more_bedrooms": "{theirs} bedrooms (this one has {ours})",
-      "fewer_bedrooms": "{theirs} bedrooms (this one has {ours})",
+      "more_bedrooms": "Bedrooms: {theirs} (this one has {ours})",
+      "fewer_bedrooms": "Bedrooms: {theirs} (this one has {ours})",
       "lower_deposit": "Lower deposit: {theirs} months vs {ours}",
       "higher_deposit": "Higher deposit: {theirs} months vs {ours}",
       "furnishing": "Furnishing: {furnishing}",
       "owner_recorded": "Owner of record recorded",
       "owner_not_recorded": "No owner of record yet",
-      "documents_reviewed": "{count} documents reviewed",
+      "documents_reviewed": "Documents reviewed: {count}",
       "no_documents": "No documents reviewed"
     }
   },
@@ -967,6 +971,9 @@
       "rented": "Rented out",
       "withdraw": "Remove",
       "relist": "Show again"
-    }
+    },
+    "staleNotice": "Not confirmed as available for over a month, so it is hidden from the map and contact is paused.",
+    "staleBadge": "Hidden: tap \"Still available\"",
+    "approximateArea": "Shown as an area (about 100 m) to protect the lister. Ask for the exact address when you talk."
   }
 }

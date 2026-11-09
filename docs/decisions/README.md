@@ -151,3 +151,7 @@ Change a decision by adding a dated entry here and updating the register; never 
     words, every time.
 44. **Homes for rent are a separate listing type** (rental_listings) that always has a map point, is hidden
     after 30 days without "still available", and uses the same WhatsApp contact rules as land.
+45. **Homes for rent are public only to about 110 m** (3 decimals); the lister sees the exact point, and the rental
+    page shows an area, not a pin. Map endpoints have an optional per-IP limit (`RateLimits:MapPerIpPerMinute`),
+    to switch on once visitor IPs reach the API. Prices across different land types or home types are shown as
+    notes, not as better or worse. Road widths in pros and cons are in feet, matching how they are spoken of.

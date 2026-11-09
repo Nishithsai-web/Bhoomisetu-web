@@ -53,7 +53,9 @@ public static class NearbyComparison
         ArgumentNullException.ThrowIfNull(other);
         var points = new List<ComparisonPoint>();
 
-        // Price per unit (per square yard for land, per square foot for rent).
+        // Price per unit (per square yard for land, per square foot for rent). Across different types (farm land
+        // against a converted plot, a room against a villa) the price is a fact to note, not better or worse.
+        var sameKind = string.Equals(subject.Kind, other.Kind, StringComparison.Ordinal);
         if (other.PricePerUnit is not { } theirs)
         {
             points.Add(Point("no_price", PointKind.Con));
@@ -63,11 +65,11 @@ public static class NearbyComparison
             var change = (theirs - ours) / ours;
             if (change <= -PriceThreshold)
             {
-                points.Add(Point("cheaper", PointKind.Pro, ("percent", Percent(-change))));
+                points.Add(Point("cheaper", sameKind ? PointKind.Pro : PointKind.Info, ("percent", Percent(-change))));
             }
             else if (change >= PriceThreshold)
             {
-                points.Add(Point("costlier", PointKind.Con, ("percent", Percent(change))));
+                points.Add(Point("costlier", sameKind ? PointKind.Con : PointKind.Info, ("percent", Percent(change))));
             }
             else
             {
@@ -98,11 +100,11 @@ public static class NearbyComparison
         {
             if (subject.RoadWidthM is { } ourRoad && road - ourRoad >= RoadThresholdM)
             {
-                points.Add(Point("road_wider", PointKind.Pro, ("theirs", Metres(road)), ("ours", Metres(ourRoad))));
+                points.Add(Point("road_wider", PointKind.Pro, ("theirs", Feet(road)), ("ours", Feet(ourRoad))));
             }
             else if (subject.RoadWidthM is { } ourRoad2 && ourRoad2 - road >= RoadThresholdM)
             {
-                points.Add(Point("road_narrower", PointKind.Con, ("theirs", Metres(road)), ("ours", Metres(ourRoad2))));
+                points.Add(Point("road_narrower", PointKind.Con, ("theirs", Feet(road)), ("ours", Feet(ourRoad2))));
             }
         }
         else if (subject.RoadWidthM is not null)
@@ -157,7 +159,8 @@ public static class NearbyComparison
 
     private static string Percent(decimal fraction) => Math.Round(fraction * 100, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
 
-    private static string Metres(decimal metres) => Math.Round(metres, 1).ToString("0.#", CultureInfo.InvariantCulture);
+    /// <summary>Road widths are spoken of in feet in Telangana and AP (a "30 ft road").</summary>
+    private static string Feet(decimal metres) => Math.Round(metres * 3.28084m, 0, MidpointRounding.AwayFromZero).ToString("0", CultureInfo.InvariantCulture);
 
     private static string Months(decimal months) => Math.Round(months, 1).ToString("0.#", CultureInfo.InvariantCulture);
 }

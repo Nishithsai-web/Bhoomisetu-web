@@ -39,6 +39,8 @@ export default async function RentalPage({ params, searchParams }: Props) {
   const furnishings = r.furnishings as Record<string, string>;
   const n = (value: number, digits = 0) => formatNumber(value, intl, digits);
   const date = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
+  const headline = (bedrooms: number, type: string) =>
+    bedrooms === 0 ? (types[type] ?? type) : format(r.headline, { bedrooms, type: types[type] ?? type });
 
   return (
     <section className="page">
@@ -60,8 +62,9 @@ export default async function RentalPage({ params, searchParams }: Props) {
         <li className="tag tag-plain">{h.listerKind === "owner" ? r.byOwner : r.byAgent}</li>
       </ul>
       <h1>
-        {format(r.headline, { bedrooms: h.bedrooms, type: types[h.propertyType] ?? h.propertyType })}, {h.locality}
+        {headline(h.bedrooms, h.propertyType)}, {h.locality}
       </h1>
+      {h.stale && <p className="notice">{r.staleNotice}</p>}
       <p className="lead">
         {format(r.perMonth, { rent: formatRupees(h.rentRupees, intl) })} · {format(r.perSqft, { value: formatRupees(h.rentPerSqft, intl) })}
       </p>
@@ -119,10 +122,10 @@ export default async function RentalPage({ params, searchParams }: Props) {
               title={t.map.frameTitle}
               loading="lazy"
               referrerPolicy="no-referrer"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${h.longitude - 0.01},${h.latitude - 0.006},${h.longitude + 0.01},${h.latitude + 0.006}&layer=mapnik&marker=${h.latitude},${h.longitude}`}
+              src={`https://www.openstreetmap.org/export/embed.html?bbox=${h.longitude - 0.01},${h.latitude - 0.006},${h.longitude + 0.01},${h.latitude + 0.006}&layer=mapnik${h.approximate ? "" : `&marker=${h.latitude},${h.longitude}`}`}
             />
             <p className="hint">
-              {t.map.note} © OpenStreetMap
+              {h.approximate ? r.approximateArea : t.map.note} © OpenStreetMap
             </p>
           </section>
 
@@ -150,7 +153,7 @@ export default async function RentalPage({ params, searchParams }: Props) {
                             <strong>{r.thisHome}</strong>
                           ) : (
                             <Link href={`/${locale}/rentals/${c.id}`}>
-                              {format(r.headline, { bedrooms: c.bedrooms, type: types[c.propertyType] ?? c.propertyType })}, {c.locality}
+                              {headline(c.bedrooms, c.propertyType)}, {c.locality}
                             </Link>
                           )}
                           {c.distanceKm !== null && (
