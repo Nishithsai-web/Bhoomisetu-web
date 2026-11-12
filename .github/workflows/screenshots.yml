@@ -42,9 +42,9 @@ jobs:
           export ConnectionStrings__Bhoomisetu="Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=bhoomisetu"
           export Auth__SigningKey=$(openssl rand -base64 48)
           export Otp__Pepper=$(openssl rand -base64 32)
-          export Otp__ResendCooldownSeconds=0 Otp__MaxRequestsPerHour=100 Otp__MaxRequestsPerHourPerNumber=100
+          export Otp__ResendCooldownSeconds=0 Otp__MaxRequestsPerHour=100 Otp__MaxRequestsPerHourPerNumber=100 Otp__MaxHumanCheckedRequestsPerHourPerNumber=100
           export Geocoding__Provider=none RateLimits__RequestsPerIpPerMinute=100000 RateLimits__OtpPerIpPerMinute=1000
-          (dotnet run --project src/Bhoomisetu.Api -c Release --no-build > /tmp/api.log 2>&1 &)
+          (dotnet run --project src/Bhoomisetu.Api -c Release --no-build --no-launch-profile > /tmp/api.log 2>&1 &)
           for i in $(seq 1 60); do curl -sf $API_URL/api/v1/parcels > /dev/null && break; sleep 1; done
           curl -sf $API_URL/api/v1/parcels > /dev/null || { tail -50 /tmp/api.log; exit 1; }
       - name: Sample listings
