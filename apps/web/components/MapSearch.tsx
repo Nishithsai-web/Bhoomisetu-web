@@ -228,16 +228,17 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       markers.current.clear();
       const zoom = m.getZoom();
       const groups = new Map<string, Item[]>();
-      // Zoomed out over many pins: a grid of cells. Otherwise only tags that would sit on top of each other are
-      // grouped (a price tag is about 64 x 26 px), until the closest zoom, where every pin stands alone.
+      // Pins whose marks would touch are grouped: wide boxes when zoomed out over many pins, otherwise just the
+      // size of a price tag, until the closest zoom, where every pin stands alone. Each group sits on its first
+      // pin, so two groups are never closer than the box and never cover each other.
+      const dense = zoom < CLUSTER_BELOW_ZOOM && list.length > 25;
+      const [w, h] = dense ? [CLUSTER_PX + 8, CLUSTER_PX] : [TAG_W, TAG_H];
       const anchors: { x: number; y: number; key: string }[] = [];
       for (const item of list) {
         const pt = m.latLngToContainerPoint([item.lat, item.lng]);
         let key = item.id;
-        if (zoom < CLUSTER_BELOW_ZOOM && list.length > 25) {
-          key = `${Math.floor(pt.x / CLUSTER_PX)}:${Math.floor(pt.y / CLUSTER_PX)}`;
-        } else if (zoom < MAX_ZOOM) {
-          const near = anchors.find((a) => Math.abs(a.x - pt.x) < TAG_W && Math.abs(a.y - pt.y) < TAG_H);
+        if (zoom < MAX_ZOOM) {
+          const near = anchors.find((a) => Math.abs(a.x - pt.x) < w && Math.abs(a.y - pt.y) < h);
           if (near) key = near.key;
           else anchors.push({ x: pt.x, y: pt.y, key });
         }
@@ -245,8 +246,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       }
       for (const group of groups.values()) {
         if (group.length > 1) {
-          const lat = group.reduce((s, i) => s + i.lat, 0) / group.length;
-          const lng = group.reduce((s, i) => s + i.lng, 0) / group.length;
+          const { lat, lng } = group[0]!;
           const bubble = document.createElement("span");
           bubble.className = "cluster-pin";
           bubble.textContent = String(group.length);
