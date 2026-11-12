@@ -77,6 +77,10 @@ const RENT_COLOUR = "#7b2d8b";
 /** Pins closer than this many screen pixels are grouped when zoomed out. */
 const CLUSTER_PX = 56;
 const CLUSTER_BELOW_ZOOM = 14;
+/** Price tags closer than this (px) would overlap, so they are grouped below the closest zoom. */
+const TAG_W = 64;
+const TAG_H = 26;
+const MAX_ZOOM = 18;
 
 export type MapLabels = {
   mapLabel: string;
@@ -224,14 +228,19 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       markers.current.clear();
       const zoom = m.getZoom();
       const groups = new Map<string, Item[]>();
+      // Zoomed out over many pins: a grid of cells. Otherwise only tags that would sit on top of each other are
+      // grouped (a price tag is about 64 x 26 px), until the closest zoom, where every pin stands alone.
+      const anchors: { x: number; y: number; key: string }[] = [];
       for (const item of list) {
-        const key =
-          zoom < CLUSTER_BELOW_ZOOM && list.length > 25
-            ? (() => {
-                const pt = m.latLngToContainerPoint([item.lat, item.lng]);
-                return `${Math.floor(pt.x / CLUSTER_PX)}:${Math.floor(pt.y / CLUSTER_PX)}`;
-              })()
-            : item.id;
+        const pt = m.latLngToContainerPoint([item.lat, item.lng]);
+        let key = item.id;
+        if (zoom < CLUSTER_BELOW_ZOOM && list.length > 25) {
+          key = `${Math.floor(pt.x / CLUSTER_PX)}:${Math.floor(pt.y / CLUSTER_PX)}`;
+        } else if (zoom < MAX_ZOOM) {
+          const near = anchors.find((a) => Math.abs(a.x - pt.x) < TAG_W && Math.abs(a.y - pt.y) < TAG_H);
+          if (near) key = near.key;
+          else anchors.push({ x: pt.x, y: pt.y, key });
+        }
         groups.set(key, [...(groups.get(key) ?? []), item]);
       }
       for (const group of groups.values()) {
@@ -243,7 +252,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
           bubble.textContent = String(group.length);
           bubble.setAttribute("aria-label", fill(labels.clusterLabel, { count: group.length }));
           L.marker([lat, lng], { icon: L.divIcon({ html: bubble, className: "pin-wrap", iconSize: null }), keyboard: false, title: fill(labels.clusterLabel, { count: group.length }) })
-            .on("click", () => m.flyTo([lat, lng], Math.min(zoom + 2, 18)))
+            .on("click", () => m.flyTo([lat, lng], Math.min(zoom + 2, MAX_ZOOM)))
             .addTo(layer.current);
           continue;
         }
@@ -283,6 +292,14 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
         const again = markers.current.get(selected.current);
         if (again) again.openPopup();
         else if (Date.now() > holdSelectionUntil.current) selected.current = null;
+        else {
+          // "Show on map" chose a pin that is still inside a group: go closer until it stands alone.
+          const chosen = list.find((i) => i.id === selected.current);
+          if (chosen && zoom < MAX_ZOOM) {
+            holdSelectionUntil.current = Date.now() + 3000;
+            m.flyTo([chosen.lat, chosen.lng], Math.min(zoom + 2, MAX_ZOOM));
+          }
+        }
       }
     },
     [labels, popupFor],

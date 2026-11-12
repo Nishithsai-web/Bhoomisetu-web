@@ -73,6 +73,7 @@ jobs:
           const landId = (first.items ?? first)[0]?.id;
           const pages = [
             ["map-en", "/en/map"],
+            ["map-groups-en", "/en/map?lat=17.4500&lng=78.2000&z=10"],
             ["map-zoom-en", "/en/map?lat=17.4320&lng=78.1960&z=14"],
             ["map-rent-te", "/te/map?mode=rent&lat=17.44&lng=78.33&z=12"],
             ["map-new-hi", "/hi/map?new=1&z=11"],

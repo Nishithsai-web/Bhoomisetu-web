@@ -861,6 +861,13 @@ main > .band:first-child {
   min-width: 0;
 }
 
+/* Cards are grid items too: without this a wide table inside one pushes the whole page sideways on a phone. */
+.detail > div > *,
+.table-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .detail .card h2 {
   font-size: 1.4rem;
   margin-bottom: 12px;
