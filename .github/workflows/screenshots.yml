@@ -1,5 +1,6 @@
-# Manual: builds the website and takes screenshots of key pages at desktop and phone width, so the design can be
-# checked without a local setup. Pages that need the API show their "service unavailable" state here.
+# Manual: runs the whole app (database, API in Development with sample listings, website) and takes screenshots
+# of key pages at desktop and phone width, so the design can be checked with real data and no local setup.
+# The sample data is made by tools/seed-demo.mjs through the API; nothing here touches a shared database.
 name: Screenshots
 
 on:
@@ -11,45 +12,107 @@ permissions:
 jobs:
   screenshots:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/web
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: bhoomisetu
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      API_URL: http://127.0.0.1:5080
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
       - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - run: npm ci
-      - run: npm run build
-        env:
-          BHOOMISETU_API_URL: http://127.0.0.1:9
-      - name: Start the site
+      - name: Start the API (Development, throwaway keys, migrations applied on start)
         run: |
-          (BHOOMISETU_API_URL=http://127.0.0.1:9 npx next start -p 3000 > /tmp/next.log 2>&1 &)
+          dotnet build src/Bhoomisetu.Api -c Release > /tmp/api-build.log 2>&1 || { tail -50 /tmp/api-build.log; exit 1; }
+          export ASPNETCORE_ENVIRONMENT=Development
+          export ASPNETCORE_URLS=$API_URL
+          export ConnectionStrings__Bhoomisetu="Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=bhoomisetu"
+          export Auth__SigningKey=$(openssl rand -base64 48)
+          export Otp__Pepper=$(openssl rand -base64 32)
+          export Otp__ResendCooldownSeconds=0 Otp__MaxRequestsPerHour=100 Otp__MaxRequestsPerHourPerNumber=100
+          export Geocoding__Provider=none RateLimits__RequestsPerIpPerMinute=100000 RateLimits__OtpPerIpPerMinute=1000
+          (dotnet run --project src/Bhoomisetu.Api -c Release --no-build > /tmp/api.log 2>&1 &)
+          for i in $(seq 1 60); do curl -sf $API_URL/api/v1/parcels > /dev/null && break; sleep 1; done
+          curl -sf $API_URL/api/v1/parcels > /dev/null || { tail -50 /tmp/api.log; exit 1; }
+      - name: Sample listings
+        run: |
+          node tools/seed-demo.mjs $API_URL /tmp/api.log
+          # Make most listings older than a week, so the map shows a mix of "New" and older listings.
+          psql "postgresql://postgres:postgres@localhost:5432/bhoomisetu" -v ON_ERROR_STOP=1 -q <<'SQL'
+          UPDATE parcels SET created_at = now() - interval '40 days';
+          UPDATE offers o SET created_at = now() - interval '20 days'
+            FROM parcels p WHERE p.id = o.parcel_id AND right(split_part(p.survey_number, '/', 1), 1) NOT IN ('0', '5');
+          UPDATE rental_listings SET created_at = now() - interval '12 days' WHERE bedrooms <> 2;
+          SQL
+      - name: Build and start the site
+        working-directory: apps/web
+        run: |
+          npm ci
+          BHOOMISETU_API_URL=$API_URL npm run build
+          (BHOOMISETU_API_URL=$API_URL npx next start -p 3000 > /tmp/next.log 2>&1 &)
           for i in $(seq 1 30); do curl -sf http://localhost:3000/en > /dev/null && break; sleep 1; done
       - name: Take screenshots
         run: |
           mkdir -p /tmp/shots && cd /tmp/shots && npm init -y > /dev/null && npm i playwright@1.49.1 > /dev/null && npx playwright install --with-deps chromium > /dev/null
           cat > shoot.mjs <<'JS'
           import { chromium } from "playwright";
-          const pages = [["map-en", "/en/map"], ["map-rent-te", "/te/map?mode=rent"], ["map-new-hi", "/hi/map?new=1&z=12&landClass=agricultural"]];
+          const first = await (await fetch(`${process.env.API_URL}/api/v1/parcels?q=Mokila`)).json();
+          const landId = (first.items ?? first)[0]?.id;
+          const pages = [
+            ["map-en", "/en/map"],
+            ["map-zoom-en", "/en/map?lat=17.4320&lng=78.1960&z=14"],
+            ["map-rent-te", "/te/map?mode=rent&lat=17.44&lng=78.33&z=12"],
+            ["map-new-hi", "/hi/map?new=1&z=11"],
+            ["map-search-te", "/te/map?q=%E0%B0%95%E0%B0%82%E0%B0%A6%E0%B0%BF"],
+            ["search-en", "/en/parcels?q=Mokila"],
+            ["land-en", `/en/parcels/${landId}`],
+          ];
           const browser = await chromium.launch();
           for (const [width, height, tag] of [[1360, 900, "desktop"], [390, 844, "phone"]]) {
             const page = await browser.newPage({ viewport: { width, height } });
+            page.on("pageerror", (e) => console.log(`page error: ${e.message}`));
             for (const [name, path] of pages) {
               await page.goto(`http://localhost:3000${path}`, { waitUntil: "networkidle" });
-              await page.waitForTimeout(2500);
-              console.log(`${name}-${tag}: leaflet ${await page.evaluate(() => typeof window.L)} tiles ${await page.locator(".leaflet-tile-loaded").count()}`);
-              const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-              console.log(`${name}-${tag}: horizontal overflow ${overflow}px`);
+              await page.waitForTimeout(3000);
+              const facts = await page.evaluate(() => ({
+                leaflet: typeof window.L,
+                tiles: document.querySelectorAll(".leaflet-tile-loaded").length,
+                priceTags: document.querySelectorAll(".price-pin").length,
+                newTags: document.querySelectorAll(".price-pin.is-new").length,
+                groups: document.querySelectorAll(".cluster-pin").length,
+                status: document.querySelector("[role=status]")?.textContent?.trim() ?? "",
+                overflow: document.documentElement.scrollWidth - window.innerWidth,
+              }));
+              console.log(`${name}-${tag}: ${JSON.stringify(facts)}`);
               await page.screenshot({ path: `${name}-${tag}.jpg`, fullPage: true, type: "jpeg", quality: 45 });
             }
+            // "Show on map" from the list opens that pin's popup, and it stays open after the map settles.
+            await page.goto("http://localhost:3000/en/map?lat=17.4320&lng=78.1960&z=13", { waitUntil: "networkidle" });
+            await page.waitForTimeout(2000);
+            await page.locator(".explorer-list .link-button").first().click();
+            await page.waitForTimeout(3500);
+            console.log(`show-on-map-${tag}: popups open ${await page.locator(".leaflet-popup").count()}`);
+            await page.screenshot({ path: `show-on-map-${tag}.jpg`, type: "jpeg", quality: 45 });
           }
           await browser.close();
           JS
-          node shoot.mjs
+          API_URL=$API_URL node shoot.mjs
+      - name: Logs if something failed
+        if: failure()
+        run: tail -60 /tmp/api.log; tail -40 /tmp/next.log || true
       - name: Print screenshots (base64, for environments that cannot download artifacts)
         run: |
           cd /tmp/shots && for f in *.jpg; do echo "=====BEGIN $f"; base64 -w 6000 "$f"; echo "=====END $f"; done
