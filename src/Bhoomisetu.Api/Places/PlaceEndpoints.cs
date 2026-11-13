@@ -57,6 +57,10 @@ public static class PlaceEndpoints
         var variants = PlaceKey.SearchVariants(key);
         var v = variants.Select(k => k.Length >= 5 ? "%" + k + "%" : k.Length > 0 ? k : "-").ToArray();
         var exactKeys = variants.Select(k => k.Length > 0 ? k : "-").ToArray();
+        // A Telugu or Devanagari name has no Latin spelling of its own, so its key is only a variant, never the
+        // "typed spelling" (otherwise its key would equal a Latin name's key and outrank the real spelling).
+        var isLatin = query.Any(c => c is >= 'a' and <= 'z' or >= 'A' and <= 'Z');
+        var rawKey = isLatin && key.Length > 0 ? key : "-";
         // Exact name (or key) matches first, at any level, so "Ranga" does not beat a village called Ranga.
         // Then one row per matching district, mandal and village, in that order, each with the area its pinned land
         // covers, so a mandal search shows the whole mandal and not just its busiest village. The same name
@@ -84,7 +88,7 @@ public static class PlaceEndpoints
             "UNION ALL " +
             $"SELECT p.village, p.mandal || ', ' || p.district, 'village', 2, max(CASE WHEN lower(p.village) = lower({{5}}) OR p.village_key = {{6}} THEN 2 WHEN p.village_key IN ({{7}}, {{8}}, {{9}}) THEN 1 ELSE 0 END), {Columns} FROM parcels p WHERE {Pinned} AND {For("village")} GROUP BY p.village, p.mandal, p.district" +
             ") places ORDER BY exact DESC, rank, \"Listings\" DESC, \"Name\" LIMIT {4}",
-            pattern, v[0], v[1], v[2], MaxOwn, query, key.Length > 0 ? key : "-", exactKeys[0], exactKeys[1], exactKeys[2]);
+            pattern, v[0], v[1], v[2], MaxOwn, query, rawKey, exactKeys[0], exactKeys[1], exactKeys[2]);
 
         var own = (await db.Database.SqlQuery<PlaceRow>(sql).ToListAsync(ct))
             .Select(r => new PlaceResult(r.Name, r.Detail, Math.Round(r.Latitude, 4), Math.Round(r.Longitude, 4), r.Listings, "bhoomisetu",
@@ -92,10 +96,18 @@ public static class PlaceEndpoints
             .ToList();
 
         // OpenStreetMap places we already show (same sound-alike name) are left out.
-        // Compared through first-vowel variants too, so Kurnool (OpenStreetMap) and our Kurnool village match.
-        var ownKeys = own.SelectMany(o => PlaceKey.SearchVariants(PlaceKey.From(o.Name))).ToHashSet(StringComparer.Ordinal);
+        // A sound-alike name (first-vowel variant) counts as the same place only within about 5 km of ours, so
+        // "Kandi" does not hide an unrelated "Konda" elsewhere. The same sound-alike key always counts.
+        var ownPlaces = own.Select(o => (Key: PlaceKey.From(o.Name), Variants: PlaceKey.SearchVariants(PlaceKey.From(o.Name)).ToHashSet(StringComparer.Ordinal), o.Latitude, o.Longitude)).ToList();
+        bool SameAsOwn(PlaceResult x)
+        {
+            var xKey = PlaceKey.From(x.Name.Split(',')[0]);
+            var xVariants = PlaceKey.SearchVariants(xKey);
+            return ownPlaces.Any(o => o.Key == xKey
+                || (xVariants.Any(o.Variants.Contains) && Math.Abs(o.Latitude - x.Latitude) < 0.05 && Math.Abs(o.Longitude - x.Longitude) < 0.05));
+        }
         var external = own.Count >= MaxOwn ? [] : (await geocoder.SearchAsync(query, language, ct))
-            .Where(x => !PlaceKey.SearchVariants(PlaceKey.From(x.Name.Split(',')[0])).Any(ownKeys.Contains))
+            .Where(x => !SameAsOwn(x))
             // The same place can come back twice from OpenStreetMap (a node and a relation): one row per name and spot.
             .DistinctBy(x => (PlaceKey.From(x.Name.Split(',')[0]), Math.Round(x.Latitude, 3), Math.Round(x.Longitude, 3)));
         return Results.Ok(own.Concat(external.Take(MaxOwn - own.Count)).ToList());
