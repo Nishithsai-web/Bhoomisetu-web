@@ -78,6 +78,7 @@ jobs:
             ["map-rent-te", "/te/map?mode=rent&lat=17.44&lng=78.33&z=12"],
             ["map-new-hi", "/hi/map?new=1&z=11"],
             ["map-search-te", "/te/map?q=%E0%B0%95%E0%B0%82%E0%B0%A6%E0%B0%BF"],
+            ["map-mandal-en", "/en/map?q=Shankarpalle"],
             ["search-en", "/en/parcels?q=Mokila"],
             ["land-en", `/en/parcels/${landId}`],
           ];
