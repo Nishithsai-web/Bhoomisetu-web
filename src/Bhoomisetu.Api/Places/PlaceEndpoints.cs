@@ -55,7 +55,8 @@ public static class PlaceEndpoints
         // Fixed SQL text with every value as a parameter. The typed key and its first-vowel variants (Kurnool /
         // కర్నూలు): a long one may be contained in a stored key, a short one must equal it (LIKE with no wildcard).
         var v = PlaceKey.SearchVariants(key).Select(k => k.Length >= 5 ? "%" + k + "%" : k.Length > 0 ? k : "-").ToArray();
-        // One row per matching district, mandal and village, in that order, each with the area its pinned land
+        // Exact name (or key) matches first, at any level, so "Ranga" does not beat a village called Ranga.
+        // Then one row per matching district, mandal and village, in that order, each with the area its pinned land
         // covers, so a mandal search shows the whole mandal and not just its busiest village. The same name
         // matches at each level; the typed text and key variants are the only parameters.
         const string Match = "({0} OR {1} OR {2} OR {3})";
@@ -73,13 +74,13 @@ public static class PlaceEndpoints
         const string Pinned = "p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate";
         var sql = FormattableStringFactory.Create(
             "SELECT \"Name\", \"Detail\", \"Level\", \"Latitude\", \"Longitude\", \"South\", \"North\", \"West\", \"East\", \"Listings\" FROM (" +
-            $"SELECT p.district AS \"Name\", p.state_code AS \"Detail\", 'district' AS \"Level\", 0 AS rank, {Columns} FROM parcels p WHERE {Pinned} AND {For("district")} GROUP BY p.district, p.state_code " +
+            $"SELECT p.district AS \"Name\", p.state_code AS \"Detail\", 'district' AS \"Level\", 0 AS rank, bool_or(lower(p.district) = lower({{5}}) OR p.district_key = {{6}}) AS exact, {Columns} FROM parcels p WHERE {Pinned} AND {For("district")} GROUP BY p.district, p.state_code " +
             "UNION ALL " +
-            $"SELECT p.mandal, p.district, 'mandal', 1, {Columns} FROM parcels p WHERE {Pinned} AND {For("mandal")} GROUP BY p.mandal, p.district " +
+            $"SELECT p.mandal, p.district, 'mandal', 1, bool_or(lower(p.mandal) = lower({{5}}) OR p.mandal_key = {{6}}), {Columns} FROM parcels p WHERE {Pinned} AND {For("mandal")} GROUP BY p.mandal, p.district " +
             "UNION ALL " +
-            $"SELECT p.village, p.mandal || ', ' || p.district, 'village', 2, {Columns} FROM parcels p WHERE {Pinned} AND {For("village")} GROUP BY p.village, p.mandal, p.district" +
-            ") places ORDER BY rank, \"Listings\" DESC, \"Name\" LIMIT {4}",
-            pattern, v[0], v[1], v[2], MaxOwn);
+            $"SELECT p.village, p.mandal || ', ' || p.district, 'village', 2, bool_or(lower(p.village) = lower({{5}}) OR p.village_key = {{6}}), {Columns} FROM parcels p WHERE {Pinned} AND {For("village")} GROUP BY p.village, p.mandal, p.district" +
+            ") places ORDER BY exact DESC, rank, \"Listings\" DESC, \"Name\" LIMIT {4}",
+            pattern, v[0], v[1], v[2], MaxOwn, query, key.Length > 0 ? key : "-");
 
         var own = (await db.Database.SqlQuery<PlaceRow>(sql).ToListAsync(ct))
             .Select(r => new PlaceResult(r.Name, r.Detail, Math.Round(r.Latitude, 4), Math.Round(r.Longitude, 4), r.Listings, "bhoomisetu",

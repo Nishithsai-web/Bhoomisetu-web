@@ -78,7 +78,8 @@ const RENT_COLOUR = "#7b2d8b";
 const CLUSTER_PX = 56;
 const CLUSTER_BELOW_ZOOM = 14;
 /** Price tags closer than this (px) would overlap, so they are grouped below the closest zoom. */
-const TAG_W = 100;
+// Wide enough for the widest tag, such as a Telugu "New" badge with a rent per month.
+const TAG_W = 124;
 // Taller than a tag: a group circle is 44 px, so rows closer than that would overlap.
 const TAG_H = 46;
 const MAX_ZOOM = 18;
@@ -580,7 +581,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
           ) : (
             <ul aria-label={labels.placesTitle}>
               {places.map((p) => (
-                <li key={`${p.source}-${p.name}-${p.latitude}-${p.longitude}`}>
+                <li key={`${p.source}-${p.level ?? ""}-${p.name}-${p.detail}-${p.latitude}-${p.longitude}`}>
                   <button type="button" className="place-button" onClick={() => goTo(p)}>
                     <strong>{p.name}</strong>
                     {p.level === "mandal" || p.level === "district" ? ` ${p.level === "mandal" ? labels.levelMandal : labels.levelDistrict}` : ""}{" "}
