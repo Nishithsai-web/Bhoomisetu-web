@@ -169,3 +169,7 @@ Change a decision by adding a dated entry here and updating the register; never 
     the 1-request-a-second gate is per API instance, so more than one instance needs a shared limit or a paid
     geocoder. Pins stay out of the tab order: the list beside the map is the keyboard and screen-reader path.
     The scroll wheel zooms the map only after the map is tapped.
+48. **The sound-alike key also leaves out the first syllable's vowel**, the vowel English and Telugu spell
+    differently most often (Kurnool / కర్నూలు). Keys are made by the API, so migration 0015 clears them and the
+    start-up backfill makes them again; search by written name works meanwhile. After a map place search, that
+    place's listings lead the list (matched on village, mandal, district or locality) until the person clears it.

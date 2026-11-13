@@ -10,8 +10,8 @@ namespace Bhoomisetu.Modules.Land;
 /// Telugu and Devanagari are first written in plain Latin letters (both scripts share one layout, so one table
 /// serves both). Then the usual spelling differences are folded away: sh/s, ch/c, w/v, ee/i, oo/u, ow/au,
 /// final y/e/i, a final -u or -am, o/u, n/m before a consonant, doubled letters, and the vowels "a" and "e",
-/// which English spellings and Hindi pronunciation drop in different places. Known miss: names whose first
-/// vowel differs between scripts (Kurnool / కర్నూలు).
+/// which English spellings and Hindi pronunciation drop in different places, and the first syllable's vowel
+/// (Kurnool / కర్నూలు).
 /// </para>
 /// <para>
 /// The key is only for matching. It is never shown, and it can join two different names that sound alike, so
@@ -98,6 +98,13 @@ public static partial class PlaceKey
 
         // Long o and u are spelled interchangeably in English ("Nellore"/నెల్లూరు, "Kurnool").
         s = s.Replace("ou", "u", StringComparison.Ordinal).Replace('o', 'u');
+
+        // The first syllable's vowel is the one English and Telugu disagree on most ("Kurnool" against కర్నూలు,
+        // karnulu): after a first consonant and before another, it is left out.
+        if (s.Length > 3 && !IsVowel(s[0]) && IsVowel(s[1]) && !IsVowel(s[2]))
+        {
+            s = s.Remove(1, 1);
+        }
 
         var folded = new StringBuilder(s.Length);
         for (var i = 0; i < s.Length; i++)

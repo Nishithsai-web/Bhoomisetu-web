@@ -34,6 +34,7 @@ public sealed class PlaceKeyTests
     [InlineData("Kokapet", "కోకాపేట్", "कोकापेट")]
     [InlineData("Narsingi", "నార్సింగి", "नारसिंगी")]
     [InlineData("Adibatla", "ఆదిభట్ల", "आदिभट्ला")]
+    [InlineData("Kurnool", "కర్నూలు", "कुरनूल")]
     public void The_same_place_in_three_scripts_has_one_key(string english, string telugu, string hindi)
     {
         var key = PlaceKey.From(english);

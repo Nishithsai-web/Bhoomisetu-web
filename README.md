@@ -17,20 +17,31 @@ listing is genuine. Bhoomisetu fixes that with three ideas:
 The first release targets **Telangana: plots, farmland and verified resale or rental homes**. The data model
 is national, with state rules added as "jurisdiction packs".
 
-## What works today (v0.1, Phase 0/1 foundation)
+## What works today
+
+Status is one of **Built** (in the code, covered by tests, passing CI), **Partial** (works, with a gap named in the
+row) or **Not started**. The live, editable list of what is done, next and remaining is kept in the project's
+build tracker; the reasons behind each choice are in [the decision log](docs/decisions/README.md).
 
 | Area | What is built | Status |
 | --- | --- | --- |
-| Area units | Gajam (sq yd), gunta, acre, cent, sq ft, sq m, hectare, ankanam; exact conversions. The web forms accept Telugu and Devanagari digits; the API's query parameters take ASCII digits | Built and tested |
-| Land records | Parcels with survey numbers as printed (Telugu and Hindi letters kept), LGD village code, land class, area source, frontage, depth, facing | Built |
-| Road access | Road width with its source (approved layout, measured on map, lister), road type, access right, distance to main road | Built |
-| Duplicate land | Same land typed differently ("123/A/1", "0123-a-1"), with or without the village code, is detected and the second lister is pointed to the existing parcel. Spelling variants of village names still need LGD codes | Built |
-| Sign-in | Indian mobile number + one-time code (stored only as a keyed hash); limits per number (cooldown, hour), counted per requester so strangers cannot use up an owner's quota, plus a per-number cap, 3 tries per code, IPv6 per /64, and a platform SMS budget; 24-hour session in an httpOnly cookie, ended on the server at sign-out | Built (development SMS sender only; CAPTCHA not yet) |
-| Agent comparison | Effective price, low-price outlier flag, owner authority, checks, four sort orders, badges, score breakdown. A bare "I am the owner" claim is priced like an agent until a reviewer confirms it | Built and tested |
-| Owner authority | Trust reviewer records the owner of record; the owner confirms agents from their offers or revokes them; all changes audited; reviewer rights re-checked on every action | Built |
-| Web app | Home, search by village, mandal or district, area converter, agent comparison, phone sign-in, "List your land" and "Add your price" forms with plain-language hints, in `/en`, `/te`, `/hi` | Built |
-| Road-widening layer | PostGIS tables and a "parcels near a road project" view | Schema only |
-| Real SMS provider, identity checks, documents, maps, valuation | | Not started |
+| Area units | Gajam (sq yd), gunta, acre, cent, sq ft, sq m, hectare, ankanam; exact conversions. The web forms accept Telugu and Devanagari digits | Built |
+| Land records | One record per piece of land: survey number as printed (Telugu and Hindi letters kept), LGD village code, land class, area source, frontage, depth, facing | Built |
+| Road access | Road width with its source, road type, access right, distance to the main road (shown in feet) | Built |
+| Duplicate land | The same land typed differently ("123/A/1", "0123-a-1") is detected and the second lister is pointed to the existing record | Built |
+| Search in three scripts | Village, mandal or district typed in Telugu, Hindi or English letters finds the same land through a sound-alike key (Kurnool and కర్నూలు included) | Built |
+| Sign-in | Indian mobile number and one-time code (keyed hash only), limits per number, per requester and per IP, human check from the second code (Turnstile), server-side sign-out | Partial: development SMS sender only |
+| Agent comparison | Effective price with brokerage, published best-value score, low-price outlier flag, owner authority, four sort orders | Built |
+| Owner authority | A reviewer records the owner of record; the owner confirms or revokes agents; every change audited | Partial: confirm/revoke has API endpoints, no screen yet |
+| Compare with land nearby | Land for sale within 10 km priced per sq yd and per gunta, with rule-based pros and cons | Built |
+| Documents | Uploads limited to a fixed list (brochure, site plan, maps, HMDA/DTCP, RERA, building permission, photos) chosen from a dropdown; sale deeds never uploaded; shown to buyers only after a reviewer's check | Built |
+| Plans and contact | Free visitors see land facts, survey number and prices; signed-in buyers get the lister's WhatsApp number; owners and agents pay a monthly plan, recorded by a reviewer from the UPI reference | Partial: no online checkout |
+| Maps | Pin on every land, live map explorer: place search in three scripts (our places first, then OpenStreetMap), price tags, "New this week", grouped pins, list beside the map, shareable views | Partial: OpenStreetMap tiles and place search must be replaced by licensed services before launch |
+| Homes for rent | Listing, map, rent per sq ft compared with homes within 5 km, homes near any land; public location rounded to about 110 m | Built |
+| Reviewer screens | Queues for documents, corrections, duplicates, reports and owner records | Built |
+| Web app | Every screen in `/en`, `/te` and `/hi`, following the Bhoomisetu design | Built |
+| Road-widening layer | PostGIS tables and a "parcels near a road project" view | Partial: no screen |
+| Real SMS, online payments, identity checks for listers, valuation, production hosting | | Not started |
 
 ## How it is built
 
@@ -91,7 +102,8 @@ Why each technology was chosen, and what was rejected, is in [docs/decisions](do
 | `GET /api/v1/me/subscription`, `PUT /api/v1/me/whatsapp` | My subscription status; set my WhatsApp number | Yes |
 | `GET /api/v1/admin/documents`, `POST /api/v1/admin/documents/{id}/decision` | Document check queue; approve or reject with a reason | Trust reviewer |
 | `POST /api/v1/admin/subscriptions` | Record a subscription payment (UPI or receipt reference) | Trust reviewer |
-| `GET /api/v1/parcels/map?south&west&north&east&landClass` | Pinned land in the visible map area with lowest price (max 500) | No |
+| `GET /api/v1/parcels/map?south&west&north&east&landClass&newDays` | Pinned land in the visible map area with lowest price and listing date (max 500; `newDays=7` for new listings only) | No |
+| `GET /api/v1/places?q=&lang=` | Places matching a name in any script: our villages, mandals and districts with listing counts, then OpenStreetMap places | No |
 | `GET /api/v1/parcels/{id}/nearby` | This land and land for sale within 10 km: price per sq yd and per gunta, road, checks, factual pros and cons | No |
 | `GET /api/v1/parcels/{id}/nearby-rentals` | Homes for rent within 5 km of the land | No |
 | `POST /api/v1/rentals`, `GET /api/v1/rentals/{id}` | List a home for rent (with map point); read one | Yes / No |

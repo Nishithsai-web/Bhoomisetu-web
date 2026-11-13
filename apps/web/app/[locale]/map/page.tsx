@@ -95,6 +95,9 @@ export default async function MapPage({ params, searchParams }: { params: Promis
           collapse: m.collapse,
           clusterLabel: m.clusterLabel,
           perMonthShort: m.perMonthShort,
+          placeFirst: m.placeFirst,
+          placeNone: m.placeNone,
+          clearPlace: m.clearPlace,
         }}
       />
       <p className="hint">{m.note}</p>

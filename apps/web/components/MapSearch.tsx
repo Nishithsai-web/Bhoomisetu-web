@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import type { MapParcel, Place, Rental } from "@/lib/api";
 import { compactRupees, isNew } from "@/lib/compactPrice";
 import { formatRupees, formatRupeesShort, type AmountWords } from "@/lib/money";
@@ -133,7 +133,20 @@ export type MapLabels = {
   collapse: string;
   clusterLabel: string;
   perMonthShort: string;
+  placeFirst: string;
+  placeNone: string;
+  clearPlace: string;
 };
+
+/** The place's own name, without the district and state that OpenStreetMap adds after commas. */
+const placeName = (place: Place) => place.name.split(",")[0]!.trim();
+
+/** Whether a listing is in the chosen place: its village, mandal or district (land) or locality (homes). */
+function inPlace(item: Item, name: string): boolean {
+  const n = name.toLocaleLowerCase();
+  const fields = item.kind === "land" ? [item.data.village, item.data.mandal, item.data.district] : [item.data.locality, item.data.mandal, item.data.district];
+  return fields.some((f) => (f ?? "").trim().toLocaleLowerCase() === n);
+}
 
 export type MapStart = { mode: "land" | "rent"; lat: number; lng: number; zoom: number; landClass: string; bedrooms: number; newOnly: boolean; q: string };
 
@@ -176,6 +189,8 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   const [status, setStatus] = useState(labels.loading);
   const [query, setQuery] = useState(start.q);
   const [places, setPlaces] = useState<Place[] | null>(null);
+  /** The place last chosen from search: its listings lead the list until cleared. */
+  const [focus, setFocus] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const now = useRef(new Date());
 
@@ -414,6 +429,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   }, [expanded]);
 
   const goTo = (place: Place) => {
+    setFocus(placeName(place));
     const m = map.current;
     if (!m) {
       // Map still loading: go there when it is ready. Map failed: the list shows the area around the place.
@@ -457,6 +473,10 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
     event.preventDefault();
     void searchPlaces(query, true);
   };
+
+  // Listings in the chosen place first, then the rest in view, each keeping the order the server gave.
+  const inFocus = useMemo(() => (focus ? items.filter((i) => inPlace(i, focus)) : []), [focus, items]);
+  const listed = useMemo(() => (focus ? [...inFocus, ...items.filter((i) => !inPlace(i, focus))] : items), [focus, inFocus, items]);
 
   const showOnMap = (item: Item) => {
     const m = map.current;
@@ -562,14 +582,22 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
             {status}
             {truncated && ` ${labels.truncated}`}
           </p>
+          {focus && (
+            <p className="place-focus">
+              <span>{inFocus.length > 0 ? fill(labels.placeFirst, { count: inFocus.length, place: focus }) : fill(labels.placeNone, { place: focus })}</span>{" "}
+              <button type="button" className="link-button" onClick={() => setFocus(null)}>
+                {labels.clearPlace}
+              </button>
+            </p>
+          )}
           {items.length > 0 && (
             <>
               <h2>{mode === "rent" ? labels.homesTitle : labels.listTitle}</h2>
               <ul className="parcel-list">
-                {items.map((item) => {
+                {listed.map((item) => {
                   const fresh = isNew(item.data.createdAt, now.current);
                   return (
-                    <li key={item.id} className="result">
+                    <li key={item.id} className={focus && inPlace(item, focus) ? "result in-place" : "result"}>
                       <ul className="tags">
                         {item.kind === "land" ? (
                           <li className="tag tag-class">

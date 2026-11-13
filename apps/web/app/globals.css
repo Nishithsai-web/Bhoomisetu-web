@@ -1301,3 +1301,19 @@ legend {
   box-shadow: 0 1px 5px rgb(0 0 0 / 0.3);
   cursor: pointer;
 }
+
+/* The place chosen in map search: its listings lead the list and are marked */
+.place-focus {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 12px;
+  margin: 0 0 8px;
+}
+.result.in-place {
+  border-left: 4px solid var(--teal-dark);
+}
