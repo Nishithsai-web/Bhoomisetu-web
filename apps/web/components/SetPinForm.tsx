@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { setPinAction } from "@/app/[locale]/actions";
+import { toAsciiDigits } from "@/lib/units";
 
 type Labels = {
   title: string;
@@ -29,8 +30,9 @@ export function SetPinForm({ locale, parcelId, labels }: { locale: string; parce
   const [onLand, setOnLand] = useState(false);
 
   // Preview of what will be saved (rounded like the server: about 10 m), only for numbers inside India.
-  const lat = Number(latitude.replace(",", "."));
-  const lng = Number(longitude.replace(",", "."));
+  // Telugu and Devanagari digits are accepted, as on every other form.
+  const lat = Number(toAsciiDigits(latitude).replace(",", "."));
+  const lng = Number(toAsciiDigits(longitude).replace(",", "."));
   const preview =
     latitude !== "" && longitude !== "" && lat >= 6 && lat <= 37.6 && lng >= 68 && lng <= 97.5
       ? { lat: Math.round(lat * 10000) / 10000, lng: Math.round(lng * 10000) / 10000 }

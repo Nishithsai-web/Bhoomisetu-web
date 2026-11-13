@@ -778,7 +778,8 @@ public sealed class ApiFlowTests(ApiFixture fixture)
 
         // Place search: our own places in any script, with the number of listings.
         var places = await fixture.CreateClient().GetFromJsonAsync<JsonElement>($"/api/v1/places?q={Uri.EscapeDataString("కంది")}&lang=te", Ct);
-        var kandi = places.EnumerateArray().First(p => p.GetProperty("name").GetString() == "Kandi");
+        var kandi = places.EnumerateArray().First(p => p.GetProperty("name").GetString() == "Kandi" && p.GetProperty("level").GetString() == "village");
+        Assert.Equal(4, kandi.GetProperty("boundingBox").GetArrayLength());
         Assert.Equal("bhoomisetu", kandi.GetProperty("source").GetString());
         // "listings" counts only land with an active price, so it is never more than the pins in Kandi.
         Assert.InRange(kandi.GetProperty("listings").GetInt32(), 0, 2);

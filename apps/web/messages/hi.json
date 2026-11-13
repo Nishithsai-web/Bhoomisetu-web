@@ -862,7 +862,10 @@
     "perMonthShort": "{rent}/माह",
     "placeFirst": "{place} में या पास {count}, पहले दिखाई गई",
     "placeNone": "{place} में या पास अभी कुछ नहीं। दिख रही बाकी लिस्टिंग दिखा रहे हैं।",
-    "clearPlace": "दिख रही सभी दिखाएँ"
+    "clearPlace": "दिख रही सभी दिखाएँ",
+    "levelMandal": "मंडल",
+    "levelDistrict": "ज़िला",
+    "clusterListLabel": "इस जगह {count} लिस्टिंग। देखने के लिए दबाएँ।"
   },
   "compareNearby": {
     "landTitle": "पास की ज़मीन से तुलना करें",

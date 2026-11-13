@@ -79,7 +79,8 @@ const CLUSTER_PX = 56;
 const CLUSTER_BELOW_ZOOM = 14;
 /** Price tags closer than this (px) would overlap, so they are grouped below the closest zoom. */
 const TAG_W = 100;
-const TAG_H = 32;
+// Taller than a tag: a group circle is 44 px, so rows closer than that would overlap.
+const TAG_H = 46;
 const MAX_ZOOM = 18;
 
 export type MapLabels = {
@@ -133,6 +134,9 @@ export type MapLabels = {
   collapse: string;
   clusterLabel: string;
   perMonthShort: string;
+  levelMandal: string;
+  levelDistrict: string;
+  clusterListLabel: string;
   placeFirst: string;
   placeNone: string;
   clearPlace: string;
@@ -290,15 +294,25 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
           const bubble = document.createElement("span");
           bubble.className = "cluster-pin";
           bubble.textContent = String(group.length);
-          bubble.setAttribute("aria-label", fill(labels.clusterLabel, { count: group.length }));
-          const marker = L.marker([lat, lng], { icon: L.divIcon({ html: bubble, className: "pin-wrap", iconSize: null }), keyboard: false, title: fill(labels.clusterLabel, { count: group.length }) });
           const samePoint = group.every((i) => Math.abs(i.lat - lat) < 1e-6 && Math.abs(i.lng - lng) < 1e-6);
-          if (samePoint || zoom >= MAX_ZOOM) {
-            // Zooming cannot pull these apart: list them all in one popup.
+          const asList = samePoint || zoom >= MAX_ZOOM;
+          const groupLabel = fill(asList ? labels.clusterListLabel : labels.clusterLabel, { count: group.length });
+          bubble.setAttribute("aria-label", groupLabel);
+          const marker = L.marker([lat, lng], { icon: L.divIcon({ html: bubble, className: "pin-wrap", iconSize: null }), keyboard: false, title: groupLabel });
+          if (asList) {
+            // Zooming cannot pull these apart: list them all in one popup. It follows the same selection rules
+            // as a single pin, so closing it lets go and a redraw does not open it again.
             const box = document.createElement("div");
             box.className = "group-popup";
             for (const i of group) box.append(popupFor(i));
-            marker.bindPopup(box);
+            marker
+              .bindPopup(box)
+              .on("popupopen", () => {
+                if (!group.some((i) => i.id === selected.current)) selected.current = group[0]!.id;
+              })
+              .on("popupclose", () => {
+                if (!redrawing.current) selected.current = null;
+              });
             for (const i of group) markers.current.set(i.id, marker);
           } else {
             marker.on("click", () => m.flyTo([lat, lng], Math.min(zoom + 2, MAX_ZOOM)));
@@ -568,7 +582,9 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
               {places.map((p) => (
                 <li key={`${p.source}-${p.name}-${p.latitude}-${p.longitude}`}>
                   <button type="button" className="place-button" onClick={() => goTo(p)}>
-                    <strong>{p.name}</strong> <span className="muted">{p.detail}</span>{" "}
+                    <strong>{p.name}</strong>
+                    {p.level === "mandal" || p.level === "district" ? ` ${p.level === "mandal" ? labels.levelMandal : labels.levelDistrict}` : ""}{" "}
+                    <span className="muted">{p.detail}</span>{" "}
                     <span className={p.listings > 0 ? "tag" : "tag tag-plain"}>{p.listings > 0 ? fill(labels.placeListings, { count: p.listings }) : labels.placeNoListings}</span>
                   </button>
                 </li>

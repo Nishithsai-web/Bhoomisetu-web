@@ -862,7 +862,10 @@
     "perMonthShort": "{rent}/నెల",
     "placeFirst": "{place}లో లేదా దగ్గరలో {count}, ముందుగా చూపిస్తున్నాం",
     "placeNone": "{place}లో లేదా దగ్గరలో ఇంకా ఏమీ లేవు. కనిపిస్తున్న ఇతరవి చూపిస్తున్నాం.",
-    "clearPlace": "కనిపిస్తున్నవన్నీ చూపించు"
+    "clearPlace": "కనిపిస్తున్నవన్నీ చూపించు",
+    "levelMandal": "మండలం",
+    "levelDistrict": "జిల్లా",
+    "clusterListLabel": "ఈ చోట {count} జాబితాలు. చూడటానికి నొక్కండి."
   },
   "compareNearby": {
     "landTitle": "దగ్గరలోని భూములతో పోల్చండి",

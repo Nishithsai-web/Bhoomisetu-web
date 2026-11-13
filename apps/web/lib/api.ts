@@ -696,7 +696,7 @@ export function getRentalContact(id: string, token: string): Promise<ApiResult<{
   return get<{ whatsappE164: string }>(`/api/v1/rentals/${encodeURIComponent(id)}/contact`, token);
 }
 
-export type Place = { name: string; detail: string; latitude: number; longitude: number; listings: number; source: "bhoomisetu" | "openstreetmap"; boundingBox: number[] | null };
+export type Place = { name: string; detail: string; latitude: number; longitude: number; listings: number; source: "bhoomisetu" | "openstreetmap"; boundingBox: number[] | null; level?: "village" | "mandal" | "district" | null };
 
 export function searchPlaces(q: string, lang: string): Promise<ApiResult<Place[]>> {
   return get<Place[]>(`/api/v1/places?q=${encodeURIComponent(q)}&lang=${encodeURIComponent(lang)}`);

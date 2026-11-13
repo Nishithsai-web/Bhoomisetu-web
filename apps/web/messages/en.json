@@ -862,7 +862,10 @@
     "perMonthShort": "{rent}/mo",
     "placeFirst": "{count} in or near {place}, shown first",
     "placeNone": "Nothing in or near {place} yet. Showing others in view.",
-    "clearPlace": "Show all in view"
+    "clearPlace": "Show all in view",
+    "levelMandal": "mandal",
+    "levelDistrict": "district",
+    "clusterListLabel": "{count} listings at this spot. Tap to see them."
   },
   "compareNearby": {
     "landTitle": "Compare with land nearby",

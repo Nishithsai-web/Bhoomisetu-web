@@ -6,7 +6,11 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Bhoomisetu.Api.Places;
 
 /// <summary>A place to fly the map to. Source says where it came from: our own listings, or OpenStreetMap.</summary>
-public sealed record PlaceResult(string Name, string Detail, double Latitude, double Longitude, int Listings, string Source, double[]? BoundingBox = null);
+/// <summary>
+/// A place to go to on the map. <see cref="BoundingBox"/> is [south, north, west, east]. <see cref="Level"/> is
+/// "village", "mandal" or "district" for Bhoomisetu places, null for OpenStreetMap ones.
+/// </summary>
+public sealed record PlaceResult(string Name, string Detail, double Latitude, double Longitude, int Listings, string Source, double[]? BoundingBox = null, string? Level = null);
 
 /// <summary>Finds places that have no Bhoomisetu listings yet (towns, landmarks), for exploring the map.</summary>
 public interface IExternalGeocoder
