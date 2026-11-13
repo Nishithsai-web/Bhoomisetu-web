@@ -14,6 +14,20 @@ if (!api || !logFile) {
   process.exit(2);
 }
 
+// Only a local API: this script signs in with made-up numbers and lists made-up land, so it must never reach a
+// shared or real server, whatever the API itself would allow.
+const host = (() => {
+  try {
+    return new URL(api).hostname;
+  } catch {
+    return "";
+  }
+})();
+if (!["localhost", "127.0.0.1", "::1", "[::1]"].includes(host)) {
+  console.error(`refusing to seed ${api}: only a local API (localhost or 127.0.0.1) may be seeded`);
+  process.exit(2);
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function call(token, method, path, body) {

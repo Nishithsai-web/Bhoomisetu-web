@@ -409,22 +409,27 @@ public static class ParcelEndpoints
         {
             var pattern = ContainsPattern(q);
             var key = PlaceKey.From(q);
+            // The typed key and its first-vowel variants (Kurnool / కర్నూలు). Each long variant may be contained in a
+            // stored key; a short one matches whole names only, so "Nandi" does not bring up every "...nd..." village.
+            var v = PlaceKey.SearchVariants(key).Select(k => k.Length >= 5 ? ContainsPattern(k) : k).ToArray();
+            var (k0, k1, k2) = (v[0], v[1], v[2]);
             if (key.Length >= 5)
             {
-                // Long keys: contained in the stored key, or the stored key is the typed one without its Telugu
-                // ending ("Anantapur" stored, "అనంతపురం" typed: -m). Equality, so the trigram indexes are used.
-                var keyPattern = ContainsPattern(key);
-                // Only a real Telugu ending may be missing in English (-m from anusvara, -u, -i): one letter.
+                // Or the stored key is the typed one without its Telugu ending ("Anantapur" stored, "అనంతపురం"
+                // typed: -m). Only a real Telugu ending may be missing in English (-m, -u, -i): one letter.
                 var less1 = key[^1] is 'm' or 'u' or 'i' ? key[..^1] : key;
                 query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern)
-                    || EF.Functions.Like(x.VillageKey!, keyPattern) || EF.Functions.Like(x.MandalKey!, keyPattern) || EF.Functions.Like(x.DistrictKey!, keyPattern)
+                    || EF.Functions.Like(x.VillageKey!, k0) || EF.Functions.Like(x.MandalKey!, k0) || EF.Functions.Like(x.DistrictKey!, k0)
+                    || EF.Functions.Like(x.VillageKey!, k1) || EF.Functions.Like(x.MandalKey!, k1) || EF.Functions.Like(x.DistrictKey!, k1)
+                    || EF.Functions.Like(x.VillageKey!, k2) || EF.Functions.Like(x.MandalKey!, k2) || EF.Functions.Like(x.DistrictKey!, k2)
                     || x.VillageKey == less1 || x.MandalKey == less1 || x.DistrictKey == less1);
             }
             else if (key.Length >= 2)
             {
-                // Short keys match whole names only, so "Nandi" does not bring up every "...nd..." village.
                 query = query.Where(x => EF.Functions.ILike(x.Village, pattern) || EF.Functions.ILike(x.Mandal, pattern) || EF.Functions.ILike(x.District, pattern)
-                    || x.VillageKey == key || x.MandalKey == key || x.DistrictKey == key);
+                    || EF.Functions.Like(x.VillageKey!, k0) || EF.Functions.Like(x.MandalKey!, k0) || EF.Functions.Like(x.DistrictKey!, k0)
+                    || EF.Functions.Like(x.VillageKey!, k1) || EF.Functions.Like(x.MandalKey!, k1) || EF.Functions.Like(x.DistrictKey!, k1)
+                    || EF.Functions.Like(x.VillageKey!, k2) || EF.Functions.Like(x.MandalKey!, k2) || EF.Functions.Like(x.DistrictKey!, k2));
             }
             else
             {

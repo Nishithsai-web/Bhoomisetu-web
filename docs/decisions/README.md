@@ -169,7 +169,9 @@ Change a decision by adding a dated entry here and updating the register; never 
     the 1-request-a-second gate is per API instance, so more than one instance needs a shared limit or a paid
     geocoder. Pins stay out of the tab order: the list beside the map is the keyboard and screen-reader path.
     The scroll wheel zooms the map only after the map is tapped.
-48. **The sound-alike key also leaves out the first syllable's vowel**, the vowel English and Telugu spell
-    differently most often (Kurnool / కర్నూలు). Keys are made by the API, so migration 0015 clears them and the
-    start-up backfill makes them again; search by written name works meanwhile. After a map place search, that
-    place's listings lead the list (matched on village, mandal, district or locality) until the person clears it.
+48. **A first vowel spelled differently is matched at search time, not in the stored key.** English and Telugu
+    often disagree on a name's first vowel (Kurnool is kurnul, కర్నూలు is krnul). Search tries the typed key with
+    that vowel left out and put in; stored keys are unchanged, so names written joined or split ("Nagarkurnool",
+    "Nagar Kurnool") keep one key and no re-keying is needed. A first attempt that changed the stored key was
+    withdrawn before any shared database existed (QA pass 11). After a map place search, listings inside that
+    place's area, or within 3 km of it, lead the list; matching by position works in every script and spelling.

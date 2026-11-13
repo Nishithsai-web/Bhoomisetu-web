@@ -42,24 +42,23 @@ public static class PlaceEndpoints
         var pattern = "%" + query.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("%", "\\%", StringComparison.Ordinal).Replace("_", "\\_", StringComparison.Ordinal) + "%";
         var key = PlaceKey.From(query);
 
-        // Fixed SQL text with every value as a parameter; the key match follows the search rules
-        // (short keys whole-name only, longer keys may be contained).
-        var keyClause = key.Length >= 5
-            ? "p.village_key LIKE {1} OR p.mandal_key LIKE {1} OR p.district_key LIKE {1}"
-            : "p.village_key = {2} OR p.mandal_key = {2} OR p.district_key = {2}";
+        // Fixed SQL text with every value as a parameter. The typed key and its first-vowel variants (Kurnool /
+        // కర్నూలు): a long one may be contained in a stored key, a short one must equal it (LIKE with no wildcard).
+        var v = PlaceKey.SearchVariants(key).Select(k => k.Length >= 5 ? "%" + k + "%" : k.Length > 0 ? k : "-").ToArray();
         var sql = FormattableStringFactory.Create(
             """
             SELECT p.village AS "Name", p.mandal || ', ' || p.district AS "Detail",
                    avg(ST_Y(p.centroid::geometry)) AS "Latitude", avg(ST_X(p.centroid::geometry)) AS "Longitude", (count(*) FILTER (WHERE EXISTS (SELECT 1 FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active')))::int AS "Listings"
             FROM parcels p
             WHERE p.centroid IS NOT NULL AND NOT p.is_hidden_duplicate
-              AND (p.village ILIKE {0} OR p.mandal ILIKE {0} OR p.district ILIKE {0} OR
-            """ + " " + keyClause + " " + """
-            )
+              AND (p.village ILIKE {0} OR p.mandal ILIKE {0} OR p.district ILIKE {0}
+                   OR p.village_key LIKE {1} OR p.mandal_key LIKE {1} OR p.district_key LIKE {1}
+                   OR p.village_key LIKE {2} OR p.mandal_key LIKE {2} OR p.district_key LIKE {2}
+                   OR p.village_key LIKE {3} OR p.mandal_key LIKE {3} OR p.district_key LIKE {3})
             GROUP BY p.village, p.mandal, p.district
             ORDER BY "Listings" DESC, count(*) DESC, p.village
-            LIMIT {3}
-            """, pattern, "%" + key + "%", key.Length > 0 ? key : "-", MaxOwn);
+            LIMIT {4}
+            """, pattern, v[0], v[1], v[2], MaxOwn);
         var own = (await db.Database.SqlQuery<PlaceRow>(sql).ToListAsync(ct))
             .Select(r => new PlaceResult(r.Name, r.Detail, Math.Round(r.Latitude, 4), Math.Round(r.Longitude, 4), r.Listings, "bhoomisetu"))
             .ToList();

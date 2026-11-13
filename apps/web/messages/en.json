@@ -860,8 +860,8 @@
     "clusterLabel": "{count} listings here. Tap to zoom in.",
     "searchOnMap": "See these places on the map",
     "perMonthShort": "{rent}/mo",
-    "placeFirst": "{count} in {place}, shown first",
-    "placeNone": "No listings in {place} yet. Showing others in view.",
+    "placeFirst": "{count} in or near {place}, shown first",
+    "placeNone": "Nothing in or near {place} yet. Showing others in view.",
     "clearPlace": "Show all in view"
   },
   "compareNearby": {

@@ -9,9 +9,9 @@ listing is genuine. Bhoomisetu fixes that with three ideas:
 1. **One record per piece of land.** A plot is identified by its survey number and village, so ten agents
    listing the same land show up as ten offers on one parcel, not ten separate listings.
 2. **Every offer compared side by side.** Price to the buyer (including brokerage), price per gajam, whether
-   the owner has authorised the agent, what checks the lister passed, how fast they reply. Ranked by a
+   the owner has authorised the agent, what checks the lister passed (and, once it is measured, how fast they reply). Ranked by a
    published "best value" rule, not just the lowest price, and never by paid promotion.
-3. **Say exactly what was checked.** Badges name the check done (phone code, identity, owner confirmation).
+3. **Say exactly what was checked.** Badges name the check done (phone code and owner confirmation today; identity checks are planned).
    Nothing more is claimed: a check is not a legal title opinion.
 
 The first release targets **Telangana: plots, farmland and verified resale or rental homes**. The data model
@@ -29,9 +29,9 @@ build tracker; the reasons behind each choice are in [the decision log](docs/dec
 | Land records | One record per piece of land: survey number as printed (Telugu and Hindi letters kept), LGD village code, land class, area source, frontage, depth, facing | Built |
 | Road access | Road width with its source, road type, access right, distance to the main road (shown in feet) | Built |
 | Duplicate land | The same land typed differently ("123/A/1", "0123-a-1") is detected and the second lister is pointed to the existing record | Built |
-| Search in three scripts | Village, mandal or district typed in Telugu, Hindi or English letters finds the same land through a sound-alike key (Kurnool and కర్నూలు included) | Built |
+| Search in three scripts | Village, mandal or district typed in Telugu, Hindi or English letters finds the same land through a sound-alike key; a first vowel spelled differently (Kurnool / కర్నూలు) is tried both ways | Built |
 | Sign-in | Indian mobile number and one-time code (keyed hash only), limits per number, per requester and per IP, human check from the second code (Turnstile), server-side sign-out | Partial: development SMS sender only |
-| Agent comparison | Effective price with brokerage, published best-value score, low-price outlier flag, owner authority, four sort orders | Built |
+| Agent comparison | Effective price with brokerage, published best-value score, low-price outlier flag, owner authority, four sort orders | Partial: reply speed is not measured yet, so the fastest-reply order and that part of the score have no data |
 | Owner authority | A reviewer records the owner of record; the owner confirms or revokes agents; every change audited | Partial: confirm/revoke has API endpoints, no screen yet |
 | Compare with land nearby | Land for sale within 10 km priced per sq yd and per gunta, with rule-based pros and cons | Built |
 | Documents | Uploads limited to a fixed list (brochure, site plan, maps, HMDA/DTCP, RERA, building permission, photos) chosen from a dropdown; sale deeds never uploaded; shown to buyers only after a reviewer's check | Built |

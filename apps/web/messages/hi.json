@@ -860,8 +860,8 @@
     "clusterLabel": "यहाँ {count} लिस्टिंग। पास से देखने के लिए दबाएँ।",
     "searchOnMap": "इन जगहों को मानचित्र पर देखें",
     "perMonthShort": "{rent}/माह",
-    "placeFirst": "{place} में {count}, पहले दिखाई गई",
-    "placeNone": "{place} में अभी कोई लिस्टिंग नहीं। दिख रही बाकी लिस्टिंग दिखा रहे हैं।",
+    "placeFirst": "{place} में या पास {count}, पहले दिखाई गई",
+    "placeNone": "{place} में या पास अभी कुछ नहीं। दिख रही बाकी लिस्टिंग दिखा रहे हैं।",
     "clearPlace": "दिख रही सभी दिखाएँ"
   },
   "compareNearby": {

@@ -34,7 +34,6 @@ public sealed class PlaceKeyTests
     [InlineData("Kokapet", "కోకాపేట్", "कोकापेट")]
     [InlineData("Narsingi", "నార్సింగి", "नारसिंगी")]
     [InlineData("Adibatla", "ఆదిభట్ల", "आदिभट्ला")]
-    [InlineData("Kurnool", "కర్నూలు", "कुरनूल")]
     public void The_same_place_in_three_scripts_has_one_key(string english, string telugu, string hindi)
     {
         var key = PlaceKey.From(english);
@@ -49,6 +48,22 @@ public sealed class PlaceKeyTests
     [InlineData("Medak", "Medchal")]
     [InlineData("Gopanpally", "Gachibowli")]
     public void Different_places_keep_different_keys(string a, string b) => Assert.NotEqual(PlaceKey.From(a), PlaceKey.From(b));
+
+    [Theory]
+    [InlineData("Kurnool", "కర్నూలు")]
+    [InlineData("కర్నూలు", "Kurnool")]
+    [InlineData("कुरनूल", "కర్నూలు")]
+    public void A_first_vowel_spelled_differently_is_found_by_search(string typed, string stored) =>
+        Assert.Contains(PlaceKey.From(stored), PlaceKey.SearchVariants(PlaceKey.From(typed)));
+
+    [Theory]
+    [InlineData("Gundlapochampally", "Gundla Pochampally")]
+    [InlineData("Nagarkurnool", "Nagar Kurnool")]
+    [InlineData("Kothapet", "Kotha Pet")]
+    public void Joined_and_split_names_keep_one_key(string joined, string split) => Assert.Equal(PlaceKey.From(joined), PlaceKey.From(split));
+
+    [Fact]
+    public void Search_variants_are_always_three() => Assert.All(new[] { "", "a", "krnul", "kurnul", "anantpur" }, k => Assert.Equal(3, PlaceKey.SearchVariants(k).Count));
 
     [Fact]
     public void A_shorter_english_name_is_the_start_of_the_telugu_key() =>

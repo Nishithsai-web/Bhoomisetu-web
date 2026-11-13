@@ -1266,7 +1266,11 @@ legend {
   border-radius: 14px;
   background: #fff;
   color: #14292c;
-  font: 700 13px/1.2 system-ui, sans-serif;
+  /* The site's font, which has Telugu and Devanagari letters for the New badge and /నెల. */
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
   box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
   cursor: pointer;
   position: relative;
@@ -1297,7 +1301,10 @@ legend {
   background: #14292c;
   color: #fff;
   border: 3px solid #fff;
-  font: 700 14px/1 system-ui, sans-serif;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
   box-shadow: 0 1px 5px rgb(0 0 0 / 0.3);
   cursor: pointer;
 }
@@ -1316,4 +1323,16 @@ legend {
 }
 .result.in-place {
   border-left: 4px solid var(--teal-dark);
+}
+
+/* Listings at the very same map point, listed in one popup */
+.group-popup {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.group-popup > div + div {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
 }

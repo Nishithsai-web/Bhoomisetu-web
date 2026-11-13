@@ -78,8 +78,8 @@ const RENT_COLOUR = "#7b2d8b";
 const CLUSTER_PX = 56;
 const CLUSTER_BELOW_ZOOM = 14;
 /** Price tags closer than this (px) would overlap, so they are grouped below the closest zoom. */
-const TAG_W = 64;
-const TAG_H = 26;
+const TAG_W = 100;
+const TAG_H = 32;
 const MAX_ZOOM = 18;
 
 export type MapLabels = {
@@ -138,14 +138,32 @@ export type MapLabels = {
   clearPlace: string;
 };
 
-/** The place's own name, without the district and state that OpenStreetMap adds after commas. */
-const placeName = (place: Place) => place.name.split(",")[0]!.trim();
+/** The place chosen in search, by position: names differ by script and spelling, positions do not. */
+type Focus = { name: string; lat: number; lng: number; box: [number, number, number, number] | null };
 
-/** Whether a listing is in the chosen place: its village, mandal or district (land) or locality (homes). */
-function inPlace(item: Item, name: string): boolean {
-  const n = name.toLocaleLowerCase();
-  const fields = item.kind === "land" ? [item.data.village, item.data.mandal, item.data.district] : [item.data.locality, item.data.mandal, item.data.district];
-  return fields.some((f) => (f ?? "").trim().toLocaleLowerCase() === n);
+/** Listings within this distance of a place with no area of its own (our villages) count as in it. */
+const NEAR_KM = 3;
+/** Panning the map centre this far from the chosen place lets go of it. */
+const LET_GO_KM = 15;
+
+function km(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const r = (d: number) => (d * Math.PI) / 180;
+  const h = Math.sin(r(bLat - aLat) / 2) ** 2 + Math.cos(r(aLat)) * Math.cos(r(bLat)) * Math.sin(r(bLng - aLng) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+
+function toFocus(place: Place): Focus {
+  const b = place.boundingBox;
+  return { name: place.name.split(",")[0]!.trim(), lat: place.latitude, lng: place.longitude, box: b && b.length === 4 ? [b[0]!, b[1]!, b[2]!, b[3]!] : null };
+}
+
+/** Inside the place's area (OpenStreetMap gives one), or within NEAR_KM of its centre. */
+function inPlace(item: Item, f: Focus): boolean {
+  if (f.box) {
+    const [s, n, w, e] = f.box;
+    if (item.lat >= s && item.lat <= n && item.lng >= w && item.lng <= e) return true;
+  }
+  return km(item.lat, item.lng, f.lat, f.lng) <= NEAR_KM;
 }
 
 export type MapStart = { mode: "land" | "rent"; lat: number; lng: number; zoom: number; landClass: string; bedrooms: number; newOnly: boolean; q: string };
@@ -190,7 +208,11 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   const [query, setQuery] = useState(start.q);
   const [places, setPlaces] = useState<Place[] | null>(null);
   /** The place last chosen from search: its listings lead the list until cleared. */
-  const [focus, setFocus] = useState<string | null>(null);
+  const [focus, setFocus] = useState<Focus | null>(null);
+  const focusRef = useRef<Focus | null>(null);
+  focusRef.current = focus;
+  /** Read out by screen readers when "Show on map" moves the map. */
+  const [announce, setAnnounce] = useState("");
   const [expanded, setExpanded] = useState(false);
   const now = useRef(new Date());
 
@@ -252,8 +274,11 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       for (const item of list) {
         const pt = m.latLngToContainerPoint([item.lat, item.lng]);
         let key = item.id;
-        if (zoom < MAX_ZOOM) {
-          const near = anchors.find((a) => Math.abs(a.x - pt.x) < w && Math.abs(a.y - pt.y) < h);
+        // At the closest zoom only listings at the very same point (homes share a rounded ~110 m point) stay
+        // together, and their group opens a list instead of zooming.
+        const [bw, bh] = zoom < MAX_ZOOM ? [w, h] : [4, 4];
+        {
+          const near = anchors.find((a) => Math.abs(a.x - pt.x) < bw && Math.abs(a.y - pt.y) < bh);
           if (near) key = near.key;
           else anchors.push({ x: pt.x, y: pt.y, key });
         }
@@ -266,9 +291,19 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
           bubble.className = "cluster-pin";
           bubble.textContent = String(group.length);
           bubble.setAttribute("aria-label", fill(labels.clusterLabel, { count: group.length }));
-          L.marker([lat, lng], { icon: L.divIcon({ html: bubble, className: "pin-wrap", iconSize: null }), keyboard: false, title: fill(labels.clusterLabel, { count: group.length }) })
-            .on("click", () => m.flyTo([lat, lng], Math.min(zoom + 2, MAX_ZOOM)))
-            .addTo(layer.current);
+          const marker = L.marker([lat, lng], { icon: L.divIcon({ html: bubble, className: "pin-wrap", iconSize: null }), keyboard: false, title: fill(labels.clusterLabel, { count: group.length }) });
+          const samePoint = group.every((i) => Math.abs(i.lat - lat) < 1e-6 && Math.abs(i.lng - lng) < 1e-6);
+          if (samePoint || zoom >= MAX_ZOOM) {
+            // Zooming cannot pull these apart: list them all in one popup.
+            const box = document.createElement("div");
+            box.className = "group-popup";
+            for (const i of group) box.append(popupFor(i));
+            marker.bindPopup(box);
+            for (const i of group) markers.current.set(i.id, marker);
+          } else {
+            marker.on("click", () => m.flyTo([lat, lng], Math.min(zoom + 2, MAX_ZOOM)));
+          }
+          marker.addTo(layer.current);
           continue;
         }
         const item = group[0]!;
@@ -311,7 +346,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
           // "Show on map" chose a pin that is still inside a group: go closer until it stands alone.
           const chosen = list.find((i) => i.id === selected.current);
           if (chosen && zoom < MAX_ZOOM) {
-            holdSelectionUntil.current = Date.now() + 3000;
+            holdSelectionUntil.current = Date.now() + 6000;
             m.flyTo([chosen.lat, chosen.lng], Math.min(zoom + 2, MAX_ZOOM));
           }
         }
@@ -322,6 +357,8 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
 
   const load = useCallback(async () => {
     const m = map.current;
+    const f = focusRef.current;
+    if (m && f && km(m.getCenter().lat, m.getCenter().lng, f.lat, f.lng) > LET_GO_KM) setFocus(null);
     const b = m?.getBounds();
     const area = b ? { south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() } : fallbackArea.current;
     const params = new URLSearchParams({
@@ -429,7 +466,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   }, [expanded]);
 
   const goTo = (place: Place) => {
-    setFocus(placeName(place));
+    setFocus(toFocus(place));
     const m = map.current;
     if (!m) {
       // Map still loading: go there when it is ready. Map failed: the list shows the area around the place.
@@ -463,6 +500,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       const found = response.ok ? ((await response.json()) as Place[]) : [];
       if (ticket !== placeSearch.current) return;
       setPlaces(found);
+      if (found.length === 0) setFocus(null);
       if (flyToFirst && found[0]) goTo(found[0]);
     } catch {
       if (ticket === placeSearch.current) setPlaces([]);
@@ -483,7 +521,8 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
     if (!m) return;
     // The redraw after the flight reopens this pin's popup (at zoom 15 it is never inside a group).
     selected.current = item.id;
-    holdSelectionUntil.current = Date.now() + 3000;
+    setAnnounce(`${labels.showOnMap}: ${item.kind === "land" ? `${item.data.village}, ${item.data.mandal}` : `${homeTitle(item.data)}, ${item.data.locality}`}`);
+    holdSelectionUntil.current = Date.now() + 6000;
     markers.current.get(item.id)?.openPopup();
     m.flyTo([item.lat, item.lng], Math.max(m.getZoom(), 15));
   };
@@ -578,13 +617,16 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
       <div className="explorer-body">
         <div ref={element} className="land-map" role="region" aria-label={mode === "rent" ? labels.mapLabelRent : labels.mapLabel} />
         <div className="explorer-list">
+          <p className="visually-hidden" aria-live="polite">
+            {announce}
+          </p>
           <p role="status" className="hint">
             {status}
             {truncated && ` ${labels.truncated}`}
           </p>
           {focus && (
-            <p className="place-focus">
-              <span>{inFocus.length > 0 ? fill(labels.placeFirst, { count: inFocus.length, place: focus }) : fill(labels.placeNone, { place: focus })}</span>{" "}
+            <p className="place-focus" aria-live="polite">
+              <span>{inFocus.length > 0 ? fill(labels.placeFirst, { count: inFocus.length, place: focus.name }) : fill(labels.placeNone, { place: focus.name })}</span>{" "}
               <button type="button" className="link-button" onClick={() => setFocus(null)}>
                 {labels.clearPlace}
               </button>

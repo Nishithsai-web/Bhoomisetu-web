@@ -366,7 +366,7 @@ export async function activateSubscriptionAction(_previous: FormState, form: For
   const locale = localeOf(form);
   const phone = value(form, "phone");
   const audience = value(form, "audience");
-  const months = Number(value(form, "months"));
+  const months = Number(toAsciiDigits(value(form, "months")));
   const amount = parseRupeesLoose(value(form, "amount"));
   const reference = value(form, "paymentReference");
   const errors: FieldError[] = [];
@@ -448,7 +448,7 @@ export async function linkDevelopmentAction(form: FormData): Promise<void> {
   if (!isUuid(parcelId)) redirect(`${REVIEW(locale)}?error=review.parcel_id_invalid#developments`);
   if (!isUuid(projectId)) redirect(`${REVIEW(locale)}?error=development.project_invalid#developments`);
   const rawDistance = value(form, "distanceKm");
-  const distance = rawDistance === "" ? null : Number(rawDistance);
+  const distance = rawDistance === "" ? null : Number(toAsciiDigits(rawDistance));
   if (distance !== null && !Number.isFinite(distance)) redirect(`${REVIEW(locale)}?error=development.distance_invalid#developments`);
   const token = await requireToken(locale, REVIEW(locale));
   const result = await linkDevelopment(parcelId, { projectId, distanceKm: distance, mayAffectParcel: form.get("mayAffectParcel") === "on" }, token);
@@ -461,8 +461,9 @@ export async function setPinAction(form: FormData): Promise<void> {
   const parcelId = value(form, "parcelId");
   if (!isUuid(parcelId)) redirect(`/${locale}/parcels`);
   const back = `/${locale}/parcels/${parcelId}`;
-  const latitude = Number(value(form, "latitude").replace(",", "."));
-  const longitude = Number(value(form, "longitude").replace(",", "."));
+  // Telugu and Devanagari digits are accepted here too, as on every other form.
+  const latitude = Number(toAsciiDigits(value(form, "latitude")).replace(",", "."));
+  const longitude = Number(toAsciiDigits(value(form, "longitude")).replace(",", "."));
   const source = value(form, "source") === "gps" ? "gps" : "map";
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || value(form, "latitude") === "" || value(form, "longitude") === "") {
     redirect(`${back}?error=pin.outside_india#map`);
