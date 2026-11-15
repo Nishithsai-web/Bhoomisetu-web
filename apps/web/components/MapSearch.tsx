@@ -185,7 +185,10 @@ type Item =
  * filters live in the address bar so it can be shared. Every pin in view is also in the list, so the page
  * works with a screen reader, a slow phone, or when the map tiles do not load.
  */
-export function MapSearch({ locale, intl, labels, start, tiles }: { locale: string; intl: string; labels: MapLabels; start: MapStart; tiles: { url: string; attribution: string } }) {
+/** The save control for a buyer's place search. The action comes from the server; the place and filter come from the map. */
+export type SaveSearchProps = { signedIn: boolean; action: (form: FormData) => Promise<void>; labels: { save: string; hint: string; signIn: string } };
+
+export function MapSearch({ locale, intl, labels, start, tiles, saveSearch }: { locale: string; intl: string; labels: MapLabels; start: MapStart; tiles: { url: string; attribution: string }; saveSearch?: SaveSearchProps }) {
   const element = useRef<HTMLDivElement | null>(null);
   const map = useRef<LeafletMap | null>(null);
   const layer = useRef<LayerGroup | null>(null);
@@ -211,6 +214,8 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   const [truncated, setTruncated] = useState(false);
   const [status, setStatus] = useState(labels.loading);
   const [query, setQuery] = useState(start.q);
+  /** The place the buyer last searched for or picked: what "Save this search" keeps. */
+  const [searchedPlace, setSearchedPlace] = useState(start.q.trim());
   const [places, setPlaces] = useState<Place[] | null>(null);
   /** The place last chosen from search: its listings lead the list until cleared. */
   const [focus, setFocus] = useState<Focus | null>(null);
@@ -481,6 +486,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   }, [expanded]);
 
   const goTo = (place: Place) => {
+    setSearchedPlace(place.name);
     setFocus(toFocus(place));
     const m = map.current;
     if (!m) {
@@ -508,6 +514,7 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
   async function searchPlaces(text: string, flyToFirst = false) {
     const q = text.trim();
     if (q.length < 2) return;
+    setSearchedPlace(q);
     // Only the newest search may move the map.
     const ticket = ++placeSearch.current;
     try {
@@ -574,6 +581,23 @@ export function MapSearch({ locale, intl, labels, start, tiles }: { locale: stri
           {labels.nearMe}
         </button>
       </form>
+      {saveSearch && mode === "land" && searchedPlace.length >= 2 && (
+        <div className="card save-search">
+          {saveSearch.signedIn ? (
+            <form action={saveSearch.action}>
+              <input type="hidden" name="locale" value={locale} />
+              <input type="hidden" name="placeText" value={searchedPlace} />
+              <input type="hidden" name="landClass" value={landClass} />
+              <p className="muted">{saveSearch.labels.hint}</p>
+              <button type="submit">{saveSearch.labels.save}</button>
+            </form>
+          ) : (
+            <p>
+              <a href={`/${locale}/signin?next=${encodeURIComponent(`/${locale}/map?q=${encodeURIComponent(searchedPlace)}${landClass ? `&landClass=${landClass}` : ""}`)}`}>{saveSearch.labels.signIn}</a>
+            </p>
+          )}
+        </div>
+      )}
       {places && (
         <div className="place-results">
           {places.length === 0 ? (

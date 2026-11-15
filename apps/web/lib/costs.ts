@@ -73,8 +73,9 @@ export function buyingCosts(price: number, state: StateCode, area: AreaKind, loa
   let loanResult: BuyingCosts["loan"] = null;
   if (loan && loan.amount > 0 && loan.years > 0) {
     const months = Math.round(loan.years * 12);
+    // The total comes from the exact EMI, so a zero-rate loan repays exactly the amount borrowed.
+    const totalPaid = Math.round(emi(loan.amount, loan.annualRatePercent, loan.years) * months);
     const monthly = Math.round(emi(loan.amount, loan.annualRatePercent, loan.years));
-    const totalPaid = monthly * months;
     loanResult = { emi: monthly, totalPaid, totalInterest: Math.max(0, totalPaid - loan.amount), months };
   }
 

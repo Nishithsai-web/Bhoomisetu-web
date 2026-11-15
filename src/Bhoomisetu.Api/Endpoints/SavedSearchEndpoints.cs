@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Bhoomisetu.Api.Auth;
 using Bhoomisetu.Api.Persistence;
 using Bhoomisetu.Modules.Land;
@@ -8,8 +9,13 @@ namespace Bhoomisetu.Api.Endpoints;
 
 public sealed record CreateSavedSearchRequest(string? PlaceText, string? LandClass);
 
-/// <summary>A saved place search. NewCount is the land listed there since the buyer last looked.</summary>
+/// <summary>A saved place search. NewCount is the land listed there since the buyer last looked, counted as the map counts "New".</summary>
 public sealed record SavedSearchResponse(Guid Id, string PlaceText, string? LandClass, DateTimeOffset CreatedAt, DateTimeOffset LastSeenAt, int NewCount);
+
+internal sealed class SavedSearchCountRow
+{
+    public int Value { get; set; }
+}
 
 public static class SavedSearchEndpoints
 {
@@ -61,8 +67,7 @@ public static class SavedSearchEndpoints
             landClass = r.LandClass;
         }
 
-        var existing = await db.SavedSearches.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.UserId == userId && s.PlaceText.ToLower() == text.ToLower() && s.LandClass == landClass, ct);
+        var existing = await FindAsync(db, userId, text, landClass, ct);
         if (existing is not null)
         {
             return Results.Ok(await ToResponseAsync(db, existing, ct));
@@ -77,7 +82,23 @@ public static class SavedSearchEndpoints
         var now = clock.UtcNow;
         var record = new SavedSearchRecord { Id = Guid.NewGuid(), UserId = userId, PlaceText = text, LandClass = landClass, CreatedAt = now, LastSeenAt = now };
         db.SavedSearches.Add(record);
-        await db.SaveChangesAsync(ct);
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException)
+        {
+            // Two taps at once: the unique index refused the second copy, so return the one that was saved.
+            db.ChangeTracker.Clear();
+            var saved = await FindAsync(db, userId, text, landClass, ct);
+            if (saved is null)
+            {
+                throw;
+            }
+
+            return Results.Ok(await ToResponseAsync(db, saved, ct));
+        }
+
         return Results.Ok(await ToResponseAsync(db, record, ct));
     }
 
@@ -102,35 +123,35 @@ public static class SavedSearchEndpoints
         return removed == 0 ? ApiResults.NotFound("Saved search") : Results.NoContent();
     }
 
+    private static Task<SavedSearchRecord?> FindAsync(BhoomisetuDbContext db, Guid userId, string text, string? landClass, CancellationToken ct) =>
+        db.SavedSearches.AsNoTracking()
+            .FirstOrDefaultAsync(s => s.UserId == userId && s.PlaceText.ToLower() == text.ToLower() && s.LandClass == landClass, ct);
+
     private static async Task<SavedSearchResponse> ToResponseAsync(BhoomisetuDbContext db, SavedSearchRecord search, CancellationToken ct)
     {
         var newCount = await NewMatchesAsync(db, search, ct);
         return new SavedSearchResponse(search.Id, search.PlaceText, search.LandClass, search.CreatedAt, search.LastSeenAt, newCount);
     }
 
-    /// <summary>Land listed in the place since the buyer last looked. The place matches by name or sound-alike key, as the search does.</summary>
+    /// <summary>
+    /// Pinned land in the place whose listing date (newest active price, else when it was added: the map's "New" rule,
+    /// decision 47) is after the buyer last looked. The place matches by name or sound-alike key, as the search does.
+    /// </summary>
     private static async Task<int> NewMatchesAsync(BhoomisetuDbContext db, SavedSearchRecord search, CancellationToken ct)
     {
-        var query = db.Parcels.AsNoTracking().Where(p => !p.IsHiddenDuplicate && p.CreatedAt > search.LastSeenAt);
-        query = MatchPlace(query, search.PlaceText);
-        if (search.LandClass is not null)
-        {
-            query = query.Where(p => p.LandClass == search.LandClass);
-        }
-
-        return await query.CountAsync(ct);
-    }
-
-    private static IQueryable<ParcelRecord> MatchPlace(IQueryable<ParcelRecord> query, string text)
-    {
-        var pattern = "%" + Escape(text) + "%";
-        var key = PlaceKey.From(text);
-        var variants = PlaceKey.SearchVariants(key).Select(k => k.Length >= 5 ? "%" + Escape(k) + "%" : k.Length > 0 ? k : "-").ToArray();
-        var (v0, v1, v2) = (variants[0], variants[1], variants[2]);
-        return query.Where(p => EF.Functions.ILike(p.Village, pattern) || EF.Functions.ILike(p.Mandal, pattern) || EF.Functions.ILike(p.District, pattern)
-            || EF.Functions.Like(p.VillageKey!, v0) || EF.Functions.Like(p.MandalKey!, v0) || EF.Functions.Like(p.DistrictKey!, v0)
-            || EF.Functions.Like(p.VillageKey!, v1) || EF.Functions.Like(p.MandalKey!, v1) || EF.Functions.Like(p.DistrictKey!, v1)
-            || EF.Functions.Like(p.VillageKey!, v2) || EF.Functions.Like(p.MandalKey!, v2) || EF.Functions.Like(p.DistrictKey!, v2));
+        var pattern = "%" + Escape(search.PlaceText) + "%";
+        var key = PlaceKey.From(search.PlaceText);
+        var v = PlaceKey.SearchVariants(key).Select(k => k.Length >= 5 ? "%" + Escape(k) + "%" : k.Length > 0 ? k : "-").ToArray();
+        var sql = FormattableStringFactory.Create(
+            "SELECT count(*)::int AS \"Value\" FROM parcels p WHERE NOT p.is_hidden_duplicate AND p.centroid IS NOT NULL " +
+            "AND COALESCE((SELECT max(o.created_at) FROM offers o WHERE o.parcel_id = p.id AND o.status = 'active'), p.created_at) > {0} " +
+            "AND ({1}::text IS NULL OR p.land_class = {1}) " +
+            "AND (p.village ILIKE {2} OR p.mandal ILIKE {2} OR p.district ILIKE {2} " +
+            "OR p.village_key LIKE {3} OR p.mandal_key LIKE {3} OR p.district_key LIKE {3} " +
+            "OR p.village_key LIKE {4} OR p.mandal_key LIKE {4} OR p.district_key LIKE {4} " +
+            "OR p.village_key LIKE {5} OR p.mandal_key LIKE {5} OR p.district_key LIKE {5})",
+            search.LastSeenAt, search.LandClass, pattern, v[0], v[1], v[2]);
+        return (await db.Database.SqlQuery<SavedSearchCountRow>(sql).SingleAsync(ct)).Value;
     }
 
     /// <summary>Escapes the user's own % and _ so they match literally inside a LIKE pattern.</summary>

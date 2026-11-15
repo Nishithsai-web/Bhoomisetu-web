@@ -59,9 +59,10 @@ export function CostCalculator({ intlLocale, labels }: { intlLocale: string; lab
 
   const price = parseRupees(priceText);
   const loanAmount = parseRupees(loanText);
-  const rate = Number(toAsciiDigits(rateText).trim());
-  const years = Number(toAsciiDigits(yearsText).trim());
-  const loanValid = !withLoan || (loanAmount !== null && Number.isFinite(rate) && rate >= 0 && years > 0 && years <= 40);
+  // An empty rate or tenure is missing, not zero: it must show the error rather than a 0% loan.
+  const rate = rateText.trim() === "" ? Number.NaN : Number(toAsciiDigits(rateText).trim());
+  const years = yearsText.trim() === "" ? Number.NaN : Number(toAsciiDigits(yearsText).trim());
+  const loanValid = !withLoan || (loanAmount !== null && loanAmount > 0 && Number.isFinite(rate) && rate >= 0 && Number.isFinite(years) && years > 0 && years <= 40);
   const valid = price !== null && price > 0 && loanValid;
 
   const costs = valid

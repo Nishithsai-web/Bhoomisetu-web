@@ -43,8 +43,16 @@ test("a loan adds EMI and total interest, and no interest when the loan is zero"
   const costs = buyingCosts(50 * LAKH, "TG", "urban", { amount: 10 * LAKH, annualRatePercent: 10, years: 10 });
   if (!costs.loan) throw new Error("expected a loan result");
   assert.equal(costs.loan.months, 120);
-  assert.equal(costs.loan.totalPaid, costs.loan.emi * 120);
+  // The total is worked from the exact EMI, so it can differ from the rounded EMI times 120 by up to half a rupee a month.
+  assert.ok(Math.abs(costs.loan.totalPaid - costs.loan.emi * 120) <= 60);
   assert.equal(costs.loan.totalInterest, costs.loan.totalPaid - 10 * LAKH);
   const none = buyingCosts(50 * LAKH, "TG", "urban", { amount: 0, annualRatePercent: 10, years: 10 });
   assert.equal(none.loan, null);
+});
+
+test("a zero-rate loan repays exactly what was borrowed", () => {
+  const costs = buyingCosts(50 * LAKH, "TG", "urban", { amount: 40 * LAKH, annualRatePercent: 0, years: 20 });
+  if (!costs.loan) throw new Error("expected a loan result");
+  assert.equal(costs.loan.totalPaid, 40 * LAKH);
+  assert.equal(costs.loan.totalInterest, 0);
 });
