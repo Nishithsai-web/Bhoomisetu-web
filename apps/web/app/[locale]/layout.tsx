@@ -51,6 +51,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             <Link href={`/${locale}/map`}>{t.nav.map}</Link>
             <Link href={`/${locale}/map?mode=rent`}>{t.nav.rent}</Link>
             <Link href={`/${locale}/units`}>{t.nav.units}</Link>
+            <Link href={`/${locale}/costs`}>{t.nav.costs}</Link>
             <Link href={`/${locale}/mine`}>{t.nav.mine}</Link>
           </nav>
           <div className="header-actions">
@@ -68,6 +69,7 @@ export default async function LocaleLayout({ children, params }: Props) {
           <nav aria-label={t.footer.links} className="main-nav">
             <Link href={`/${locale}/parcels`}>{t.nav.parcels}</Link>
             <Link href={`/${locale}/units`}>{t.nav.units}</Link>
+            <Link href={`/${locale}/costs`}>{t.nav.costs}</Link>
             <Link href={`/${locale}/sell`}>{t.nav.sell}</Link>
             <Link href={`/${locale}/review`}>{t.footer.forReviewers}</Link>
           </nav>
