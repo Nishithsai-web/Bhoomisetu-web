@@ -175,3 +175,9 @@ Change a decision by adding a dated entry here and updating the register; never 
     "Nagar Kurnool") keep one key and no re-keying is needed. A first attempt that changed the stored key was
     withdrawn before any shared database existed (QA pass 11). After a map place search, listings inside that
     place's area, or within 3 km of it, lead the list; matching by position works in every script and spelling.
+49. **Buying costs use commonly cited rates, shown with their source, and tell the buyer to confirm at IGRS.** The
+    cost calculator takes the state (Telangana or Andhra Pradesh) and, for Telangana, urban or rural plot, and adds
+    stamp, transfer and registration duty on the agreed price. Duty is often charged on the higher of the agreed price
+    and the government guideline value, so the page says the real amount can be higher. Rates are not read from the
+    state portal, so they live in one table (lib/costs.ts) and are updated there when a state changes them. No
+    financial or legal advice is given.
