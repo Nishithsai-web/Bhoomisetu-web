@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { myOfferAction, rentalStatusAction, setWhatsappAction, signOutAction } from "../actions";
+import { markSavedSearchSeenAction, myOfferAction, removeSavedSearchAction, rentalStatusAction, setWhatsappAction, signOutAction } from "../actions";
 import { ConfirmBox } from "@/components/ConfirmBox";
-import { getMyChangeRequests, getMyOffers, getMyParcelsWithoutPrice, getMyRentals, getSubscription, type MyOfferAction } from "@/lib/api";
+import { getMyChangeRequests, getMyOffers, getMyParcelsWithoutPrice, getMyRentals, getSavedSearches, getSubscription, type MyOfferAction } from "@/lib/api";
 import { formatIndianMobile, whatsappLink } from "@/lib/contact";
 import { errorText } from "@/lib/errors";
 import { INTL_LOCALE, format, getDictionary, isLocale } from "@/lib/i18n";
@@ -22,7 +22,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
   const intl = INTL_LOCALE[locale];
   const dateFormat = new Intl.DateTimeFormat(intl, { day: "numeric", month: "short", year: "numeric" });
   const query = await searchParams;
-  const [offers, requests, unpriced, subscription, rentals] = await Promise.all([getMyOffers(token), getMyChangeRequests(token), getMyParcelsWithoutPrice(token), getSubscription(token), getMyRentals(token)]);
+  const [offers, requests, unpriced, subscription, rentals, savedSearches] = await Promise.all([getMyOffers(token), getMyChangeRequests(token), getMyParcelsWithoutPrice(token), getSubscription(token), getMyRentals(token), getSavedSearches(token)]);
   if (!offers.ok && offers.status === 401) {
     await clearSession();
     redirect(`/${locale}/signin?next=/${locale}/mine`);
@@ -62,6 +62,8 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
         {subscription.ok && <a href="#subscription">{dash.subscription}</a>}
         {subscription.ok && <a href="#whatsapp">{dash.whatsapp}</a>}
       </nav>
+
+        <SavedSearchesSection locale={locale} token={token} searches={savedSearches} labels={m.savedSearches} classNames={t.sell.landClasses as Record<string, string>} intl={intl} />
       <div>
       <h1 id="overview">{m.title}</h1>
       <p className="lead">{m.intro}</p>
@@ -280,6 +282,51 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
         </button>
       </form>
       </div>
+    </section>
+  );
+}
+
+function SavedSearchesSection({
+  locale,
+  searches,
+  labels,
+  classNames,
+  intl,
+}: {
+  locale: string;
+  token: string;
+  searches: Awaited<ReturnType<typeof getSavedSearches>>;
+  labels: { title: string; intro: string; empty: string; newCount: string; noNew: string; open: string; markSeen: string; remove: string; allLand: string };
+  classNames: Record<string, string>;
+  intl: string;
+}) {
+  if (!searches.ok) return null;
+  return (
+    <section id="saved-searches" className="card">
+      <h2>{labels.title}</h2>
+      <p className="muted">{labels.intro}</p>
+      {searches.data.length === 0 && <p>{labels.empty}</p>}
+      {searches.data.map((search) => (
+        <div key={search.id} className="saved-search">
+          <p>
+            <strong>{search.placeText}</strong> · {search.landClass ? classNames[search.landClass] : labels.allLand}
+          </p>
+          <p>{search.newCount > 0 ? format(labels.newCount, { count: new Intl.NumberFormat(intl).format(search.newCount) }) : labels.noNew}</p>
+          <p className="actions">
+            <a href={`/${locale}/map?q=${encodeURIComponent(search.placeText)}${search.landClass ? `&landClass=${search.landClass}` : ""}`}>{labels.open}</a>
+            <form action={markSavedSearchSeenAction}>
+              <input type="hidden" name="locale" value={locale} />
+              <input type="hidden" name="id" value={search.id} />
+              <button type="submit" className="link-button">{labels.markSeen}</button>
+            </form>
+            <form action={removeSavedSearchAction}>
+              <input type="hidden" name="locale" value={locale} />
+              <input type="hidden" name="id" value={search.id} />
+              <button type="submit" className="link-button">{labels.remove}</button>
+            </form>
+          </p>
+        </div>
+      ))}
     </section>
   );
 }

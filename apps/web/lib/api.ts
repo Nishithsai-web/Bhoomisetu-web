@@ -692,6 +692,24 @@ export function getMyRentals(token: string): Promise<ApiResult<Rental[]>> {
   return get<Rental[]>("/api/v1/me/rentals", token);
 }
 
+export type SavedSearch = { id: string; placeText: string; landClass: string | null; createdAt: string; lastSeenAt: string; newCount: number };
+
+export function getSavedSearches(token: string): Promise<ApiResult<SavedSearch[]>> {
+  return get<SavedSearch[]>("/api/v1/me/saved-searches", token);
+}
+
+export function saveSearch(placeText: string, landClass: string | null, token: string): Promise<ApiResult<SavedSearch>> {
+  return request<SavedSearch>("POST", "/api/v1/me/saved-searches", { placeText, landClass }, token);
+}
+
+export function markSavedSearchSeen(id: string, token: string): Promise<ApiResult<void>> {
+  return request<void>("POST", `/api/v1/me/saved-searches/${encodeURIComponent(id)}/seen`, undefined, token);
+}
+
+export function removeSavedSearch(id: string, token: string): Promise<ApiResult<void>> {
+  return request<void>("DELETE", `/api/v1/me/saved-searches/${encodeURIComponent(id)}`, undefined, token);
+}
+
 export function getRentalContact(id: string, token: string): Promise<ApiResult<{ whatsappE164: string }>> {
   return get<{ whatsappE164: string }>(`/api/v1/rentals/${encodeURIComponent(id)}/contact`, token);
 }

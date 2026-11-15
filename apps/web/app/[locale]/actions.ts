@@ -23,6 +23,9 @@ import {
   removeDocument,
   requestChange,
   requestOtp,
+  removeSavedSearch,
+  markSavedSearchSeen,
+  saveSearch,
   setListerConfirmation,
   setOwnerOfRecord,
   setWhatsapp,
@@ -560,4 +563,26 @@ export async function contactRentalAction(form: FormData): Promise<void> {
   const t = getDictionary(locale);
   const link = whatsappLink(result.data.whatsappE164, t.rent.firstMessage);
   redirect(link ?? `${back}?error=api.error`);
+}
+
+/** Saves a place search (and optional land class) for the signed-in buyer; the count of new land shows on My listings. */
+export async function saveSearchAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const token = await requireToken(locale, `/${locale}/map`);
+  const result = await saveSearch(value(form, "placeText"), value(form, "landClass") || null, token);
+  redirect(result.ok ? `/${locale}/mine?done=saved` : `/${locale}/mine?error=${encodeURIComponent(result.code)}`);
+}
+
+export async function markSavedSearchSeenAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const token = await requireToken(locale, `/${locale}/mine`);
+  await markSavedSearchSeen(value(form, "id"), token);
+  redirect(`/${locale}/mine`);
+}
+
+export async function removeSavedSearchAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const token = await requireToken(locale, `/${locale}/mine`);
+  await removeSavedSearch(value(form, "id"), token);
+  redirect(`/${locale}/mine`);
 }

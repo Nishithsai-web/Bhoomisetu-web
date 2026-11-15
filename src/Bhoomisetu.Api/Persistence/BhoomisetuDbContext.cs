@@ -24,6 +24,7 @@ public sealed class BhoomisetuDbContext(DbContextOptions<BhoomisetuDbContext> op
     public DbSet<ParcelDevelopmentLinkRecord> ParcelDevelopmentLinks => Set<ParcelDevelopmentLinkRecord>();
     public DbSet<ListingReportRecord> ListingReports => Set<ListingReportRecord>();
     public DbSet<RentalRecord> Rentals => Set<RentalRecord>();
+    public DbSet<SavedSearchRecord> SavedSearches => Set<SavedSearchRecord>();
 
     /// <summary>Keeps the sound-alike search keys in step with the names, whoever changes them.</summary>
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
@@ -148,6 +149,12 @@ public sealed class BhoomisetuDbContext(DbContextOptions<BhoomisetuDbContext> op
         modelBuilder.Entity<RentalRecord>(e =>
         {
             e.ToTable("rental_listings");
+            e.HasKey(x => x.Id);
+        });
+
+        modelBuilder.Entity<SavedSearchRecord>(e =>
+        {
+            e.ToTable("saved_searches");
             e.HasKey(x => x.Id);
         });
 

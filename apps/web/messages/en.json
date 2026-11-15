@@ -480,7 +480,10 @@
     "rental.not_available": "This home is no longer available.",
     "rental.action_invalid": "That change is not possible for this home now.",
     "rental.stale": "This home has not been confirmed as available for a month, so contact is paused.",
-    "place.query_invalid": "Type at least 2 letters of a place name."
+    "place.query_invalid": "Type at least 2 letters of a place name.",
+    "saved_search.place_invalid": "Type a village, mandal or district to save the search.",
+    "saved_search.land_class_invalid": "Choose a land class, or leave it empty for all land.",
+    "saved_search.limit": "You can keep up to 10 saved searches. Remove one to save another."
   },
   "mine": {
     "title": "My listings",
@@ -505,7 +508,8 @@
       "withdraw": "Your offer is removed.",
       "change-requested": "Your correction was sent. A reviewer will check it, usually within two working days.",
       "whatsapp": "WhatsApp number saved.",
-      "rental": "Home updated."
+      "rental": "Home updated.",
+      "saved": "Search saved. New land in this place shows under Saved searches."
     },
     "requests": "My correction requests",
     "requestStatus": {
@@ -518,7 +522,18 @@
     "yes": "Yes, continue",
     "cancel": "Cancel",
     "unpriced": "Land you listed without a price",
-    "addPrice": "Add your price"
+    "addPrice": "Add your price",
+    "savedSearches": {
+      "title": "Saved searches",
+      "intro": "New land in these places shows here when you come back. We do not send messages yet.",
+      "empty": "You have not saved any search yet. Search the map, then press Save this search.",
+      "newCount": "{count} new since you last looked",
+      "noNew": "Nothing new since you last looked",
+      "open": "Open on the map",
+      "markSeen": "Mark as seen",
+      "remove": "Remove",
+      "allLand": "All land"
+    }
   },
   "correct": {
     "title": "Correct a land detail",
@@ -846,6 +861,11 @@
       "unavailable": "Could not get your location. Type the numbers instead.",
       "onLand": "I am standing on this land now",
       "preview": "Check the pin below is on the land before saving."
+    },
+    "saveSearch": {
+      "save": "Save this search",
+      "hint": "Keep this place, and see how much new land it has when you come back.",
+      "signIn": "Sign in to save this search."
     }
   },
   "landMap": {

@@ -287,6 +287,7 @@ app.MapDevelopmentEndpoints();
 app.MapMapEndpoints();
 app.MapRentalEndpoints();
 app.MapPlaceEndpoints();
+app.MapSavedSearchEndpoints();
 
 await app.RunAsync();
 

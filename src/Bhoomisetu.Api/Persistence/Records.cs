@@ -230,3 +230,13 @@ public sealed class RentalRecord
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
 }
+
+public sealed class SavedSearchRecord
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public string PlaceText { get; set; } = string.Empty;
+    public string? LandClass { get; set; }
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset LastSeenAt { get; set; }
+}

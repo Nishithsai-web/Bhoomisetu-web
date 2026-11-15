@@ -1,6 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { saveSearchAction } from "../actions";
 import { MapSearch, type MapStart } from "@/components/MapSearch";
 import { INTL_LOCALE, getDictionary, isLocale } from "@/lib/i18n";
+import { getSessionToken } from "@/lib/session";
 
 type Search = { mode?: string; q?: string; lat?: string; lng?: string; z?: string; landClass?: string; bedrooms?: string; new?: string };
 
@@ -34,11 +37,31 @@ export default async function MapPage({ params, searchParams }: { params: Promis
   };
   const t = getDictionary(locale);
   const m = t.landMap;
+  // Buyers can keep a place search: the count of new land there shows on My listings. Signed-out visitors see a sign-in link.
+  const token = start.q && start.mode === "land" ? await getSessionToken() : null;
+  const signInBack = `/${locale}/map?q=${encodeURIComponent(start.q)}${start.landClass ? `&landClass=${start.landClass}` : ""}`;
 
   return (
     <section className="page">
       <h1>{m.title}</h1>
       <p className="lead">{m.intro}</p>
+      {start.q && start.mode === "land" && (
+        <div className="card save-search">
+          {token ? (
+            <form action={saveSearchAction}>
+              <input type="hidden" name="locale" value={locale} />
+              <input type="hidden" name="placeText" value={start.q} />
+              <input type="hidden" name="landClass" value={start.landClass} />
+              <p className="muted">{t.map.saveSearch.hint}</p>
+              <button type="submit">{t.map.saveSearch.save}</button>
+            </form>
+          ) : (
+            <p>
+              <Link href={`/${locale}/signin?next=${encodeURIComponent(signInBack)}`}>{t.map.saveSearch.signIn}</Link>
+            </p>
+          )}
+        </div>
+      )}
       <MapSearch
         locale={locale}
         intl={INTL_LOCALE[locale]}

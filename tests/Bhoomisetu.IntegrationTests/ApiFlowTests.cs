@@ -874,6 +874,38 @@ public sealed class ApiFlowTests(ApiFixture fixture)
 
     private sealed record AreaBody(decimal Value, string Unit);
 
+    [Fact]
+    public async Task Saved_searches_save_once_and_can_be_marked_seen_and_removed()
+    {
+        RequireDatabase();
+        var (client, _) = await fixture.SignInAsync("9848066601");
+
+        var created = await client.PostAsJsonAsync("/api/v1/me/saved-searches", new { placeText = "Kandi", landClass = (string?)null }, Ct);
+        Assert.Equal(HttpStatusCode.OK, created.StatusCode);
+        var search = (await created.Content.ReadFromJsonAsync<SavedSearchBody>(Ct))!;
+        Assert.Equal("Kandi", search.PlaceText);
+
+        // Saving the same search again returns the one already kept, not a copy.
+        var again = await client.PostAsJsonAsync("/api/v1/me/saved-searches", new { placeText = "kandi", landClass = (string?)null }, Ct);
+        Assert.Equal(search.Id, (await again.Content.ReadFromJsonAsync<SavedSearchBody>(Ct))!.Id);
+
+        var badClass = await client.PostAsJsonAsync("/api/v1/me/saved-searches", new { placeText = "Kandi", landClass = "villa" }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, badClass.StatusCode);
+
+        var list = await client.GetFromJsonAsync<List<SavedSearchBody>>("/api/v1/me/saved-searches", Ct);
+        Assert.Single(list!, x => x.Id == search.Id);
+
+        var seen = await client.PostAsync($"/api/v1/me/saved-searches/{search.Id}/seen", null, Ct);
+        Assert.Equal(HttpStatusCode.NoContent, seen.StatusCode);
+
+        var removed = await client.DeleteAsync($"/api/v1/me/saved-searches/{search.Id}", Ct);
+        Assert.Equal(HttpStatusCode.NoContent, removed.StatusCode);
+        var gone = await client.DeleteAsync($"/api/v1/me/saved-searches/{search.Id}", Ct);
+        Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
+    }
+
+    private sealed record SavedSearchBody(Guid Id, string PlaceText, string? LandClass, DateTimeOffset CreatedAt, DateTimeOffset LastSeenAt, int NewCount);
+
     private sealed record RoadBody(decimal? WidthM, string? WidthSource, string? Type, string? AccessRight, int? DistanceToMainRoadM);
 
     private sealed record ParcelBody(string StateCode, string District, string Mandal, string Village, string? LgdVillageCode, string SurveyNumber,

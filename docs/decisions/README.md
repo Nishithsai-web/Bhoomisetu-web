@@ -181,3 +181,7 @@ Change a decision by adding a dated entry here and updating the register; never 
     and the government guideline value, so the page says the real amount can be higher. Rates are not read from the
     state portal, so they live in one table (lib/costs.ts) and are updated there when a state changes them. No
     financial or legal advice is given.
+50. **Saved searches show new land on the account page; they do not send messages yet.** A buyer keeps up to ten
+    place searches. The count of new land is worked out from when the buyer last marked the search as seen, so no
+    background job is needed. Alerts by SMS or email wait for a provider, which is a launch item. A search matches a
+    place by name or sound-alike key, as the search does, so the count and the search agree.
