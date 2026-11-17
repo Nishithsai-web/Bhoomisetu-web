@@ -300,6 +300,12 @@ export function getViewer(parcelId: string, token: string): Promise<ApiResult<Pa
   return get<ParcelViewer>(`/api/v1/parcels/${encodeURIComponent(parcelId)}/viewer`, token);
 }
 
+export type OwnedAgentOffer = { offerId: string; parcelId: string; village: string; mandal: string; district: string; surveyNumber: string; listedAt: string; confirmed: boolean };
+
+export function getOwnedAgentOffers(token: string): Promise<ApiResult<OwnedAgentOffer[]>> {
+  return get<OwnedAgentOffer[]>("/api/v1/me/agent-offers", token);
+}
+
 export function setListerConfirmation(parcelId: string, offerId: string, confirm: boolean, token: string): Promise<ApiResult<void>> {
   return request<void>(confirm ? "POST" : "DELETE", `/api/v1/parcels/${encodeURIComponent(parcelId)}/offers/${encodeURIComponent(offerId)}/confirm-lister`, undefined, token);
 }

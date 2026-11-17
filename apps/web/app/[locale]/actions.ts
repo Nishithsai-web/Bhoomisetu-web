@@ -217,6 +217,19 @@ async function requireToken(locale: string, back: string): Promise<string> {
   return token;
 }
 
+/** The owner of record confirms, or removes confirmation from, an agent from the agents page. */
+export async function ownerAgentAction(form: FormData): Promise<void> {
+  const locale = localeOf(form);
+  const parcelId = value(form, "parcelId");
+  const offerId = value(form, "offerId");
+  const back = `/${locale}/agents`;
+  if (!isUuid(parcelId) || !isUuid(offerId)) redirect(back);
+  const token = await requireToken(locale, back);
+  const confirm = value(form, "intent") === "confirm";
+  const result = await setListerConfirmation(parcelId, offerId, confirm, token);
+  redirect(result.ok ? `${back}?done=${confirm ? "confirmed" : "revoked"}` : `${back}?error=${encodeURIComponent(result.code)}`);
+}
+
 /** The owner of record confirms, or removes confirmation from, whoever made an offer. */
 export async function ownerConfirmAction(form: FormData): Promise<void> {
   const locale = localeOf(form);

@@ -1046,5 +1046,19 @@
     "staleNotice": "Not confirmed as available for over a month, so it is hidden from the map and contact is paused.",
     "staleBadge": "Hidden: tap \"Still available\"",
     "approximateArea": "Shown as an area (about 100 m) to protect the lister. Ask for the exact address when you talk."
+  },
+  "ownerAgents": {
+    "title": "Agents on my land",
+    "intro": "Agents who listed your land. Confirm the ones you have authorised. Buyers see that you confirmed them.",
+    "empty": "No agent has listed on your land yet.",
+    "confirmed": "Confirmed",
+    "notConfirmed": "Not confirmed",
+    "confirm": "Confirm agent",
+    "revoke": "Remove confirmation",
+    "listed": "Listed on",
+    "done": {
+      "confirmed": "Agent confirmed.",
+      "revoked": "Confirmation removed."
+    }
   }
 }

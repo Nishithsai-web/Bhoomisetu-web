@@ -63,6 +63,7 @@ export default async function MyListingsPage({ params, searchParams }: Props) {
         {subscription.ok && <a href="#whatsapp">{dash.whatsapp}</a>}
       </nav>
 
+        <p className="card"><a href={`/${locale}/agents`}>{t.ownerAgents.title}</a></p>
         <SavedSearchesSection locale={locale} token={token} searches={savedSearches} labels={m.savedSearches} classNames={t.sell.landClasses as Record<string, string>} intl={intl} />
       <div>
       <h1 id="overview">{m.title}</h1>

@@ -12,6 +12,9 @@ public sealed record ParcelViewerResponse(bool IsOwnerOfRecord, Guid? MyOfferId,
 
 public sealed record AdminUserResponse(Guid Id, string PhoneMasked, string? DisplayName, IReadOnlyList<string> Checks, DateTimeOffset CreatedAt);
 
+/// <summary>An active offer made by an agent on land the person owns of record. The agent's account id is not shown.</summary>
+public sealed record OwnedAgentOfferResponse(Guid OfferId, Guid ParcelId, string Village, string Mandal, string District, string SurveyNumber, DateTimeOffset ListedAt, bool Confirmed);
+
 public sealed record DuplicateCandidateResponse(Guid ParcelId, Guid KeptParcelId, string Village, string Mandal, string District, string SurveyNumber, int ActiveOffers, DateTimeOffset FoundAt);
 
 /// <summary>
@@ -27,6 +30,9 @@ public static class TrustEndpoints
         var parcel = app.MapGroup("/api/v1/parcels/{parcelId:guid}").WithTags("Owner").RequireAuthorization();
         parcel.MapGet("/viewer", ViewerAsync);
         parcel.MapDelete("/offers/{offerId:guid}/confirm-lister", RevokeListerOfOfferAsync);
+
+        var me = app.MapGroup("/api/v1/me").WithTags("Owner").RequireAuthorization();
+        me.MapGet("/agent-offers", OwnedAgentOffersAsync);
 
         var admin = app.MapGroup("/api/v1/admin").WithTags("Admin")
             .RequireAuthorization(AdminEndpoints.TrustReviewerPolicy)
@@ -65,6 +71,34 @@ public static class TrustEndpoints
         }
 
         return Results.Ok(new ParcelViewerResponse(isOwner, myOffer, confirmed, createdBy == userId, isReviewer));
+    }
+
+    /// <summary>
+    /// Every active agent offer on land this person owns of record, newest first, with whether they have confirmed the
+    /// agent. Only the owner sees this; the agent's account id is not returned.
+    /// </summary>
+    private static async Task<IResult> OwnedAgentOffersAsync(HttpContext http, BhoomisetuDbContext db, CancellationToken ct)
+    {
+        var userId = http.User.UserId();
+        var owned = db.ParcelParties.AsNoTracking()
+            .Where(p => p.UserId == userId && p.Role == Vocabulary.OwnerOfRecord)
+            .Select(p => p.ParcelId);
+        var offers = await (
+            from o in db.Offers.AsNoTracking()
+            join p in db.Parcels.AsNoTracking() on o.ParcelId equals p.Id
+            where o.Status == "active" && o.ListerKind == "agent" && owned.Contains(o.ParcelId)
+            orderby o.CreatedAt descending
+            select new { o.Id, o.ParcelId, o.ListerUserId, o.CreatedAt, p.Village, p.Mandal, p.District, p.SurveyNumber })
+            .Take(200)
+            .ToListAsync(ct);
+        var confirmed = (await db.ParcelParties.AsNoTracking()
+            .Where(pp => pp.Role == Vocabulary.AuthorisedAgent && pp.ConfirmedBy == userId && owned.Contains(pp.ParcelId))
+            .Select(pp => new { pp.ParcelId, pp.UserId })
+            .ToListAsync(ct))
+            .Select(c => (c.ParcelId, c.UserId))
+            .ToHashSet();
+        return Results.Ok(offers.Select(o => new OwnedAgentOfferResponse(
+            o.Id, o.ParcelId, o.Village, o.Mandal, o.District, o.SurveyNumber, o.CreatedAt, confirmed.Contains((o.ParcelId, o.ListerUserId)))).ToList());
     }
 
     /// <summary>The owner removes confirmation from whoever made an offer, without needing their account id.</summary>

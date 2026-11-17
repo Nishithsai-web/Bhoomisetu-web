@@ -904,6 +904,17 @@ public sealed class ApiFlowTests(ApiFixture fixture)
         Assert.Equal(HttpStatusCode.NotFound, gone.StatusCode);
     }
 
+    [Fact]
+    public async Task Owner_agent_offers_list_is_empty_for_someone_who_owns_nothing()
+    {
+        RequireDatabase();
+        var (client, _) = await fixture.SignInAsync("9848066602");
+
+        var list = await client.GetFromJsonAsync<List<JsonElement>>("/api/v1/me/agent-offers", Ct);
+        Assert.NotNull(list);
+        Assert.Empty(list!);
+    }
+
     private sealed record SavedSearchBody(Guid Id, string PlaceText, string? LandClass, DateTimeOffset CreatedAt, DateTimeOffset LastSeenAt, int NewCount);
 
     private sealed record RoadBody(decimal? WidthM, string? WidthSource, string? Type, string? AccessRight, int? DistanceToMainRoadM);
