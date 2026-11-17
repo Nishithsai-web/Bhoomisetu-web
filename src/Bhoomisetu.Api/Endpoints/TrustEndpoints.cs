@@ -86,7 +86,7 @@ public static class TrustEndpoints
         var offers = await (
             from o in db.Offers.AsNoTracking()
             join p in db.Parcels.AsNoTracking() on o.ParcelId equals p.Id
-            where o.Status == "active" && o.ListerKind == "agent" && owned.Contains(o.ParcelId)
+            where o.Status == "active" && o.ListerKind == "agent" && o.ListerUserId != userId && owned.Contains(o.ParcelId)
             orderby o.CreatedAt descending
             select new { o.Id, o.ParcelId, o.ListerUserId, o.CreatedAt, p.Village, p.Mandal, p.District, p.SurveyNumber })
             .Take(200)

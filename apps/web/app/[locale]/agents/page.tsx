@@ -27,7 +27,7 @@ export default async function OwnerAgentsPage({ params, searchParams }: Props) {
     <section className="page">
       <h1>{a.title}</h1>
       <p className="lead">{a.intro}</p>
-      {query.done && a.done[query.done as "confirmed" | "revoked"] && <p className="notice" role="status">{a.done[query.done as "confirmed" | "revoked"]}</p>}
+      {query.done && Object.hasOwn(a.done, query.done) && <p className="notice" role="status">{a.done[query.done as "confirmed" | "revoked"]}</p>}
       {query.error && <p className="error" role="alert">{errorText(t, query.error)}</p>}
       {!offers.ok && <p className="error" role="alert">{errorText(t, offers.code)}</p>}
       {offers.ok && offers.data.length === 0 && <p>{a.empty}</p>}

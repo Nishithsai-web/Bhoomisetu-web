@@ -225,7 +225,9 @@ export async function ownerAgentAction(form: FormData): Promise<void> {
   const back = `/${locale}/agents`;
   if (!isUuid(parcelId) || !isUuid(offerId)) redirect(back);
   const token = await requireToken(locale, back);
-  const confirm = value(form, "intent") === "confirm";
+  const intent = value(form, "intent");
+  if (intent !== "confirm" && intent !== "revoke") redirect(back);
+  const confirm = intent === "confirm";
   const result = await setListerConfirmation(parcelId, offerId, confirm, token);
   redirect(result.ok ? `${back}?done=${confirm ? "confirmed" : "revoked"}` : `${back}?error=${encodeURIComponent(result.code)}`);
 }

@@ -323,7 +323,7 @@ public static class OfferEndpoints
     private static async Task<IResult> ConfirmListerOfOfferAsync(Guid parcelId, Guid offerId, HttpContext http, BhoomisetuDbContext db, IClock clock, AuditWriter audit, CancellationToken ct)
     {
         var listerId = await db.Offers.AsNoTracking()
-            .Where(o => o.Id == offerId && o.ParcelId == parcelId && o.Status == "active")
+            .Where(o => o.Id == offerId && o.ParcelId == parcelId && o.Status == "active" && o.ListerKind == "agent")
             .Select(o => (Guid?)o.ListerUserId)
             .FirstOrDefaultAsync(ct);
         return listerId is { } id
